@@ -389,6 +389,14 @@ class Http(Fixture):
         with urllib.request.urlopen(base + "/") as r:
             self.assertEqual(r.read(), b"<p>console</p>")
 
+    def test_static_files_are_revalidated(self):
+        # without it the browser keeps serving an old app.js after an update
+        static = pathlib.Path(self.tmp.name) / "static"
+        write(static / "app.js", "1")
+        base = self.serve(static)
+        with urllib.request.urlopen(base + "/app.js") as r:
+            self.assertEqual(r.headers["Cache-Control"], "no-cache")
+
 
 if __name__ == "__main__":
     unittest.main()

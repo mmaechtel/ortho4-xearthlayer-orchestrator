@@ -24,6 +24,8 @@ const stepIdx = text => { const m = /Step (\d(?:\.5)?)/.exec(text || ""); return
 const pkgName = job => `zzXEL_${job.package ?? job.region_code}_ortho`;
 const cleanLog = line => line.replace(/^\d{4}-\d\d-\d\dT\S+Z\s+[A-Z]+\s+/, "").trim();
 const cancelled = t => /cancelled by operator/.test(t.last_failure || "");
+// the DB keeps last_failure after a later attempt succeeds: only abandoned makes it the current error
+const failText = t => t.last_failure && (t.state === "abandoned" ? "Fehler: " : "früherer Versuch: ") + t.last_failure;
 const jobLabel = job => `${job.region_code} r${job.revision}`;
 const rank = s => (s === "claimed" ? 3 : s === "pending" ? 2 : 1);
 function prio(p) { // A00 < A0 < A4 < A5 < A10 ... < other own < samsoir
@@ -91,7 +93,7 @@ function chip(x) {
   c.children[2].textContent = s === "abandoned" ? t.last_failure || "" : "";
   c.classList.toggle("stale", x.stale && !!x.w);
   c.title = [`${t.tile} · ${jobLabel(job)} · ${s}${x.code ? " in " + x.code : ""} · Versuche ${t.attempts}/${job.max_attempts}`,
-    t.last_failure && "Fehler: " + t.last_failure, t.replaces && "ersetzt " + t.replaces,
+    failText(t), t.replaces && "ersetzt " + t.replaces,
     t.patches?.length && "Patches: " + t.patches.join(", ")].filter(Boolean).join("\n");
   return c;
 }
@@ -206,7 +208,23 @@ function renderBand(m, prev) {
   $("scrap").classList.toggle("dense", scrap.length >= 40);
   const all = [...m.s.packages].sort((a, b) => prio(a) - prio(b) || a.code.localeCompare(b.code));
   $("npk").textContent = `(${all.length})`;
-  sync($("allpk"), all.map(p => { const li = el("li"); li.append(el("span", null, p.code), el("span", null, `${p.tiles.toLocaleString("de-DE")} · ${p.owner}`)); return li; }));
+  // grouped by owner: own OXO builds, own other packages (99.99.99), samsoir's
+  const rows = [];
+  for (const [owner, title] of [["oxo", "Eigene · OXO"], ["own", "Eigene · andere"], ["samsoir", "samsoir"]]) {
+    const ps = all.filter(p => p.owner === owner);
+    if (!ps.length) continue;
+    const col = el("li", "grp"), list = el("ol");
+    for (const p of ps) {
+      // the short name only where it says more than the code (samsoir's repeat it)
+      const short = p.name.replace(/^zzXEL_|_ortho$/g, ""), li = el("li");
+      li.title = `${p.code} · ${p.name} · ${p.version} · ${p.tiles.toLocaleString("de-DE")} Tiles`;
+      li.append(el("span", null, p.code), el("span", "pn", short.toUpperCase() === p.code ? "" : short), el("span", null, p.tiles.toLocaleString("de-DE")));
+      list.append(li);
+    }
+    col.append(el("h4", null, `${title} (${ps.length})`), list);
+    rows.push(col);
+  }
+  sync($("allpk"), rows);
 }
 
 /* ---------- FLIP: a chip that changed column glides from where it was ---------- */
@@ -416,7 +434,7 @@ function renderDetail() {
       sw.style.setProperty("--sc", `var(--${x.s})`);
       li.append(sw, `${jobLabel(x.job)} · ${x.s}${x.code ? " in " + x.code : ""} · Versuch ${t.attempts}/${x.job.max_attempts}`
         + (x.w ? ` · ${wname(x.w.name)}: ${x.w.current.step || "startet"}` : ""));
-      const more = [t.last_failure && "Fehler: " + t.last_failure, t.replaces && "ersetzt " + t.replaces,
+      const more = [failText(t), t.replaces && "ersetzt " + t.replaces,
         t.patches?.length && "Patches: " + t.patches.join(", ")].filter(Boolean).join(" · ");
       if (more) li.append(el("small", null, more));
       list.append(li);

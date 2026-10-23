@@ -223,13 +223,22 @@ PLACEHOLDER = (b"<!doctype html><title>OXO console</title>"
 
 def make_server(bind, port, console, static_dir=STATIC_DIR):
     class Handler(http.server.SimpleHTTPRequestHandler):
+        static = False
+
         def do_GET(self):
+            self.static = False
             path = self.path.split("?")[0]
             if path == "/api/state":
                 return self.send(json.dumps(console.state()).encode(), "application/json")
             if path in ("/", "/index.html") and not (static_dir / "index.html").exists():
                 return self.send(PLACEHOLDER, "text/html; charset=utf-8")
+            self.static = True
             return super().do_GET()
+
+        def end_headers(self):
+            if self.static:  # revalidate every time, so an update shows on reload
+                self.send_header("Cache-Control", "no-cache")
+            super().end_headers()
 
         def send(self, body, ctype):
             self.send_response(200)
