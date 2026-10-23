@@ -267,7 +267,7 @@ class Main(unittest.TestCase):
         self.assertEqual(sum(c[1] == "extract" for c in run.calls), 40)
         self.assertEqual(len((self.out / "osm-bake.log").read_text().splitlines()), 40)
 
-    def test_no_log_line_when_a_worker_filled_the_tile_meanwhile(self):
+    def test_a_tile_a_worker_filled_meanwhile_is_logged_as_unknown(self):
         out = self.out
 
         class WorkerFills(FakeOsmium):
@@ -281,7 +281,9 @@ class Main(unittest.TestCase):
                 return r
 
         osm_bake.run_main(self.args("--tile", "53", "-3"), WorkerFills())
-        self.assertFalse((self.out / "osm-bake.log").exists())
+        # nothing of ours was published, so no extract is vouched for: unknown, never an earlier stamp
+        [line] = (self.out / "osm-bake.log").read_text().splitlines()
+        self.assertEqual(line.split("\t")[:2], ["+53-003", "unknown"])
 
     def test_partial_fill_without_force_invalidates_the_tile_in_the_log(self):
         # old layers stay, only the missing one is new: the tile has no single extract stamp

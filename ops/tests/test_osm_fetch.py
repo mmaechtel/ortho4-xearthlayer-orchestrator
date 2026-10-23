@@ -177,6 +177,7 @@ class Cache(unittest.TestCase):
         osm_fetch.append_ledger(self.ledger, region, file, timestamp, "m", "x")
         if have_file:
             (self.pbfs / file).write_bytes(b"x")
+            (self.pbfs / (osm_fetch.file_stem(region) + ".poly")).write_text("x")
 
     def problems(self, tiles):
         return osm_fetch.problems(tiles, self.cache, NOW)
@@ -266,6 +267,11 @@ class Advice(Cache):
 
     def test_a_stale_ledger_extract_is_not_reused(self):
         self.fetched("luxembourg", "luxembourg-250101.osm.pbf", "2025-01-01T00:00:00Z")
+        self.assertIn("osm-fetch luxembourg", "\n".join(self.preflight(["+49+006"])))
+
+    def test_an_extract_whose_poly_is_gone_is_fetched_again(self):
+        self.fetched("luxembourg", "luxembourg-261022.osm.pbf", "2026-10-22T20:21:33Z")
+        (self.pbfs / "luxembourg.poly").unlink()
         self.assertIn("osm-fetch luxembourg", "\n".join(self.preflight(["+49+006"])))
 
     def test_a_ledger_entry_whose_file_is_gone_is_not_reused(self):
@@ -450,6 +456,7 @@ class Fetch(Net):
 
     def test_a_missing_poly_is_restored_although_the_extract_is_present(self):
         self.fetched("luxembourg", "luxembourg-261022.osm.pbf", "2026-10-22T20:21:33Z")
+        (self.pbfs / "luxembourg.poly").unlink()
         out = self.fetch()
         self.assertIn("already have", out)
         self.assertEqual((self.pbfs / "luxembourg.poly").read_text(), "lux\n1\nEND\nEND\n")

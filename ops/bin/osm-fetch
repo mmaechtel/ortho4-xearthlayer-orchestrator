@@ -203,7 +203,8 @@ def _source(tile_regions, newest_extracts, pbf_dir, now):
     for r in tile_regions:
         first = first or r
         e = newest_extracts.get(r.id)
-        if e and is_fresh(e.timestamp, now) and (Path(pbf_dir) / e.file).exists():
+        if (e and is_fresh(e.timestamp, now) and (Path(pbf_dir) / e.file).exists()
+                and (Path(pbf_dir) / (file_stem(r.id) + ".poly")).exists()):
             return "bake", r, e
     return "fetch", first, None
 
