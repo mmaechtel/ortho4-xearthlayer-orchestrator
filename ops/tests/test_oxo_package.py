@@ -3,10 +3,12 @@ import importlib.machinery
 import importlib.util
 import io
 import os
+import shutil
 import subprocess
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 SCRIPT = Path(__file__).resolve().parents[1] / "bin" / "oxo-package"
 _loader = importlib.machinery.SourceFileLoader("oxo_package", str(SCRIPT))
@@ -348,7 +350,7 @@ def make_installed(pkgs, name, code, *, recipes=(), ters=None):
     return d
 
 
-class Night(Base):
+class NightBase(Base):
     LAND = "22672_34864_BI16"
     ZL18 = "90144_139216_BI18"
 
@@ -368,6 +370,8 @@ class Night(Base):
         return [l.split("\t") for l in
                 (self.ledger / "oxo_pilot" / "night.tsv").read_text().splitlines()]
 
+
+class Night(NightBase):
     def test_land_ter_gets_source_lit_lines_with_our_texture(self):
         d = self.our_tile()
         make_installed(self.pkgs, "zzXEL_eu-west_ortho", "EU-WEST  0.5.0", recipes=["+48+011"],
@@ -519,6 +523,88 @@ class Night(Base):
         self.assertFalse(self.pkg.exists())
         self.assertFalse(self.ledger.exists())
 
+
+
+class VerifyStage(NightBase):
+    """The staged package is checked against the build and the night plan before it
+    replaces the installed one."""
+
+    LIT = ["TEXTURE_LIT ../textures/22672_34864_BI16_LIT.dds", "LUMINANCE 600"]
+
+    def stage_of(self, d, lit):
+        stage = self.tmp / "stage"
+        for sub in ("Earth nav data", "terrain", "textures"):
+            (stage / sub).mkdir(parents=True, exist_ok=True)
+        nav = stage / "Earth nav data" / oxo_package.block_of("+48+011")
+        nav.mkdir()
+        dsf = next((d / "Earth nav data").rglob("*.dsf"))
+        oxo_package.sync_file(dsf, nav)
+        for f in (d / "terrain").glob("*.ter"):
+            oxo_package.sync_file(f, stage / "terrain")
+        for f in (d / "textures").glob("*.png"):
+            oxo_package.sync_file(f, stage / "textures")
+        for name, lines in lit.items():
+            t = stage / "terrain" / name
+            t.write_text(t.read_text() + "".join(f"{l}\n" for l in lines))
+        return stage, [("+48+011", d, dsf)]
+
+    def verify(self, stage, good, lit):
+        return oxo_package.verify_stage(stage, good, lit)
+
+    def test_correct_stage_passes(self):
+        d = self.our_tile()
+        lit = {f"{self.LAND}.ter": self.LIT}
+        self.assertEqual(self.verify(*self.stage_of(d, lit), lit), [])
+
+    def test_missing_files_are_reported(self):
+        d = self.our_tile()
+        stage, good = self.stage_of(d, {})
+        (stage / "terrain" / f"{self.LAND}_sea_overlay.ter").unlink()
+        next((stage / "Earth nav data").rglob("*.dsf")).unlink()
+        (stage / "textures" / "+48+011_mask.png").unlink()
+        problems = "\n".join(self.verify(stage, good, {}))
+        self.assertIn("+48+011.dsf", problems)
+        self.assertIn(f"{self.LAND}_sea_overlay.ter", problems)
+        self.assertIn("+48+011_mask.png", problems)
+
+    def test_lit_lines_on_an_overlay_are_reported(self):
+        d = self.our_tile()
+        stage, good = self.stage_of(d, {f"{self.LAND}_sea_overlay.ter": self.LIT})
+        self.assertRegex("\n".join(self.verify(stage, good, {})), r"sea_overlay\.ter.*LIT")
+
+    def test_lit_lines_must_match_the_plan_and_own_texture(self):
+        d = self.our_tile(water=())
+        name = f"{self.LAND}.ter"
+        for staged, why in ((["TEXTURE_LIT ../textures/other_BI16_LIT.dds", "LUMINANCE 600"],
+                             "wrong texture"),
+                            (self.LIT + ["LUMINANCE 600"], "duplicate LUMINANCE"),
+                            ([], "plan lit, stage dark")):
+            with self.subTest(why):
+                shutil.rmtree(self.tmp / "stage", ignore_errors=True)
+                stage, good = self.stage_of(d, {name: staged})
+                self.assertIn(name, "\n".join(self.verify(stage, good, {name: self.LIT})))
+
+    def test_unplanned_ter_must_equal_its_source(self):
+        d = self.our_tile(water=())
+        stage, good = self.stage_of(d, {f"{self.LAND}.ter": self.LIT})
+        self.assertIn(f"{self.LAND}.ter", "\n".join(self.verify(stage, good, {})))
+
+    def test_failed_check_keeps_the_installed_package(self):
+        self.our_tile()
+        make_installed(self.pkgs, "zzXEL_eu-west_ortho", "EU-WEST  0.5.0", recipes=["+48+011"],
+                       ters={"22672_34864_GO216.ter": lit_ter_text("22672_34864_GO216")})
+        self.assertEqual(self.run_main()[0], 0)
+        before = self.staged(self.LAND)
+        real = oxo_package.sync_file
+        skip = lambda src, dest: None if src.name.endswith("_overlay.ter") else real(src, dest)
+        with mock.patch.object(oxo_package, "sync_file", skip):
+            rc, _, err = self.run_main()
+        self.assertEqual(rc, 2)
+        self.assertIn("staged package failed its check", err)
+        self.assertIn("_sea_overlay.ter", err)
+        self.assertEqual(self.staged(self.LAND), before)
+        self.assertTrue((self.pkg / "terrain" / f"{self.LAND}_sea_overlay.ter").is_file())
+        self.assertEqual(len(self.night_rows()), 1, "no ledger row for a failed install")
 
 if __name__ == "__main__":
     unittest.main()
