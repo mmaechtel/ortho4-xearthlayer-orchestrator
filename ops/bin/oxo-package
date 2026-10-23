@@ -244,10 +244,12 @@ def report_night(plans):
 def merge_masks(name, srcs):
     """One mask from the copies [(tile, path)] that neighbouring tiles built of a
     texture straddling a 1° line, as the brightest copy per pixel. Each tile fills
-    only its own part (OXO builds see no neighbour mesh), and every step of
-    Ortho4XP's mask build is monotone in the water pre-mask, so each copy is a lower
-    bound of the mask built with the neighbour present; the maximum is the closest
-    one and keeps a coast's falloff across the line."""
+    only its own part (OXO builds see no neighbour mesh). Against a with-neighbour
+    Ortho4XP build (2026-10-23, +43+006/+43+007 and +50+008/+51+008) the maximum
+    was the closest merge, wrong only within ~35 px of the line; it keeps a coast's
+    falloff across the line, which per-tile ownership cuts. It is not exact: a
+    neighbour's sea at the line makes an isolated copy too bright there, and Ortho4XP
+    blurs at a per-tile pixel scale, so even its own two copies differ."""
     from PIL import Image, ImageChops
     imgs = [Image.open(p) for _, p in srcs]
     if len({(i.mode, i.size) for i in imgs}) > 1:
