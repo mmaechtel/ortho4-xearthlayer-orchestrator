@@ -352,7 +352,7 @@ def check(pbf_dir, ledger, now):
 
 def which_cmd(pbf_dir, tiles, now):
     regs = regions(load_index(pbf_dir, now))
-    for tile in tiles:
+    for tile in (t.strip() for t in tiles):
         r = which(regs, *parse_tile(tile))
         print(f"{tile}  {r.id if r else 'none'}")
 
@@ -365,6 +365,8 @@ def main(argv=None):
     p.add_argument("--check", action="store_true", help="compare the ledger with Geofabrik's state.txt")
     p.add_argument("--which", nargs="+", metavar="TILE", help="region wholly containing each tile, e.g. +53-003")
     p.add_argument("--dir", type=Path, default=PBF_DIR, help=f"PBF directory (default {PBF_DIR})")
+    # argparse takes -01+179 for an option; a leading space makes it a plain argument
+    argv = [" " + t if re.fullmatch(r"-\d{2}[+-]\d{3}", t) else t for t in (sys.argv[1:] if argv is None else argv)]
     a = p.parse_args(argv)
     if [bool(a.region), a.check, bool(a.which)].count(True) != 1:
         p.error("give exactly one of: a region id, --check, --which TILE...")

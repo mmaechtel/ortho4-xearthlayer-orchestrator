@@ -512,6 +512,11 @@ class Cli(Net):
         self.assertEqual(rc, 0)
         self.assertEqual(out.splitlines(), ["+49+006  luxembourg", "+48+007  germany", "+00+000  none"])
 
+    def test_southern_tiles_are_accepted_as_which_arguments(self):
+        rc, out, _ = self.run_main("--which", "-01+179", "+49+006", "-45-070")
+        self.assertEqual(rc, 0)
+        self.assertEqual([l.split()[0] for l in out.splitlines()], ["-01+179", "+49+006", "-45-070"])
+
     def test_a_bad_tile_name_is_a_clean_error(self):
         rc, _, _ = self.run_main("--which", "49-6")
         self.assertIn("osm-fetch:", str(rc))
