@@ -135,7 +135,7 @@ Plain files in git, not a database (small volume; git gives history and ties eac
 1. `ops/packages/oxo_apt.toml` (`name = "oxo_apt"`, tiles with patches only) and `ops/packages/oxo_sonny.toml` (`name = "oxo_sonny"`), one group per rebuild batch each; `oxo-compose --group ID` submits only that batch.
 2. Keep-or-default step in `oxo-compose`: per known differing legacy value ask once, persist as group override with reason; `--submit` refuses while undecided.
 3. `oxo-package ops/packages/oxo_apt.toml --code A00_OXO` and `… oxo_sonny.toml --code A4_OXO` stage the package fresh from `target.root` and swap it in, so no stale files survive a rebuild.
-4. First run: the M2 pilot tiles, after the comparison — `+48+011` (EDDM patch) into `oxo_apt`, `+48+010` and `+48+012` into `oxo_sonny`.
+4. First run: pilot `+48+011` (EDDM patch) into `oxo_apt`. `+48+010` and `+48+012` are not rebuilt (operator, 2026-10-23): the legacy `A5_EU` copies stay in use; `ops/packages/oxo_sonny.toml` is created when the first Sonny rebuild is actually wanted.
 5. Focus is `oxo_apt`: the legacy `A0_*` airport tiles (53 in `eu_apt` alone). `oxo_sonny` grows only where a rebuild is wanted.
 
 ### M3 — First real package
