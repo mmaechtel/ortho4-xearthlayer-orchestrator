@@ -140,6 +140,21 @@ class BakeTile(unittest.TestCase):
         self.assertEqual(self.bake(FakeOsmium()), 4)
         self.assertEqual((self.dir / "+48+011_water.osm.bz2").read_bytes(), b"old")
 
+    def test_layer_published_by_a_worker_meanwhile_is_not_clobbered(self):
+        final = self.dir / "+48+011_water.osm.bz2"
+
+        class WorkerPublishes(FakeOsmium):
+            def __call__(inner, argv, **kw):
+                r = super().__call__(argv, **kw)
+                if "w/natural=coastline" in argv:  # after the water layer was staged
+                    final.parent.mkdir(parents=True, exist_ok=True)
+                    final.write_bytes(b"worker")
+                return r
+
+        self.assertEqual(self.bake(WorkerPublishes()), 4)
+        self.assertEqual(final.read_bytes(), b"worker")
+        self.assertEqual(list(self.out.rglob("*.part")), [])
+
     def test_failure_on_a_later_layer_leaves_the_old_set_untouched(self):
         self.fill(LAYERS)
 

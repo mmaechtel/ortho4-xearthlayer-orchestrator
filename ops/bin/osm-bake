@@ -83,6 +83,7 @@ def bake_tile(out, lat, lon, prefiltered, work, force, run):
     # all layers to hidden .part files first, renamed into place only once every
     # one succeeded: a failed filter never leaves a mix of old and new layers
     parts = []
+    published = len(todo)
     try:
         for layer in todo:
             final = layer_path(out, lat, lon, layer)
@@ -93,12 +94,18 @@ def bake_tile(out, lat, lon, prefiltered, work, force, run):
             if not part.exists():
                 part.write_bytes(bz2.compress(EMPTY_OSM))
         for part, final in parts:
-            os.replace(part, final)
+            if force:
+                os.replace(part, final)
+            else:
+                try:  # no-clobber, like the worker's own publish: a layer that
+                    os.link(part, final)  # appeared meanwhile is kept
+                except FileExistsError:
+                    published -= 1
     finally:
         for part, _ in parts:
             part.unlink(missing_ok=True)
         tile_pbf.unlink(missing_ok=True)
-    return len(todo)
+    return published
 
 
 # --- .poly handling (Osmosis polygon filter format, as Geofabrik ships it) ---
