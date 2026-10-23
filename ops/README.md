@@ -8,7 +8,9 @@ Why it looks like this: `docs/plans/2026-10-23-own-package-production.md`.
 | Path | What |
 |---|---|
 | `ops/patches/<block>/<tile>/*.patch.osm` | Ortho4XP build patches, mounted read-only into every worker. Edit and commit here. |
-| `ops/specs/<package>.toml` | One region spec per package; start from `house-profile.example.toml`. |
+| `ops/packages/<package>.toml` | One file per package: metadata, target, tile groups with per-group overrides. |
+| `ops/profiles/house.toml` | Our few deliberate deviations from samsoir's settings. |
+| `ops/bin/oxo-compose` | Baseline (`docs/examples/example-region.toml`, samsoir) + house + package → one spec per group; prints, writes or submits. |
 | `ops/worker-pod.yaml` | Worker pod with this host's paths. |
 | `ops/bin/import-dem` | Flat `.hgt` → `Elevation_data` layout (btrfs reflinks). |
 | `ops/bin/oxo-package` | Delivered tiles → `~/.local/share/xearthlayer/packages/zzXEL_<name>_ortho/`. |
@@ -45,15 +47,16 @@ make image
 cargo run --release -p oxo-controld -- \
   --database-url postgres://postgres:oxo@127.0.0.1:55433/postgres --bind 0.0.0.0:8080
 
-# 2. Spec: copy the house profile, set tiles, metadata.name, a region_code of
-#    its own, target.root = /mnt/xplane_data/oxo/artifacts/<name>.
-cp ops/specs/house-profile.example.toml ops/specs/<name>.toml
-cargo run -q -p oxo-spec-cli -- validate ops/specs/<name>.toml
+# 2. Package file: copy ops/packages/oxo_pilot.toml, set metadata (own
+#    region_code), target.root = /mnt/xplane_data/oxo/artifacts/<name>, groups.
 mkdir -p /mnt/xplane_data/oxo/artifacts/<name>
+ops/bin/oxo-compose ops/packages/<name>.toml            # inspect the composed specs
+ops/bin/oxo-compose ops/packages/<name>.toml --out /tmp/specs && \
+  for f in /tmp/specs/*.toml; do cargo run -q -p oxo-spec-cli -- validate "$f"; done
 
-# 3. Submit. A job is identified by (region_code, revision): resubmitting the
-#    same pair returns the existing job — bump revision to rebuild.
-curl -sS -X POST --data-binary @ops/specs/<name>.toml http://127.0.0.1:8080/api/v1/jobs
+# 3. Submit, one job per group. A job is identified by (region_code, revision):
+#    resubmitting the same pair returns the existing job — bump revision to rebuild.
+ops/bin/oxo-compose ops/packages/<name>.toml --submit http://127.0.0.1:8080
 
 # 4. Workers (more: copy ops/worker-pod.yaml with another metadata.name)
 podman kube play ops/worker-pod.yaml
@@ -62,11 +65,23 @@ curl -sS http://127.0.0.1:8080/api/v1/jobs/<job_id>/throughput
 podman logs -f oxo-worker-1-worker
 
 # 5. Package (refuses while `xearthlayer run` is serving)
-ops/bin/oxo-package ops/specs/<name>.toml --code A5_<REG> --dry-run
-ops/bin/oxo-package ops/specs/<name>.toml --code A5_<REG>
+ops/bin/oxo-package ops/packages/<name>.toml --code A5_<REG> --dry-run
+ops/bin/oxo-package ops/packages/<name>.toml --code A5_<REG>
 
 podman kube down ops/worker-pod.yaml
 ```
+
+## Settings: three layers
+
+1. **samsoir's baseline** — `docs/examples/example-region.toml`, read from upstream, never copied.
+   Decided 2026-10-23: follow it closely (tuned for streaming performance): ZL16 everywhere,
+   airports ZL18 (`cover_zl`).
+2. **house** — `ops/profiles/house.toml`: only deliberate deviations, each with a reason
+   (BI, no overlays, `cover_extent` 1 km). The legacy values are listed there, not used.
+3. **package / group** — `ops/packages/<name>.toml`: whatever differs per package or per set
+   of tiles, e.g. `raw = { masking_mode = "sand", masks_width = "25" }` for a coastal group.
+   Ortho4XP's `masking_mode` is `sand`, `rocks` or `3steps`; the first two take a single
+   `masks_width`, `3steps` a list `[a,b,c]`.
 
 ## Priority codes
 

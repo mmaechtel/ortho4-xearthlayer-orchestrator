@@ -25,9 +25,8 @@ spec:
         # deploy/worker-pod.yaml's production values plus the legacy Overpass choice.
         - name: OXO_O4_APP_OVERRIDES
           value: '{"overpass_server_choice":"DE","max_download_slots":"2","max_convert_slots":"8","http_timeout":"10.0","max_connect_retries":"5","max_baddata_retries":"5","ovl_exclude_pol":"[0]","ovl_exclude_net":"[]"}'
-        # ZL17 projects to ~13 GiB scratch (worker/README.md).
-        - name: OXO_MIN_FREE_SCRATCH_BYTES
-          value: "17179869184"
+        # OXO_MIN_FREE_SCRATCH_BYTES stays at its 8 GiB default: a ZL16 floor,
+        # matching our ZL16 production. Raise it if a package group goes above ZL16.
       resources:
         requests:
           memory: "6Gi"

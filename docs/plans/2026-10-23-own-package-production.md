@@ -37,19 +37,19 @@ OXO data root on the host. Nothing points into the legacy install.
 ```
 this repo (fork)                           host: /mnt/xplane_data/oxo/
   ops/patches/<block>/<tile>/*.patch.osm     dem/<block>/N48E011.hgt   (Sonny, native Ortho4XP layout)
-  ops/specs/<package>.toml                   artifacts/<package>/zOrtho4XP_<tile>/
-  ops/worker-pod.yaml                        content/                  (empty; overlays off)
+  ops/packages/<package>.toml                artifacts/<package>/zOrtho4XP_<tile>/
+  ops/profiles/house.toml                    content/                  (empty; overlays off)
   ops/bin/oxo-package, import-dem            podman volume oxo-pg      (PostgreSQL data)
   ops/README.md (runbook)
 
-ops/specs/<package>.toml ──POST /api/v1/jobs──▶ oxo-controld ── PostgreSQL (oxo-pg)
+ops/packages/<package>.toml ─oxo-compose─POST /api/v1/jobs──▶ oxo-controld ── PostgreSQL (oxo-pg)
                                                     ▲ claim/report
 worker pods (oxo-worker image, stock Shred86 Ortho4XP)
   patches-active ← <repo>/ops/patches (ro)   dem ← oxo/dem (ro)   artifacts ← oxo/artifacts
       │
       ▼
 oxo/artifacts/<package>/zOrtho4XP_<tile>/
-      │  ops/bin/oxo-package ops/specs/<package>.toml --code A5_<REG>
+      │  ops/bin/oxo-package ops/packages/<package>.toml --code A5_<REG>
       ▼
 ~/.local/share/xearthlayer/packages/zzXEL_<package>_ortho/
 ```
@@ -64,10 +64,10 @@ The `ops/` directory is fork-only operator material; upstream code paths
 | D1 | **Stock Shred86 Ortho4XP, no fork.** The image's pinned commit stays. | The legacy fork's only source change is Overpass server weighting; `overpass_server_choice=DE` via app overrides is enough. `apt_compat_patch` only matters for OrthoForge `.apt` pickles in a shared OSM cache, which pods don't have. `dem_lock_patch` guards concurrent DEM downloads, which D3 rules out. |
 | D2 | **Build patches live in this repo** under `ops/patches/`, in Ortho4XP's block-nested layout, mounted read-only. Imported once from the legacy tree (`*.patch.osm` only, ≈ 30 MB); from then on edited and versioned here. | Standalone, with history. The 223 MB `.raw` is not a patch file and stays behind. |
 | D3 | **Sonny DEMs in an OXO-owned directory in native layout.** `/mnt/xplane_data/oxo/dem/<block>/N..E...hgt` as real files, created once by a reflink copy (`cp --reflink=always`, btrfs: no extra space, independent of the legacy files). Mounted read-only as the pod's dem-cache. Stock `View` source, no `custom_dem`, no symlink tricks, no extra volume. | Deleting the legacy install later cannot break OXO. Read-only means a tile without coverage fails loudly instead of silently building on downloaded data, and no concurrent writes means no download race. |
-| D4 | **House profile = spec parameters**, one spec file per package in `ops/specs/`, overlays off (`include_overlays = false`). Variants that differ in a tile key (e.g. `masking_mode`) are separate specs. | Specs are the versioned record of what was built and how. |
+| D4 | **Settings in three layers, samsoir first** (revised 2026-10-23): baseline = upstream `docs/examples/example-region.toml` (samsoir's production tuning, read in place so his changes arrive with each merge); `ops/profiles/house.toml` holds only deliberate deviations (BI, `include_overlays = false`, `cover_extent` 1 km); `ops/packages/<name>.toml` holds metadata, target and tile groups with per-group overrides (e.g. `masking_mode`). `ops/bin/oxo-compose` merges them into one spec per group (OXO takes one parameter set per spec); groups share `name` and `target.root`, region codes get a group suffix. ZL16 everywhere, airports ZL18 — the legacy house values (ZL17, rocks, …) are not carried over. | Streaming performance: samsoir's settings are tuned for XEL. Deviations stay few, visible and reasoned; upstream tuning changes flow in without copying. |
 | D5 | **Packaging script in this repo: `ops/bin/oxo-package`** (Python, with tests). Reads the spec (name, `target.root`), refuses while `xearthlayer run` serves (PID in `~/.local/state/xearthlayer/xearthlayer.lock` alive — the same check XEL's installer makes), validates every tile with the legacy `--strict` rules (BI cfg, DSF ≥ 10 KB, `.ter` → `_BI<zl>.dds`, mask PNG, no partials), copies DSF / `.ter` / mask PNGs (all top-level, as the legacy sync does) into `zzXEL_<package>_ortho/`, writes `xearthlayer_scenery_package.txt` with the given code. Every `zOrtho4XP_*` present counts as done (egress is atomic). | Standalone; the rules are ported, not reinvented. `sync-xel-package` stays in `xearthlayer-config` for the frozen legacy builds only, so the two never need to agree. |
 | D6 | **Old packages stay exactly as they are.** New OXO packages get their own `zzXEL_<package>_ortho` and code. An old region is replaced only deliberately, later, by giving the OXO package the same code and removing the old directory after a check. | Per-file priority makes accidental shadowing the main risk. |
-| D7 | **Operations without new Rust code:** Podman installed on the host (Debian package); PostgreSQL as a Podman container on the named volume `oxo-pg`; `oxo-controld --bind 0.0.0.0:8080`; worker `OXO_CONTROL_URL = http://host.containers.internal:8080`; artifacts mounted at the same path as on the host so `target.root` is valid for worker and `oxo-package`; one `region_code` per package (jobs are keyed by `region_code` + `revision`); `OXO_MIN_FREE_SCRATCH_BYTES` ≥ 16 GiB for ZL17; app override `overpass_server_choice=DE`. Jobs submitted with `curl`; the console (sub-project 5) is not a prerequisite. All of it written down in `ops/README.md` and `ops/worker-pod.yaml` (real paths, no `EDIT ME`). | Everything needed exists; `make pg-up` is disposable. |
+| D7 | **Operations without new Rust code:** Podman installed on the host (Debian package); PostgreSQL as a Podman container on the named volume `oxo-pg`; `oxo-controld --bind 0.0.0.0:8080`; worker `OXO_CONTROL_URL = http://host.containers.internal:8080`; artifacts mounted at the same path as on the host so `target.root` is valid for worker and `oxo-package`; one `region_code` per package (jobs are keyed by `region_code` + `revision`); `OXO_MIN_FREE_SCRATCH_BYTES` at its 8 GiB ZL16 default; app override `overpass_server_choice=DE`. Jobs submitted with `curl`; the console (sub-project 5) is not a prerequisite. All of it written down in `ops/README.md` and `ops/worker-pod.yaml` (real paths, no `EDIT ME`). | Everything needed exists; `make pg-up` is disposable. |
 
 ## Rejected alternatives
 
@@ -101,13 +101,13 @@ DEM lookup identical in the image's Ortho4XP; patch copies identical; Sonny
 1. Import build patches: `*.patch.osm` from the legacy tree into `ops/patches/` (layout kept), commit.
 2. Import Sonny: reflink-copy every `.hgt` into `/mnt/xplane_data/oxo/dem/<block>/` (block = Ortho4XP's `round_latlon`, the 10° floor) with `ops/bin/import-dem`, rerunnable.
 3. `ops/bin/oxo-package` per D5, tests first.
-4. `ops/worker-pod.yaml` with real hostPaths (patches, dem ro, artifacts, empty content), `ops/specs/house-profile.example.toml`, `ops/README.md` runbook (PostgreSQL on `oxo-pg`, controld, image, pod, submit, package).
+4. `ops/worker-pod.yaml` with real hostPaths (patches, dem ro, artifacts, empty content), `ops/profiles/house.toml` + `ops/bin/oxo-compose` (D4), `ops/README.md` runbook (PostgreSQL on `oxo-pg`, controld, image, pod, submit, package).
 
 ### M2 — Pilot (compare against legacy)
 
-1. `ops/specs/oxo_pilot.toml`: `+48+010`, `+48+011`, `+48+012`, house profile, `target.root = /mnt/xplane_data/oxo/artifacts/oxo_pilot`.
+1. `ops/packages/oxo_pilot.toml`: `+48+010`, `+48+011`, `+48+012`, samsoir baseline + house, `target.root = /mnt/xplane_data/oxo/artifacts/oxo_pilot`.
 2. One worker pod; job reaches `complete`. This also proves the read-only dem mount.
-3. `oxo-package ops/specs/oxo_pilot.toml --code A4_PILOT` (outranks `A5_EU` per file).
+3. `oxo-package ops/packages/oxo_pilot.toml --code A4_PILOT` (outranks `A5_EU` per file).
 4. Compare with the legacy tiles: DSF size/triangles, `.ter` names, masks, Sonny terrain visibly used; fly over in the sim.
 5. Remove the pilot package. Exit: every step from `ops/README.md`, nothing read from the legacy install.
 

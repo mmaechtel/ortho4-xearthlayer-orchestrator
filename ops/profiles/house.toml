@@ -1,0 +1,19 @@
+# Our deviations from samsoir's production tuning (docs/examples/example-region.toml,
+# the baseline layer of ops/bin/oxo-compose). Rule: stay with samsoir unless there is a
+# concrete reason — his settings are tuned for XEarthLayer streaming performance.
+# Every key here needs a one-line reason. Per-package or per-tile-group variants
+# (e.g. masking_mode) belong in ops/packages/<name>.toml, not here.
+
+[parameters]
+provider = "BI"            # our XEL streams Bing; oxo-package requires _BI<zl>.dds in the .ter
+include_overlays = false   # own packages never carry overlays (XEL ships its own)
+# zoom: samsoir's 16 (decided 2026-10-23: ZL16 everywhere, airports ZL18 via cover_zl)
+
+[parameters.raw]
+cover_extent = "1.0"       # airport ZL18 cover reaches 1 km past the boundary (samsoir: 0.5)
+
+# Legacy house values (pre-OXO Ortho4XP builds), deliberately NOT carried over;
+# kept for reference when a pilot comparison suggests reviving one:
+#   zoom 17, masking_mode rocks / masks_width 25, road_level 3, min_area 0.01,
+#   clean_bad_geometries True, distance_masks_too True, ratio_water 0.5,
+#   ratio_bathy 1.0, use_decal_on_terrain True, cover_extent 6.0

@@ -1,0 +1,140 @@
+#!/usr/bin/env python3
+"""Compose OXO region specs from three layers and optionally submit them.
+
+    oxo-compose ops/packages/<name>.toml [--out DIR] [--submit URL]
+
+Layers, later wins:
+  1. baseline  docs/examples/example-region.toml — samsoir's production tuning, read
+               straight from the upstream file so his changes arrive with each merge
+  2. house     ops/profiles/house.toml — only the keys we deliberately set differently
+  3. package   ops/packages/<name>.toml — metadata, target, optional [parameters] for all
+               groups, and [[group]]s: tiles plus per-group overrides (any parameter key,
+               raw = {...} for Ortho4XP tile keys)
+
+OXO takes one parameter set per spec, so each group becomes its own spec/job. Its
+region_code is <code>-<ID> (group `id`, else its 1-based position); a single group keeps
+<code>. All groups share metadata.name and target.root, so ops/bin/oxo-package works on
+the package file directly. Without --out or --submit the specs are printed.
+"""
+import argparse
+import copy
+import json
+import sys
+import tomllib
+import urllib.error
+import urllib.request
+from pathlib import Path
+
+REPO = Path(__file__).resolve().parents[2]
+BASELINE = REPO / "docs/examples/example-region.toml"
+HOUSE = REPO / "ops/profiles/house.toml"
+PACKAGE_ONLY = ("tiles", "metadata", "target")  # never taken from baseline or house
+
+
+class ComposeError(Exception):
+    pass
+
+
+def merge(base, over):
+    out = copy.deepcopy(base)
+    for k, v in over.items():
+        if isinstance(v, dict) and isinstance(out.get(k), dict):
+            out[k] = merge(out[k], v)
+        else:
+            out[k] = copy.deepcopy(v)
+    return out
+
+
+def compose(baseline, house, package):
+    groups = package.get("group") or []
+    if not groups:
+        raise ComposeError("package has no [[group]]")
+    common = {k: v for k, v in merge(baseline, house).items() if k not in PACKAGE_ONLY}
+    common = merge(common, {k: v for k, v in package.items() if k != "group"})
+    code = common["metadata"]["region_code"]
+    seen, specs = {}, []
+    for i, g in enumerate(groups, 1):
+        tiles = g.get("tiles") or []
+        if not tiles:
+            raise ComposeError(f"group {i} has no tiles")
+        for t in tiles:
+            if t in seen:
+                raise ComposeError(f"tile {t} is in group {seen[t]} and group {i}")
+            seen[t] = i
+        params = {k: v for k, v in g.items() if k not in ("tiles", "id", "raw")}
+        if "raw" in g:
+            params["raw"] = g["raw"]
+        spec = merge(common, {"parameters": params})
+        spec["tiles"] = list(tiles)
+        if len(groups) > 1:
+            spec["metadata"]["region_code"] = f"{code}-{str(g.get('id', i)).upper()}"
+        specs.append(spec)
+    return specs
+
+
+def _value(v):
+    if isinstance(v, bool):
+        return "true" if v else "false"
+    if isinstance(v, (int, float)):
+        return repr(v)
+    if isinstance(v, str):
+        return json.dumps(v, ensure_ascii=False)
+    if isinstance(v, list):
+        return "[" + ", ".join(_value(x) for x in v) + "]"
+    raise ComposeError(f"cannot write {type(v).__name__} as TOML")
+
+
+def to_toml(d, prefix=""):
+    lines = [f"{k} = {_value(v)}" for k, v in d.items() if not isinstance(v, dict)]
+    for k, v in d.items():
+        if isinstance(v, dict):
+            lines += ["", f"[{prefix}{k}]", to_toml(v, f"{prefix}{k}.")]
+    return "\n".join(lines).strip("\n") + "\n" if not prefix else "\n".join(lines)
+
+
+def write(specs, out):
+    out.mkdir(parents=True, exist_ok=True)
+    paths = []
+    for s in specs:
+        p = out / f"{s['metadata']['region_code']}.toml"
+        p.write_text(to_toml(s))
+        paths.append(p)
+    return paths
+
+
+def submit(specs, url):
+    for s in specs:
+        req = urllib.request.Request(url.rstrip("/") + "/api/v1/jobs", data=to_toml(s).encode(), method="POST")
+        try:
+            with urllib.request.urlopen(req) as r:
+                print(s["metadata"]["region_code"], r.status, r.read().decode())
+        except urllib.error.HTTPError as e:
+            raise ComposeError(f"{s['metadata']['region_code']}: HTTP {e.code} {e.read().decode()}")
+
+
+def load(path):
+    with open(path, "rb") as f:
+        return tomllib.load(f)
+
+
+def main():
+    p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    p.add_argument("package", type=Path)
+    p.add_argument("--out", type=Path, help="write one <region_code>.toml per group here")
+    p.add_argument("--submit", metavar="URL", help="POST each spec to oxo-controld, e.g. http://127.0.0.1:8080")
+    a = p.parse_args()
+    try:
+        specs = compose(load(BASELINE), load(HOUSE), load(a.package))
+        if a.out:
+            for path in write(specs, a.out):
+                print(path)
+        if a.submit:
+            submit(specs, a.submit)
+        if not (a.out or a.submit):
+            print("\n# ---\n".join(to_toml(s) for s in specs), end="")
+    except (OSError, tomllib.TOMLDecodeError, ComposeError, KeyError) as e:
+        sys.exit(f"oxo-compose: {e}")
+
+
+if __name__ == "__main__":
+    main()
