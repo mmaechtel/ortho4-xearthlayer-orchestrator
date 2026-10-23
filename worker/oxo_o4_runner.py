@@ -9,7 +9,9 @@ import ast
 import json
 import os
 import re
+import shutil
 import sys
+import tempfile
 
 
 def parse_tile(s):
@@ -94,6 +96,50 @@ def apply_app_level(CFG, config, overrides, raw):
         set_app_var(CFG, k, convert_raw(CFG.cfg_vars, k, v))
 
 
+def osm_seed(cache, osm_dir, rel):
+    """Copy the tile's cached OSM layers into Ortho4XP's OSM dir (scratch),
+    so it skips Overpass for them (it checks for the files' existence)."""
+    src = os.path.join(cache, rel)
+    if not os.path.isdir(src):
+        return 0
+    os.makedirs(osm_dir, exist_ok=True)
+    n = 0
+    for name in os.listdir(src):
+        if name.startswith(".") or not os.path.isfile(os.path.join(src, name)):
+            continue  # .part leftovers of a crashed publish
+        if not os.path.exists(os.path.join(osm_dir, name)):
+            shutil.copyfile(os.path.join(src, name), os.path.join(osm_dir, name))
+            n += 1
+    return n
+
+
+def osm_publish(cache, osm_dir, rel):
+    """Publish layers the cache lacks: a unique temp file, then a hard link
+    to the final name, which fails instead of overwriting, so concurrent
+    pods sharing the cache never clobber or interleave each other's files."""
+    if not os.path.isdir(osm_dir):
+        return 0
+    dst = os.path.join(cache, rel)
+    os.makedirs(dst, exist_ok=True)
+    n = 0
+    for name in os.listdir(osm_dir):
+        final = os.path.join(dst, name)
+        if not os.path.isfile(os.path.join(osm_dir, name)) or os.path.exists(final):
+            continue
+        fd, part = tempfile.mkstemp(prefix=".%s." % name, suffix=".part", dir=dst)
+        try:
+            os.fchmod(fd, 0o644)  # mkstemp's 0600 would hide it from other users
+            with os.fdopen(fd, "wb") as f, open(os.path.join(osm_dir, name), "rb") as src:
+                shutil.copyfileobj(src, f)
+            os.link(part, final)
+            n += 1
+        except FileExistsError:
+            pass  # another pod published it first
+        finally:
+            os.unlink(part)
+    return n
+
+
 def check(fn_name, result, none_is_success=False):
     """Ortho4XP's build functions return 0 on an internally handled failure
     and exit 0 regardless, so the return value is the only failure signal.
@@ -160,9 +206,22 @@ def main(out):
             tile.default_zl = config["zoom"]
             for k, v in (config.get("raw") or {}).items():
                 setattr(tile, k, convert_raw(CFG.cfg_vars, k, v))
+            # Optional shared OSM cache (fork, issue #11): <cache>/<block>/<tile>/.
+            cache = os.environ.get("OXO_OSM_CACHE")
+            rel, osm_dir = FNAMES.long_latlon(lat, lon), FNAMES.osm_dir(lat, lon)
+            if cache:
+                phase = "osm_seed"
+                sys.stderr.write("osm-cache: %d layers seeded for %s\n" % (osm_seed(cache, osm_dir, rel), inp["tile"]))
+                sys.stderr.flush()
             for fn in (VMAP.build_poly_file, MESH.build_mesh, MASK.build_masks, TILE.build_tile):
                 phase = fn.__name__
                 check(phase, fn(tile), none_is_success=(fn is MASK.build_masks))
+                if cache and fn is VMAP.build_poly_file:
+                    # Only data that built a poly file is shared (pilot r2: mixed
+                    # Overpass snapshots raised KeyError there).
+                    phase = "osm_publish"
+                    sys.stderr.write("osm-cache: %d layers published for %s\n" % (osm_publish(cache, osm_dir, rel), inp["tile"]))
+                    sys.stderr.flush()
         else:
             phase = "prepare_overlay_dir"
             os.makedirs(

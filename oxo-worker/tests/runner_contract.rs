@@ -651,3 +651,115 @@ fn the_exec_guard_bites_on_a_644_copy_and_a_lost_shebang() {
     std::fs::set_permissions(&p, std::fs::Permissions::from_mode(0o755)).unwrap();
     assert!(exec_defect(&p).unwrap().contains("shebang"));
 }
+
+// --- OSM cache (OXO_OSM_CACHE): seeded before build_poly_file, published after it ---
+
+/// The tile dir of `+50-002` in an OSM tree: `<block>/<tile>`.
+const OSM_TILE: &str = "+50-010/+50-002";
+
+#[test]
+fn cached_osm_layers_are_in_place_before_build_poly_file() {
+    let cache = tempfile::tempdir().unwrap();
+    let d = cache.path().join(OSM_TILE);
+    std::fs::create_dir_all(&d).unwrap();
+    std::fs::write(d.join("+50-002_airports.osm.bz2"), "cached").unwrap();
+    let c = cache.path().to_str().unwrap();
+    let Some(o) = run("ortho", "+50-002", &[("OXO_OSM_CACHE", c)]) else {
+        return;
+    };
+    assert_eq!(o.code, Some(0), "{}", o.stdout);
+    assert!(
+        o.log.contains("osm-present +50-002_airports.osm.bz2\n"),
+        "{}",
+        o.log
+    );
+}
+
+#[test]
+fn downloaded_osm_layers_are_published_to_the_cache_without_part_files() {
+    let cache = tempfile::tempdir().unwrap();
+    let c = cache.path().to_str().unwrap();
+    let Some(o) = run(
+        "ortho",
+        "+50-002",
+        &[
+            ("OXO_OSM_CACHE", c),
+            ("FAKE_O4_OSM_DOWNLOAD", "+50-002_water.osm.bz2"),
+        ],
+    ) else {
+        return;
+    };
+    assert_eq!(o.code, Some(0), "{}", o.stdout);
+    let d = cache.path().join(OSM_TILE);
+    assert_eq!(
+        std::fs::read_to_string(d.join("+50-002_water.osm.bz2")).unwrap(),
+        "downloaded"
+    );
+    let names: Vec<_> = std::fs::read_dir(&d)
+        .unwrap()
+        .map(|e| e.unwrap().file_name().into_string().unwrap())
+        .collect();
+    assert_eq!(names, ["+50-002_water.osm.bz2"]);
+}
+
+#[test]
+fn a_cached_osm_layer_is_never_overwritten() {
+    let cache = tempfile::tempdir().unwrap();
+    let d = cache.path().join(OSM_TILE);
+    std::fs::create_dir_all(&d).unwrap();
+    std::fs::write(d.join("+50-002_airports.osm.bz2"), "cached").unwrap();
+    let c = cache.path().to_str().unwrap();
+    let Some(o) = run(
+        "ortho",
+        "+50-002",
+        &[
+            ("OXO_OSM_CACHE", c),
+            ("FAKE_O4_OSM_DOWNLOAD", "+50-002_airports.osm.bz2"),
+        ],
+    ) else {
+        return;
+    };
+    assert_eq!(o.code, Some(0), "{}", o.stdout);
+    assert_eq!(
+        std::fs::read_to_string(d.join("+50-002_airports.osm.bz2")).unwrap(),
+        "cached"
+    );
+}
+
+#[test]
+fn nothing_is_published_when_build_poly_file_fails() {
+    let cache = tempfile::tempdir().unwrap();
+    let c = cache.path().to_str().unwrap();
+    let Some(o) = run(
+        "ortho",
+        "+50-002",
+        &[
+            ("OXO_OSM_CACHE", c),
+            ("FAKE_O4_OSM_DOWNLOAD", "+50-002_water.osm.bz2"),
+            ("FAKE_O4_RETURN_ZERO", "build_poly_file"),
+        ],
+    ) else {
+        return;
+    };
+    assert_eq!(o.code, Some(1), "{}", o.stdout);
+    assert!(!cache.path().join(OSM_TILE).exists());
+}
+
+#[test]
+fn a_leftover_part_file_in_the_cache_is_not_seeded() {
+    let cache = tempfile::tempdir().unwrap();
+    let d = cache.path().join(OSM_TILE);
+    std::fs::create_dir_all(&d).unwrap();
+    std::fs::write(d.join(".+50-002_water.osm.bz2.x1y2.part"), "half").unwrap();
+    std::fs::write(d.join("+50-002_airports.osm.bz2"), "cached").unwrap();
+    let c = cache.path().to_str().unwrap();
+    let Some(o) = run("ortho", "+50-002", &[("OXO_OSM_CACHE", c)]) else {
+        return;
+    };
+    assert_eq!(o.code, Some(0), "{}", o.stdout);
+    assert!(
+        o.log.contains("osm-present +50-002_airports.osm.bz2\n"),
+        "{}",
+        o.log
+    );
+}

@@ -10,6 +10,7 @@ def round_latlon(lat, lon):
 
 
 Patch_dir = os.path.join(os.getcwd(), "Patches")
+OSM_dir = os.path.join(os.getcwd(), "OSM_data")
 
 
 def long_latlon(lat, lon):
@@ -18,3 +19,7 @@ def long_latlon(lat, lon):
 
 def patch_dir(lat, lon):
     return os.path.join(Patch_dir, long_latlon(lat, lon))
+
+
+def osm_dir(lat, lon):
+    return os.path.join(OSM_dir, long_latlon(lat, lon))

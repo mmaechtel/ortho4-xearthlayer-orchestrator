@@ -32,6 +32,10 @@ spec:
           value: "/var/oxo/o4-overlay"
         - name: OXO_O4_APP_OVERRIDES
           value: '{"max_download_slots":"2","max_convert_slots":"8","http_timeout":"10.0","max_connect_retries":"5","max_baddata_retries":"5","ovl_exclude_pol":"[0]","ovl_exclude_net":"[]"}'
+        # Shared OSM cache (#11): the runner seeds each tile's layers from it and
+        # publishes freshly downloaded ones, so Overpass is asked only on a miss.
+        - name: OXO_OSM_CACHE
+          value: "/var/oxo/osm-cache"
         # OXO_MIN_FREE_SCRATCH_BYTES stays at its 8 GiB default: a ZL16 floor,
         # matching our ZL16 production. Raise it if a package group goes above ZL16.
       resources:
@@ -56,6 +60,8 @@ spec:
         - name: o4-overlay
           mountPath: /var/oxo/o4-overlay
           readOnly: true
+        - name: osm-cache
+          mountPath: /var/oxo/osm-cache
         # Same path as on the host, so a spec's target.root is valid for the
         # worker and for ops/bin/oxo-package alike.
         - name: artifacts
@@ -86,6 +92,12 @@ spec:
     - name: o4-overlay
       hostPath:
         path: /home/maechtel/Work/Git/x-plane/ortho4-xearthlayer-orchestrator/ops/o4-overlay
+        type: Directory
+    # Shared by every worker, read-write. Seeded once from the legacy tree:
+    #   cp -a --reflink=always /mnt/xplane_data/docker/Ortho4XP/OSM_data /mnt/xplane_data/oxo/osm-cache
+    - name: osm-cache
+      hostPath:
+        path: /mnt/xplane_data/oxo/osm-cache
         type: Directory
     - name: artifacts
       hostPath:
