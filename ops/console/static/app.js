@@ -41,7 +41,8 @@ function sync(parent, nodes) {
   while (parent.children.length > nodes.length) parent.lastElementChild.remove();
 }
 
-/* ---------- model: one entry per task, the newest per (package, tile, type) is current ---------- */
+/* ---------- model: one entry per task, the newest per (package, tile, type) is current;
+   an older task still pending/claimed stays current too, because a worker will build it ---------- */
 function model(s) {
   const gen = ms(s.generated_at), installed = new Map(), byTask = new Map();
   for (const i of s.installs) for (const tile of i.tiles) { const k = i.package + "|" + tile; if (!installed.has(k)) installed.set(k, i.code); }
@@ -439,7 +440,10 @@ function toggleJob(id) {
 
 /* ---------- status bar: one sentence for the most urgent problem; clocks tick here ---------- */
 function tick() {
-  if (!last) return;
+  if (!last) { // nothing loaded yet: only a failure is worth saying
+    if (failing) { $("status").dataset.level = "off"; $("summary").textContent = "Console-Server nicht erreichbar"; }
+    return;
+  }
   const t = now(), m = cur, bar = $("status");
   $("clock").textContent = new Date(t).toLocaleTimeString("de-DE");
   $("ago").textContent = `aktualisiert vor ${ago((performance.now() - pollAt) / 1000)}`;

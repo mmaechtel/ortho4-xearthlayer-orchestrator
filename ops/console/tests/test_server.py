@@ -68,7 +68,8 @@ def fake_run(calls=None, db_fail=False, logs=LOGS, ps=PS_JSON):
         if argv[:2] == ["podman", "ps"]:
             return ps
         if argv[:2] == ["podman", "logs"]:
-            return logs
+            n = int(argv[argv.index("--tail") + 1]) if "--tail" in argv else None
+            return "".join(logs.splitlines(keepends=True)[-n:]) if n else logs
         raise AssertionError(f"unexpected command {argv}")
     return run
 
@@ -286,8 +287,17 @@ class Workers(Fixture):
         calls = []
         self.console(run=fake_run(calls)).state()
         logs = [(a, m) for a, m in calls if a[:2] == ["podman", "logs"]]
-        self.assertEqual(logs, [(["podman", "logs", "--timestamps", "--tail", "400",
+        self.assertEqual(logs, [(["podman", "logs", "--timestamps", "--tail", str(server.LOG_LINES),
                                   "oxo-worker-1-worker"], True)])
+
+    def test_current_survives_a_long_download_phase(self):
+        # a real ZL16 ortho task logs ~790 lines between claim and completion
+        downloads = "".join(f"2026-10-23T13:16:00.0+02:00 Downloading missing orthophoto {i}\n"
+                            for i in range(3000))
+        logs = LOGS + "2026-10-23T13:16:00.0+02:00 Step 3 : Building tile +48+011 : \n" + downloads
+        cur = self.worker(logs=logs)[0]["current"]
+        self.assertEqual(cur["task_id"], TASK_APT)
+        self.assertEqual(cur["step"], "Step 3 : Building tile +48+011")
 
     def test_podman_failure_gives_no_workers(self):
         def run(argv, merge=False):

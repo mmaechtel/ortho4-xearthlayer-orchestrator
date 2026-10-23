@@ -25,6 +25,7 @@ PACKAGES_DIR = pathlib.Path.home() / ".local/share/xearthlayer/packages"
 STATIC_DIR = HERE / "static"
 STATE_TTL, PACKAGES_TTL = 2.0, 60.0
 STATES = ("pending", "claimed", "succeeded", "abandoned")
+LOG_LINES = 20000  # must reach back to the claim line; one ZL16 ortho task logs ~790 lines
 
 PSQL = ["podman", "exec", "oxo-pg", "psql", "-U", "postgres", "-At", "--csv", "-c"]
 JOBS_WHERE = "SELECT id FROM jobs ORDER BY created_at DESC LIMIT 50"
@@ -168,7 +169,7 @@ class Console:
                  "started_at": iso_unix(c["StartedAt"]) if c.get("StartedAt") else None,
                  "current": None, "log_tail": []}
             try:
-                logs = self.run(["podman", "logs", "--timestamps", "--tail", "400", name], merge=True)
+                logs = self.run(["podman", "logs", "--timestamps", "--tail", str(LOG_LINES), name], merge=True)
             except RuntimeError:
                 logs = ""
             w["current"], w["log_tail"] = parse_logs(logs)

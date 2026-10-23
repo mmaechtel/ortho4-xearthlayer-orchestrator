@@ -14,7 +14,7 @@ list); `podman ps`/`podman logs` for the worker containers; the ledger under
 
 ```sh
 python3 ops/console/server.py            # then open http://127.0.0.1:8090/
-python3 ops/console/server.py --bind 0.0.0.0   # reachable from the LAN
+python3 ops/console/server.py --bind 0.0.0.0   # reachable from the LAN, unauthenticated: trusted networks only
 ```
 
 The page polls `GET /api/state` every 3 s (every 10 s while it fails) and
@@ -30,7 +30,8 @@ says so in one sentence and the last picture stays visible, greyed out.
   that fills over 30 min of one step, last log line) | DELIVERED | PACKAGED (by
   package priority, plus a list of all installed packages). Rejected tiles
   go to the AUSSCHUSS gutter (abandoned). One chip per task. Only the newest task per
-  package and tile is shown; older revisions stay in the job strip, dimmed.
+  package and tile is shown (plus any older one still pending or claimed, since a
+  worker will build it); older revisions stay in the job strip, dimmed.
   When a task changes state, its chip glides to the new column.
 - **Job strip**: one row per job with a state bar.
 - **Map** (Leaflet 1.9.4, OpenStreetMap tiles, dimmed in dark mode): every tile as a 1°×1° rectangle in
