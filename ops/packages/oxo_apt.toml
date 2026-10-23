@@ -829,3 +829,21 @@ cover_extent = "default: samsoir baseline (D4)"
 ratio_bathy = "default: samsoir baseline (D4)"
 ratio_water = "default: samsoir baseline (D4)"
 use_decal_on_terrain = "default: samsoir baseline (D4)"
+
+[[group]]
+id = "heca"     # HECA
+tiles = ["+30+031"]
+
+[group.legacy]
+road_level = "default: samsoir baseline (D4)"
+min_area = "default: samsoir baseline (D4)"
+clean_bad_geometries = "default: samsoir baseline (D4)"
+curvature_tol = "default: samsoir baseline (D4)"
+mask_zl = "default: samsoir baseline (D4)"
+masks_width = "default: samsoir baseline (D4)"
+masking_mode = "default: samsoir baseline (D4)"
+distance_masks_too = "default: samsoir baseline (D4)"
+cover_airports_with_highres = "default: samsoir baseline (D4)"
+ratio_bathy = "default: samsoir baseline (D4)"
+use_decal_on_terrain = "default: samsoir baseline (D4)"
+zoom = "default: samsoir baseline (D4)"
