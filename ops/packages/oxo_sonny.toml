@@ -1,0 +1,17 @@
+# Lower tier (plan D8): every other rebuilt tile. After the legacy A0_* airports (an
+# unpatched rebuild never shadows a patched airport), before legacy A5_* Sonny packages.
+#   ops/bin/oxo-compose ops/packages/oxo_sonny.toml --legacy
+#   ops/bin/oxo-compose ops/packages/oxo_sonny.toml --group <ID> --submit http://127.0.0.1:8080
+#   ops/bin/oxo-package ops/packages/oxo_sonny.toml --code A4_OXO
+
+[metadata]
+name = "oxo_sonny"         # -> zzXEL_oxo_sonny_ortho
+region_code = "OXO-SONNY"  # each group becomes OXO-SONNY-<ID>
+revision = 1
+
+[target]
+root = "/mnt/xplane_data/oxo/artifacts/oxo_sonny"
+
+[[group]]
+id = "pilot"
+tiles = ["+48+010", "+48+012"]

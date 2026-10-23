@@ -6,9 +6,11 @@ Usage: oxo-package <spec.toml> --code <CODE> [--dry-run] [--strict|--loose]
 
 Every zOrtho4XP_<tile>/ under the spec's [target] root counts as done (egress
 is atomic). All tiles are validated first; any rejection aborts before
-anything is copied. Then DSF, .ter and .png masks are merged into
-<packages-dir>/zzXEL_<metadata.name>_ortho/ and
-xearthlayer_scenery_package.txt is written. Ported from sync-xel-package.
+anything is copied. Then DSF, .ter and .png masks are copied into a fresh
+staging directory next to <packages-dir>/zzXEL_<metadata.name>_ortho/,
+xearthlayer_scenery_package.txt is written, and the staging directory replaces
+the package — so a rebuild leaves no stale files behind. Ported from
+sync-xel-package.
 
   --strict  (default) DSF > 10000 B, .ter references
             _BI<zl>.dds, at least one .png mask, no partial files, no newer
@@ -121,14 +123,7 @@ def validate_tile(d, tile, mode):
 
 
 def sync_file(src, dest_dir):
-    """Copy like `rsync -a`: skip when size and mtime already match."""
-    dest = dest_dir / src.name
-    s = src.stat()
-    if dest.exists():
-        t = dest.stat()
-        if t.st_size == s.st_size and int(t.st_mtime) == int(s.st_mtime):
-            return
-    shutil.copy2(src, dest)
+    shutil.copy2(src, dest_dir / src.name)
 
 
 def load_spec(path):
@@ -210,26 +205,34 @@ def run(args):
         log("dry-run: no package changes")
         return
 
+    stage = pkg.with_name(f".{pkg_name}.staging")
+    old = pkg.with_name(f".{pkg_name}.old")
+    for leftover in (stage, old):
+        shutil.rmtree(leftover, ignore_errors=True)
     for sub in ("Earth nav data", "terrain", "textures"):
-        (pkg / sub).mkdir(parents=True, exist_ok=True)
+        (stage / sub).mkdir(parents=True, exist_ok=True)
 
     total = len(good)
     for n, (tile, d, dsf) in enumerate(good, 1):
-        dest_nav = pkg / "Earth nav data" / block_of(tile)
+        dest_nav = stage / "Earth nav data" / block_of(tile)
         dest_nav.mkdir(exist_ok=True)
         sync_file(dsf, dest_nav)
         for ter in (d / "terrain").glob("*.ter"):
-            sync_file(ter, pkg / "terrain")
+            sync_file(ter, stage / "terrain")
         for png in (d / "textures").glob("*.png"):
-            sync_file(png, pkg / "textures")
+            sync_file(png, stage / "textures")
         if n % 50 == 0 or n == total:
-            log(f"  synced {n}/{total} (last: {tile})")
+            log(f"  staged {n}/{total} (last: {tile})")
 
     now = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-    (pkg / "xearthlayer_scenery_package.txt").write_text(
+    (stage / "xearthlayer_scenery_package.txt").write_text(
         f"REGIONAL SCENERY PACKAGE\n1.0.0\n{args.code}  99.99.99\n{now}\nZ\n"
         f"{pkg_name}\n{pkg_name}-99.99.99.tar.gz\n0\n")
-    log("metadata written: xearthlayer_scenery_package.txt")
+    if pkg.exists():
+        pkg.rename(old)
+    stage.rename(pkg)
+    shutil.rmtree(old, ignore_errors=True)
+    log("package replaced from staging, metadata written")
 
     counts = {sub: sum(1 for _ in (pkg / sub).rglob(pat)) for sub, pat in
               (("Earth nav data", "*.dsf"), ("terrain", "*.ter"), ("textures", "*.png"))}

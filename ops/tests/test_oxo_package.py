@@ -106,6 +106,18 @@ class Packaging(Base):
         self.assertEqual(self.run_main()[0], 0)
         self.assertTrue((self.pkg / "Earth nav data/+40+010/+48+010.dsf").is_file())
 
+    def test_rebuild_leaves_no_stale_files(self):
+        # a ZL16 rebuild must not leave the ZL17 terrain and masks of the build before
+        d = make_tile(self.root)
+        (d / "textures" / "old_ZL17.png").write_bytes(b"png")
+        self.assertEqual(self.run_main()[0], 0)
+        (d / "terrain" / "+48+010_BI17.ter").rename(d / "terrain" / "+48+010_BI16.ter")
+        (d / "textures" / "old_ZL17.png").unlink()
+        self.assertEqual(self.run_main()[0], 0)
+        self.assertEqual([p.name for p in (self.pkg / "terrain").iterdir()], ["+48+010_BI16.ter"])
+        self.assertEqual([p.name for p in (self.pkg / "textures").iterdir()], ["+48+010_mask.png"])
+        self.assertEqual(sorted(p.name for p in self.pkgs.iterdir()), ["zzXEL_oxo_pilot_ortho"])
+
     def test_no_tiles_fails(self):
         rc, _, err = self.run_main()
         self.assertNotEqual(rc, 0)

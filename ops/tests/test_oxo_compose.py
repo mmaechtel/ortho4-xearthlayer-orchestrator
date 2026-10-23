@@ -165,6 +165,133 @@ class Output(unittest.TestCase):
             self.assertEqual(sorted(p.name for p in paths), ["EU-PILOT-1.toml", "EU-PILOT-SAND.toml"])
 
 
+ADOPTED_APT = """[package]
+name = "eu_apt"
+dir = "/x"
+code = "A0_EU"
+version = "99.99.99"
+adopted = "2026-10-23T12:00:00Z"
+
+[tiles."+48+011"]
+observed = {creation_agent = "osxp", textures = {BI17 = 20, BI18 = 5}, mask_zl = [17], dsf_bytes = 1}
+cfg_status = "agrees"
+cfg_source = "/o/zOrtho4XP_+48+011/Ortho4XP_+48+011.cfg"
+[tiles."+48+011".cfg]
+default_website = "BI"
+default_zl = "17"
+masking_mode = "rocks"
+road_level = "3"
+custom_dem = "x"
+"""
+
+ADOPTED_SONNY = """[package]
+name = "eu_sonny"
+dir = "/y"
+code = "A5_EU"
+version = "99.99.99"
+adopted = "2026-10-23T12:00:00Z"
+
+[tiles."+48+011"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 9}, mask_zl = [16], dsf_bytes = 1}
+cfg_status = "none"
+
+[tiles."+48+010"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 3, BI18 = 1}, mask_zl = [16], dsf_bytes = 1}
+cfg_status = "rejected"
+"""
+
+ONE_GROUP = """
+[metadata]
+name = "oxo_apt"
+region_code = "OXO-APT"
+revision = 1
+[target]
+root = "/a"
+
+[[group]]
+id = "eddm"
+tiles = ["+48+011"]
+"""
+
+
+class Legacy(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.adopted = Path(self.tmp.name)
+        (self.adopted / "eu_apt.toml").write_text(ADOPTED_APT)
+        (self.adopted / "eu_sonny.toml").write_text(ADOPTED_SONNY)
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def legacy(self, package=ONE_GROUP):
+        pkg = tomllib.loads(package)
+        specs = compose(package)
+        return [oxo_compose.legacy(spec, g, self.adopted)
+                for spec, g in zip(specs, pkg["group"])]
+
+    def test_the_copy_in_use_is_the_highest_priority_adoption(self):
+        known = oxo_compose.known_legacy(self.adopted, "+48+011")
+        self.assertEqual(known["package"], "eu_apt")
+        self.assertEqual(known["status"], "agrees")
+
+    def test_known_values_map_cfg_keys_onto_spec_parameters(self):
+        known = oxo_compose.known_legacy(self.adopted, "+48+011")["values"]
+        self.assertEqual(known["zoom"], 17)
+        self.assertEqual(known["provider"], "BI")
+        self.assertEqual(known["masking_mode"], "rocks")
+
+    def test_without_cfg_only_the_observed_provider_and_base_zl_are_known(self):
+        known = oxo_compose.known_legacy(self.adopted, "+48+010")
+        self.assertEqual(known["values"], {"provider": "BI", "zoom": 16})
+
+    def test_differing_values_are_undecided_until_the_group_decides(self):
+        (diff,) = self.legacy()
+        undecided = diff["undecided"]
+        self.assertEqual(set(undecided), {"masking_mode"})  # provider, zoom 17 and road_level 3 agree with house
+        self.assertEqual(undecided["masking_mode"], {"legacy": {"rocks": ["+48+011"]}, "composed": "3steps"})
+        self.assertNotIn("custom_dem", undecided)  # not a spec parameter
+
+    def test_keep_needs_the_override_and_then_the_difference_is_gone(self):
+        pkg = ONE_GROUP + 'raw = { masking_mode = "rocks" }\n[group.legacy]\nmasking_mode = "keep: rocks look right"\n' \
+              'zoom = "default: ZL16 everywhere"\nroad_level = "default: samsoir"\n'
+        (diff,) = self.legacy(pkg)
+        self.assertEqual(diff["undecided"], {})
+        self.assertEqual(diff["decisions"]["masking_mode"], "keep: rocks look right")
+
+    def test_keep_without_the_override_is_refused(self):
+        pkg = ONE_GROUP + '[group.legacy]\nmasking_mode = "keep: rocks"\n'
+        with self.assertRaises(oxo_compose.ComposeError):
+            self.legacy(pkg)
+
+    def test_a_decision_must_say_keep_or_default(self):
+        pkg = ONE_GROUP + '[group.legacy]\nmasking_mode = "maybe"\n'
+        with self.assertRaises(oxo_compose.ComposeError):
+            self.legacy(pkg)
+
+    def test_the_legacy_table_is_not_a_parameter(self):
+        pkg = ONE_GROUP + '[group.legacy]\nzoom = "default: x"\n'
+        self.assertNotIn("legacy", compose(pkg)[0]["parameters"])
+        self.assertEqual(oxo_compose.origins(tomllib.loads(BASELINE), tomllib.loads(HOUSE), tomllib.loads(pkg)),
+                         [{"provider": "house", "zoom": "house", "include_overlays": "house", "road_level": "house"}])
+
+    def test_tiles_record_which_legacy_copy_they_replace(self):
+        (diff,) = self.legacy()
+        self.assertEqual(diff["tiles"], {"+48+011": "eu_apt (A0_EU) cfg agrees"})
+
+
+class GroupSelection(unittest.TestCase):
+    def test_select_keeps_only_the_named_group(self):
+        pkg = tomllib.loads(PACKAGE)
+        specs = compose()
+        picked = oxo_compose.select(specs, pkg["group"], "sand")
+        self.assertEqual([s["metadata"]["region_code"] for s, _ in picked], ["EU-PILOT-SAND"])
+
+    def test_unknown_group_is_refused(self):
+        with self.assertRaises(oxo_compose.ComposeError):
+            oxo_compose.select(compose(), tomllib.loads(PACKAGE)["group"], "nope")
+
+
 if __name__ == "__main__":
     unittest.main()
 

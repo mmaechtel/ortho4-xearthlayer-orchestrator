@@ -1,0 +1,17 @@
+# Top tier (plan D8): only tiles with build patches in ops/patches/ — the airports whose
+# scenery needs them. Outranks every legacy A0_* airport package.
+#   ops/bin/oxo-compose ops/packages/oxo_apt.toml --legacy
+#   ops/bin/oxo-compose ops/packages/oxo_apt.toml --group <ID> --submit http://127.0.0.1:8080
+#   ops/bin/oxo-package ops/packages/oxo_apt.toml --code A00_OXO
+
+[metadata]
+name = "oxo_apt"           # -> zzXEL_oxo_apt_ortho
+region_code = "OXO-APT"    # each group becomes OXO-APT-<ID>
+revision = 1
+
+[target]
+root = "/mnt/xplane_data/oxo/artifacts/oxo_apt"
+
+[[group]]
+id = "eddm"
+tiles = ["+48+011"]
