@@ -266,6 +266,16 @@ class Workers(Fixture):
         logs = LOGS + f"2026-10-23T13:30:00.0+02:00 INFO oxo_worker::run: completed task {TASK_APT}\n"
         self.assertIsNone(self.worker(logs=logs)[0]["current"])
 
+    def test_no_current_after_lease_lost(self):
+        logs = LOGS + (f"2026-10-23T13:30:00.0+02:00  WARN oxo_worker::run: lease lost for task {TASK_APT}; "
+                       f"killed runner, no report task={TASK_APT} why=gone\n")
+        self.assertIsNone(self.worker(logs=logs)[0]["current"])
+
+    def test_no_current_after_giving_up_on_report(self):
+        logs = LOGS + ("2026-10-23T13:30:00.0+02:00 ERROR oxo_worker::run: giving up on report; "
+                       f"the lease will expire task={TASK_APT} verb=\"complete\"\n")
+        self.assertIsNone(self.worker(logs=logs)[0]["current"])
+
     def test_current_without_step_yet(self):
         logs = "2026-10-23T13:10:12.000000000+02:00 INFO oxo_worker::run: claimed task x ortho +1+002 attempt 1\n"
         cur = self.worker(logs=logs)[0]["current"]

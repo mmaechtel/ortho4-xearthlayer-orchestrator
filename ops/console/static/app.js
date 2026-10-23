@@ -45,7 +45,8 @@ function sync(parent, nodes) {
    an older task still pending/claimed stays current too, because a worker will build it ---------- */
 function model(s) {
   const gen = ms(s.generated_at), installed = new Map(), byTask = new Map();
-  for (const i of s.installs) for (const tile of i.tiles) { const k = i.package + "|" + tile; if (!installed.has(k)) installed.set(k, i.code); }
+  // package|tile -> installs, newest first; a task counts as packaged only by an install after its job
+  for (const i of s.installs) for (const tile of i.tiles) { const k = i.package + "|" + tile; (installed.get(k) || installed.set(k, []).get(k)).push(i); }
   for (const w of s.workers) if (w.current) byTask.set(w.current.task_id, w);
   const jobs = [...s.jobs].sort((a, b) => ms(b.created_at) - ms(a.created_at));
   const seen = new Set(), tasks = new Map(), tiles = new Map();
@@ -53,7 +54,7 @@ function model(s) {
     const k = job.package + "|" + t.tile + "|" + t.task_type, live = t.state === "pending" || t.state === "claimed";
     const current = live || !seen.has(k);
     seen.add(k);
-    const code = t.state === "succeeded" ? installed.get(pkgName(job) + "|" + t.tile) : undefined;
+    const code = t.state === "succeeded" ? (installed.get(pkgName(job) + "|" + t.tile) || []).find(i => ms(i.at) >= ms(job.created_at))?.code : undefined;
     const hb = ms(t.last_heartbeat_at);
     const x = { t, job, s: code ? "packaged" : t.state, code, current, w: byTask.get(t.id),
       stale: t.state === "claimed" && !(gen - hb <= STALE_MS) };

@@ -43,7 +43,9 @@ TASKS_SQL = (f"SELECT id, job_id, tile, task_type, state, attempts, claimed_by, 
 
 ANSI = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")
 CLAIMED = re.compile(r"oxo_worker::run: claimed task (\S+) (\S+) (\S+) attempt (\d+)")
-FINISHED = re.compile(r"oxo_worker::run: (?:completed|failed) task ([^\s:]+)")
+# every end of a claim the worker logs; a LeaseGone on report is silent (accepted limit)
+FINISHED = re.compile(r"oxo_worker::run: (?:(?:completed|failed) task ([^\s:]+)"
+                      r"|lease lost for task ([^\s;]+)|giving up on report\b.*?\btask=(\S+))")
 
 
 def run(argv, merge=False):
@@ -206,7 +208,7 @@ def parse_logs(text):
         if m := CLAIMED.search(line):
             current = {"task_id": m[1], "task_type": m[2], "tile": m[3], "attempt": int(m[4]),
                        "since": at, "step": None, "step_since": None}
-        elif (m := FINISHED.search(line)) and current and m[1] == current["task_id"]:
+        elif (m := FINISHED.search(line)) and current and (m[1] or m[2] or m[3]) == current["task_id"]:
             current = None
         elif current and line.startswith("Step "):
             current["step"], current["step_since"] = line.rstrip(" :"), at
