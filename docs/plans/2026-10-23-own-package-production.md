@@ -66,8 +66,9 @@ The `ops/` directory is fork-only operator material; upstream code paths
 | D3 | **Sonny DEMs in an OXO-owned directory in native layout.** `/mnt/xplane_data/oxo/dem/<block>/N..E...hgt` as real files, created once by a reflink copy (`cp --reflink=always`, btrfs: no extra space, independent of the legacy files). Mounted read-only as the pod's dem-cache. Stock `View` source, no `custom_dem`, no symlink tricks, no extra volume. | Deleting the legacy install later cannot break OXO. Read-only means a tile without coverage fails loudly instead of silently building on downloaded data, and no concurrent writes means no download race. |
 | D4 | **Settings in three layers, samsoir first** (revised 2026-10-23): baseline = upstream `docs/examples/example-region.toml` (samsoir's production tuning, read in place so his changes arrive with each merge); `ops/profiles/house.toml` holds only deliberate deviations (BI, `include_overlays = false`, `cover_extent` 1 km); `ops/packages/<name>.toml` holds metadata, target and tile groups with per-group overrides (e.g. `masking_mode`). `ops/bin/oxo-compose` merges them into one spec per group (OXO takes one parameter set per spec); groups share `name` and `target.root`, region codes get a group suffix. ZL16 everywhere, airports ZL18 — the legacy house values (ZL17, rocks, …) are not carried over. | Streaming performance: samsoir's settings are tuned for XEL. Deviations stay few, visible and reasoned; upstream tuning changes flow in without copying. |
 | D5 | **Packaging script in this repo: `ops/bin/oxo-package`** (Python, with tests). Reads the spec (name, `target.root`), refuses while `xearthlayer run` serves (PID in `~/.local/state/xearthlayer/xearthlayer.lock` alive — the same check XEL's installer makes), validates every tile with the legacy `--strict` rules minus the cfg check, since egress withholds the cfg (DSF ≥ 10 KB, `.ter` → `_BI<zl>.dds`, which also enforces BI, mask PNG, no partials), and checks `--code` against `^[A-Za-z0-9][A-Za-z0-9_-]*$` before anything else, copies DSF / `.ter` / mask PNGs (all top-level, as the legacy sync does) into `zzXEL_<package>_ortho/`, writes `xearthlayer_scenery_package.txt` with the given code. Every `zOrtho4XP_*` present counts as done (egress is atomic). | Standalone; the rules are ported, not reinvented. `sync-xel-package` stays in `xearthlayer-config` for the frozen legacy builds only, so the two never need to agree. |
-| D6 | **Old packages stay exactly as they are.** New OXO packages get their own `zzXEL_<package>_ortho` and code. An old region is replaced only deliberately, later, by giving the OXO package the same code and removing the old directory after a check. | Per-file priority makes accidental shadowing the main risk. |
+| D6 | **Old packages stay byte-for-byte as they are** (revised 2026-10-23, see D8): nothing is written into an existing `zzXEL_*` directory; rebuilt tiles shadow old ones from the OXO package instead. | Per-file priority makes accidental shadowing the main risk; an untouched legacy package is its own rollback. |
 | D7 | **Operations without new Rust code:** Podman installed on the host (Debian package); PostgreSQL as a Podman container on the named volume `oxo-pg`; `oxo-controld --bind 0.0.0.0:8080`; worker `OXO_CONTROL_URL = http://host.containers.internal:8080`; artifacts mounted at the same path as on the host so `target.root` is valid for worker and `oxo-package`; one `region_code` per package (jobs are keyed by `region_code` + `revision`; a resubmit returns the existing job if planned tasks, `max_attempts`/`backoff_seconds` and the worker payload (`oxo-control/src/planner.rs` `WorkerPayload`) match, else 409; `metadata.name` and alert destinations are not compared); `OXO_MIN_FREE_SCRATCH_BYTES` at its 8 GiB ZL16 default; no `overpass_server_choice` override (D1). Jobs submitted with `curl`; the console (sub-project 5) is not a prerequisite. All of it written down in `ops/README.md` and `ops/worker-pod.yaml` (real paths, no `EDIT ME`). | Everything needed exists; `make pg-up` is disposable. |
+| D8 | **Adopt, don't switch tools** (2026-10-23). The operator's 10 own packages (version `99.99.99`, codes `A0_*`/`A5_*`; the 17 `0.5.0` packages are samsoir's and are not adopted) are recorded once as an as-is baseline in `ops/adopted/<package>.toml`. Every value carries its origin: *observed* from the installed files (provider and ZL per tile from the DSF-referenced `.ter` names, mask ZL from the PNG names, `sim/creation_agent`), *cfg* from a legacy `Ortho4XP_<tile>.cfg` only where it agrees with the observed ZLs, else *unknown*. Any later work on such a tile happens in OXO: rebuilt tiles go into **one** package `zzXEL_oxo_ortho` with code `A00_OXO`, which XEL sorts before every `A0_*` (lower-cased byte order, `0` < `_`; `xearthlayer/src/ortho_union/source.rs:164`, `builder.rs:302`), so a rebuilt tile wins over its legacy copy, airports included. On rebuild, `oxo-compose` shows each *known* legacy value that differs from samsoir + house and asks once: keep or default; the answer is persisted as a group override with a reason in the package file. Unknown values follow samsoir without asking, and the ledger says so. | Legacy config is mostly unrecoverable (inventory 2026-10-23: `eu_sonny` 167 of 2036 tiles have a cfg by name, and the one checked, `+48+012`, describes an older 36 MB ZL17 build, not the installed 63 MB ZL16/17/18 one), so only observed facts are trustworthy. One extra package instead of one per region: XEL probes `terrain/`/`textures/` lazily across all packages in priority order (`ortho_union/index.rs:297`), so every package adds a lookup. |
 
 ## Rejected alternatives
 
@@ -83,7 +84,7 @@ The `ops/` directory is fork-only operator material; upstream code paths
 
 XEarthLayer's night-lighting design (`xearthlayer/docs/dev/night-lighting-design.md`, branch `develop/0.5.0`) states that OXO writes a `TEXTURE_LIT … _LIT.dds` / `LUMINANCE 150` line into every land `.ter` and one recipe `<tile>.oxn` per tile; XEL renders the lit texture at run time from the user's own X-Plane art. That OXO side is not on upstream `main` yet (9a1684c). When it lands it reaches this fork through `main` → `ops`; then `oxo-package` must carry the `.oxn` recipes into the package's `night/` directory, and night packages need XEL ≥ 0.5.0. Tracked as its own issue.
 
-- Rebuilding existing packages with OXO (only on demand, region by region, per D6).
+- Bulk rebuilds of adopted packages; tiles are rebuilt on demand (D8). Rewriting or deleting legacy package directories.
 - `xearthlayer-publish` and any public release.
 - Overlays in own packages.
 - XEL runtime patches and the rest of `xearthlayer-config`.
@@ -115,6 +116,19 @@ Plain files in git, not a database (small volume; git gives history and ties eac
 4. Compare with the legacy tiles: DSF size/triangles, `.ter` names, masks, Sonny terrain visibly used; fly over in the sim.
 5. Remove the pilot package. Exit: every step from `ops/README.md`, nothing read from the legacy install, `oxo-whence +48+011` answers completely.
 
+### M2b — Adopt existing own packages (D8)
+
+1. `ops/bin/oxo-adopt <zzXEL dir>` (tests first): one `ops/adopted/<package>.toml` per own package, values with origin observed / cfg / unknown; cfg sources `/mnt/xplane_data/Orthos/Ortho4XP/src/**/zOrtho4XP_<tile>/` and OrthoStudio `tile_settings.cfg` + `orthostudio.toml`, values normalised and embedded (the legacy trees stay disposable).
+2. Adopt the 10 own packages, commit.
+3. `oxo-whence` shows the adoption entry as the oldest state of a tile.
+
+### M2c — Rebuild single tiles into `zzXEL_oxo_ortho` (D8)
+
+1. `ops/packages/oxo.toml`: `name = "oxo"`, one group per rebuild batch; `oxo-compose --group ID` submits only that batch.
+2. Keep-or-default step in `oxo-compose`: per known differing legacy value ask once, persist as group override with reason; `--submit` refuses while undecided.
+3. `oxo-package ops/packages/oxo.toml --code A00_OXO` stages the package fresh from `target.root` and swaps it in, so no stale files survive a rebuild.
+4. First run: the M2 pilot tiles, after the comparison.
+
 ### M3 — First real package
 
 1. Choose a region not yet built (no overlap with any own package); check its 1″/3″ DEM coverage in `oxo/dem`.
@@ -138,5 +152,6 @@ Plain files in git, not a database (small volume; git gives history and ties eac
 
 ## Open decisions
 
-- Priority code for the pilot (`A4_PILOT` proposed) and naming of the first OXO region package.
+- Priority code for the pilot (`A4_PILOT` proposed). Whether new regions (M3) also go into `zzXEL_oxo_ortho` instead of their own `A5_<REG>` package — fewer packages, see D8.
+- Rebuilt tiles at ZL16 next to legacy ZL17 neighbours: seams at tile borders accepted?
 - Which region is the first real package (M3).
