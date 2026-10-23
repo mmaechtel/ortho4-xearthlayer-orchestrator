@@ -1,0 +1,94 @@
+[provenance]
+submitted = "2026-10-23T14:51:01Z"
+job_id = "a8e2aad0-6e76-4c6a-bfc2-56f70212cd9d"
+ops_commit = "93efb7748da8caaff1418d0273db9e79c86edbf6"
+ortho4xp_commit = "c363134799e8130e1e897ff9064bc53d058f5ba9"
+image_id = "058dc630728d0855d5d3c7b8bcdfcdaf31c90ec8a5f829398a2cd96664e3b19b"
+patches_tree = "f1214aeb8d3935ff758ba6d8d6821ab00414e79a"
+
+[provenance.overrides]
+provider = "house"
+include_overlays = "house"
+cover_extent = "house"
+
+[provenance.legacy]
+road_level = "default: samsoir baseline (D4)"
+lane_width = "default: samsoir baseline (D4)"
+max_levelled_segs = "default: samsoir baseline (D4)"
+clean_bad_geometries = "default: samsoir baseline (D4)"
+mesh_zl = "default: samsoir baseline (D4)"
+masks_width = "default: samsoir baseline (D4)"
+masking_mode = "default: samsoir baseline (D4)"
+distance_masks_too = "default: samsoir baseline (D4)"
+cover_extent = "default: samsoir baseline (D4)"
+ratio_bathy = "default: samsoir baseline (D4)"
+ratio_water = "default: samsoir baseline (D4)"
+use_decal_on_terrain = "default: samsoir baseline (D4)"
+
+[tiles]
+
+[tiles."+64-052"]
+dem = "1s"
+patches = ["BGGH.patch.osm"]
+replaces = "eu_apt (A0_EU) cfg agrees"
+
+[spec]
+tiles = ["+64-052"]
+
+[spec.parameters]
+provider = "BI"
+zoom = 16
+include_overlays = false
+
+[spec.parameters.raw]
+apt_smoothing_pix = "8"
+road_level = "1"
+road_banking_limit = "0.5"
+lane_width = "4.0"
+max_levelled_segs = "200000"
+water_simplification = "0.0"
+min_area = "0.001"
+max_area = "200.0"
+clean_bad_geometries = "False"
+mesh_zl = "19"
+curvature_tol = "2.0"
+apt_curv_tol = "0.5"
+apt_curv_ext = "0.5"
+coast_curv_tol = "1.0"
+coast_curv_ext = "0.5"
+limit_tris = "3.0"
+min_angle = "10.0"
+sea_smoothing_mode = "zero"
+water_smoothing = "10"
+iterate = "0"
+mask_zl = "16"
+masks_width = "[10,20,30]"
+masking_mode = "3steps"
+use_masks_for_inland = "True"
+imprint_masks_to_dds = "False"
+distance_masks_too = "False"
+masks_use_DEM_too = "False"
+cover_airports_with_highres = "ICAO"
+cover_extent = "1.0"
+cover_zl = "18"
+sea_texture_blur = "0.0"
+water_tech = "XP12"
+ratio_water = "0.25"
+ratio_bathy = "0.25"
+normal_map_strength = "1.0"
+terrain_casts_shadows = "True"
+overlay_lod = "25000.0"
+use_decal_on_terrain = "False"
+fill_nodata = "True"
+
+[spec.failure_policy]
+max_attempts = 3
+backoff_seconds = 60
+
+[spec.metadata]
+name = "oxo_apt"
+region_code = "OXO-APT-BGGH"
+revision = 1
+
+[spec.target]
+root = "/mnt/xplane_data/oxo/artifacts/oxo_apt"
