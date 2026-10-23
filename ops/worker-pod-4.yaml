@@ -30,8 +30,11 @@ spec:
           value: "/var/oxo/content/X-Plane 12 Global Scenery"
         - name: OXO_O4_CONFIG_OVERLAY
           value: "/var/oxo/o4-overlay"
+        # skip_downloads (fork, #15): XEL streams the imagery, so Bing jpegs were
+        # downloaded only to be wiped with scratch. LSZH built with it: DSF/ter/png
+        # byte-identical to the build with download, 2:36 min instead of 8+.
         - name: OXO_O4_APP_OVERRIDES
-          value: '{"max_download_slots":"2","max_convert_slots":"8","http_timeout":"10.0","max_connect_retries":"5","max_baddata_retries":"5","ovl_exclude_pol":"[0]","ovl_exclude_net":"[]"}'
+          value: '{"skip_downloads":"True","max_download_slots":"2","max_convert_slots":"8","http_timeout":"10.0","max_connect_retries":"5","max_baddata_retries":"5","ovl_exclude_pol":"[0]","ovl_exclude_net":"[]"}'
         # Shared OSM cache (#11): the runner seeds each tile's layers from it and
         # publishes freshly downloaded ones, so Overpass is asked only on a miss.
         - name: OXO_OSM_CACHE
