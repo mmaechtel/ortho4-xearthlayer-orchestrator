@@ -46,6 +46,7 @@ class Base(unittest.TestCase):
         self.root.mkdir()
         self.pkgs = self.tmp / "packages"
         self.lock = self.tmp / "xearthlayer.lock"
+        self.ledger = self.tmp / "ledger"
         self.spec = self.tmp / "spec.toml"
         self.write_spec("oxo_pilot")
 
@@ -62,7 +63,7 @@ class Base(unittest.TestCase):
     def run_main(self, *args):
         out, err = io.StringIO(), io.StringIO()
         argv = [str(self.spec), "--code", "A4_PILOT", "--packages-dir", str(self.pkgs),
-                "--lock-file", str(self.lock), *args]
+                "--lock-file", str(self.lock), "--ledger-dir", str(self.ledger), *args]
         with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
             try:
                 rc = oxo_package.main(argv)
@@ -263,6 +264,27 @@ class Spec(Base):
         rc, _, err = self.run_main()
         self.assertNotEqual(rc, 0)
         self.assertIn("not found", err)
+
+
+
+class InstallsLog(Base):
+    def test_each_install_appends_one_line(self):
+        make_tile(self.root, "+48+010")
+        make_tile(self.root, "+48+011")
+        self.assertEqual(self.run_main()[0], 0)
+        self.assertEqual(self.run_main()[0], 0)
+        lines = (self.ledger / "oxo_pilot" / "installs.log").read_text().splitlines()
+        self.assertEqual(len(lines), 2)
+        when, code, pkg, tiles = lines[0].split("\t")
+        self.assertRegex(when, r"^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ$")
+        self.assertEqual((code, pkg, tiles), ("A4_PILOT", "zzXEL_oxo_pilot_ortho", "+48+010,+48+011"))
+
+    def test_dry_run_and_rejection_log_nothing(self):
+        make_tile(self.root, "+48+010")
+        self.run_main("--dry-run")
+        make_tile(self.root, "+48+011", png=False)
+        self.run_main()
+        self.assertFalse((self.ledger / "oxo_pilot" / "installs.log").exists())
 
 
 if __name__ == "__main__":

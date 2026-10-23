@@ -15,19 +15,33 @@ OXO takes one parameter set per spec, so each group becomes its own spec/job. It
 region_code is <code>-<ID> (group `id`, else its 1-based position); a single group keeps
 <code>. All groups share metadata.name and target.root, so ops/bin/oxo-package works on
 the package file directly. Without --out or --submit the specs are printed.
+
+--submit also keeps the books (ops/ledger/<name>/<region_code>-r<rev>.toml: the exact spec,
+job id, commits, per-parameter origin of every deviation from samsoir, DEM and patches
+per tile) and therefore refuses while ops/ or docs/examples/ has uncommitted changes.
+Query with ops/bin/oxo-whence <tile>.
 """
 import argparse
 import copy
+import datetime
 import json
+import re
+import subprocess
 import sys
 import tomllib
 import urllib.error
 import urllib.request
+from dataclasses import dataclass
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
 BASELINE = REPO / "docs/examples/example-region.toml"
 HOUSE = REPO / "ops/profiles/house.toml"
+LEDGER = REPO / "ops/ledger"
+DEM = Path("/mnt/xplane_data/oxo/dem")
+PATCHES = REPO / "ops/patches"
+IMAGE = "localhost/oxo-worker:dev"
+BARE_KEY = re.compile(r"^[A-Za-z0-9_-]+$")
 PACKAGE_ONLY = ("tiles", "metadata", "target")  # never taken from baseline or house
 
 
@@ -72,6 +86,107 @@ def compose(baseline, house, package):
     return specs
 
 
+def _params(layer):
+    """Flatten a [parameters] table: curated keys and raw keys side by side."""
+    p = dict(layer)
+    raw = p.pop("raw", {})
+    return {**p, **raw}
+
+
+def origins(baseline, house, package):
+    """Per group: {key: layer} for every parameter whose final value differs from the baseline."""
+    base = _params(baseline.get("parameters", {}))
+    layers = [("house", _params(house.get("parameters", {}))),
+              ("package", _params(package.get("parameters", {})))]
+    out = []
+    for i, g in enumerate(package.get("group") or [], 1):
+        group = {k: v for k, v in g.items() if k not in ("tiles", "id", "raw")}
+        group.update(g.get("raw", {}))
+        named = layers + [(f"group {g.get('id', i)}", group)]
+        final, src = dict(base), {}
+        for name, values in named:
+            for k, v in values.items():
+                final[k], src[k] = v, name
+        out.append({k: src[k] for k in src if final[k] != base.get(k)})
+    return out
+
+
+@dataclass
+class Env:
+    now: str
+    ops_commit: str
+    ortho4xp_commit: str
+    patches_tree: str
+    dem_dir: Path
+    patches_dir: Path
+    ledger_dir: Path
+
+
+def _block_and_hgt(tile):
+    lat, lon = int(tile[:3]), int(tile[3:])
+    block = f"{lat // 10 * 10:+03d}{lon // 10 * 10:+04d}"
+    hgt = f"{'N' if lat >= 0 else 'S'}{abs(lat):02d}{'E' if lon >= 0 else 'W'}{abs(lon):03d}.hgt"
+    return block, hgt
+
+
+def _dem(env, tile):
+    block, hgt = _block_and_hgt(tile)
+    f = env.dem_dir / block / hgt
+    if not f.is_file():
+        return "missing"
+    size = f.stat().st_size
+    return "1s" if size > 20e6 else "3s" if size > 2e6 else "other"
+
+
+def _patches(env, tile):
+    block, _ = _block_and_hgt(tile)
+    d = env.patches_dir / block / tile
+    return sorted(p.name for p in d.iterdir() if p.is_file()) if d.is_dir() else []
+
+
+def record(spec, overrides, job_id, created, env):
+    """Write the ledger entry for one submitted spec; an existing job keeps its record."""
+    m = spec["metadata"]
+    path = env.ledger_dir / m["name"] / f"{m['region_code']}-r{m['revision']}.toml"
+    if path.exists() and not created:
+        print(f"{m['region_code']}: job already existed, record kept: {path}")
+        return path
+    rec = {
+        "provenance": {"submitted": env.now, "job_id": job_id, "ops_commit": env.ops_commit,
+                       "ortho4xp_commit": env.ortho4xp_commit, "patches_tree": env.patches_tree,
+                       "overrides": overrides},
+        "tiles": {t: {"dem": _dem(env, t), "patches": _patches(env, t)} for t in spec["tiles"]},
+        "spec": spec,
+    }
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(to_toml(rec))
+    return path
+
+
+def _git(*args):
+    return subprocess.run(["git", "-C", str(REPO), *args], check=True, capture_output=True, text=True).stdout.strip()
+
+
+def gather_env():
+    dirty = _git("status", "--porcelain", "--", "ops", "docs/examples", ":!ops/ledger")
+    if dirty:
+        raise ComposeError("uncommitted changes, commit first so the ledger names a real commit:\n" + dirty)
+    try:
+        label = subprocess.run(["podman", "image", "inspect", IMAGE, "--format",
+                                '{{index .Labels "oxo.ortho4xp-commit"}}'],
+                               check=True, capture_output=True, text=True).stdout.strip()
+    except (OSError, subprocess.CalledProcessError):
+        raise ComposeError(f"cannot read the Ortho4XP commit from image {IMAGE} (make image)")
+    now = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    return Env(now=now, ops_commit=_git("rev-parse", "HEAD"), ortho4xp_commit=label,
+               patches_tree=_git("rev-parse", "HEAD:ops/patches"),
+               dem_dir=DEM, patches_dir=PATCHES, ledger_dir=LEDGER)
+
+
+def _key(k):
+    return k if BARE_KEY.match(k) else json.dumps(k)
+
+
 def _value(v):
     if isinstance(v, bool):
         return "true" if v else "false"
@@ -81,14 +196,16 @@ def _value(v):
         return json.dumps(v, ensure_ascii=False)
     if isinstance(v, list):
         return "[" + ", ".join(_value(x) for x in v) + "]"
+    if isinstance(v, dict):
+        return "{" + ", ".join(f"{_key(k)} = {_value(x)}" for k, x in v.items()) + "}"
     raise ComposeError(f"cannot write {type(v).__name__} as TOML")
 
 
 def to_toml(d, prefix=""):
-    lines = [f"{k} = {_value(v)}" for k, v in d.items() if not isinstance(v, dict)]
+    lines = [f"{_key(k)} = {_value(v)}" for k, v in d.items() if not isinstance(v, dict)]
     for k, v in d.items():
         if isinstance(v, dict):
-            lines += ["", f"[{prefix}{k}]", to_toml(v, f"{prefix}{k}.")]
+            lines += ["", f"[{prefix}{_key(k)}]", to_toml(v, f"{prefix}{_key(k)}.")]
     return "\n".join(lines).strip("\n") + "\n" if not prefix else "\n".join(lines)
 
 
@@ -102,14 +219,18 @@ def write(specs, out):
     return paths
 
 
-def submit(specs, url):
-    for s in specs:
+def submit(specs, overrides, url, env):
+    for s, o in zip(specs, overrides):
         req = urllib.request.Request(url.rstrip("/") + "/api/v1/jobs", data=to_toml(s).encode(), method="POST")
         try:
             with urllib.request.urlopen(req) as r:
-                print(s["metadata"]["region_code"], r.status, r.read().decode())
+                body = json.loads(r.read().decode())
         except urllib.error.HTTPError as e:
             raise ComposeError(f"{s['metadata']['region_code']}: HTTP {e.code} {e.read().decode()}")
+        path = record(s, o, body["job_id"], body["created"], env)
+        print(f"{s['metadata']['region_code']}: job {body['job_id']} "
+              f"({'created' if body['created'] else 'existing'}, {body['total_tasks']} tasks) -> {path}")
+    print("commit ops/ledger/ now: git add ops/ledger && git commit")
 
 
 def load(path):
@@ -124,15 +245,16 @@ def main():
     p.add_argument("--submit", metavar="URL", help="POST each spec to oxo-controld, e.g. http://127.0.0.1:8080")
     a = p.parse_args()
     try:
-        specs = compose(load(BASELINE), load(HOUSE), load(a.package))
+        layers = load(BASELINE), load(HOUSE), load(a.package)
+        specs = compose(*layers)
         if a.out:
             for path in write(specs, a.out):
                 print(path)
         if a.submit:
-            submit(specs, a.submit)
+            submit(specs, origins(*layers), a.submit, gather_env())
         if not (a.out or a.submit):
             print("\n# ---\n".join(to_toml(s) for s in specs), end="")
-    except (OSError, tomllib.TOMLDecodeError, ComposeError, KeyError) as e:
+    except (OSError, tomllib.TOMLDecodeError, ComposeError, KeyError, subprocess.CalledProcessError) as e:
         sys.exit(f"oxo-compose: {e}")
 
 

@@ -103,13 +103,17 @@ DEM lookup identical in the image's Ortho4XP; patch copies identical; Sonny
 3. `ops/bin/oxo-package` per D5, tests first.
 4. `ops/worker-pod.yaml` with real hostPaths (patches, dem ro, artifacts, empty content), `ops/profiles/house.toml` + `ops/bin/oxo-compose` (D4), `ops/README.md` runbook (PostgreSQL on `oxo-pg`, controld, image, pod, submit, package).
 
+### M1b — Provenance ledger (issue #7)
+
+Plain files in git, not a database (small volume; git gives history and ties each record to its commit; a SQLite index could be derived later). `oxo-compose --submit` refuses with uncommitted changes in `ops/` and writes `ops/ledger/<package>/<region_code>-r<rev>.toml` (exact spec, job id, `ops` and Ortho4XP commits, patches tree, origin layer of every deviation from samsoir, DEM and patches per tile); `oxo-package` appends `installs.log`; `ops/bin/oxo-whence <tile>` answers how a tile was built.
+
 ### M2 — Pilot (compare against legacy)
 
 1. `ops/packages/oxo_pilot.toml`: `+48+010`, `+48+011`, `+48+012`, samsoir baseline + house, `target.root = /mnt/xplane_data/oxo/artifacts/oxo_pilot`.
 2. One worker pod; job reaches `complete`. This also proves the read-only dem mount.
 3. `oxo-package ops/packages/oxo_pilot.toml --code A4_PILOT` (outranks `A5_EU` per file).
 4. Compare with the legacy tiles: DSF size/triangles, `.ter` names, masks, Sonny terrain visibly used; fly over in the sim.
-5. Remove the pilot package. Exit: every step from `ops/README.md`, nothing read from the legacy install.
+5. Remove the pilot package. Exit: every step from `ops/README.md`, nothing read from the legacy install, `oxo-whence +48+011` answers completely.
 
 ### M3 — First real package
 

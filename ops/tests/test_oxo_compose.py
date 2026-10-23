@@ -131,3 +131,79 @@ class Output(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class Origins(unittest.TestCase):
+    def test_only_values_differing_from_baseline_are_attributed_to_their_layer(self):
+        first, second = oxo_compose.origins(
+            tomllib.loads(BASELINE), tomllib.loads(HOUSE), tomllib.loads(PACKAGE))
+        self.assertEqual(first, {"provider": "house", "zoom": "house",
+                                 "include_overlays": "house", "road_level": "house"})
+        self.assertEqual(second["zoom"], "group sand")
+        self.assertEqual(second["masking_mode"], "group sand")
+        self.assertEqual(second["masks_width"], "group sand")
+
+    def test_a_value_reset_to_the_baseline_is_not_a_deviation(self):
+        pkg = PACKAGE.replace("zoom = 18", "zoom = 16")
+        _, second = oxo_compose.origins(tomllib.loads(BASELINE), tomllib.loads(HOUSE), tomllib.loads(pkg))
+        self.assertNotIn("zoom", second)
+
+    def test_package_level_parameters_are_attributed_to_the_package(self):
+        pkg = PACKAGE.replace("[[group]]", "[parameters.raw]\nmin_area = \"0.01\"\n\n[[group]]", 1)
+        first, _ = oxo_compose.origins(tomllib.loads(BASELINE), tomllib.loads(HOUSE), tomllib.loads(pkg))
+        self.assertEqual(first["min_area"], "package")
+
+
+class Ledger(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        root = Path(self.tmp.name)
+        self.dem, self.patches, self.ledger = root / "dem", root / "patches", root / "ledger"
+        (self.dem / "+40+010").mkdir(parents=True)
+        with open(self.dem / "+40+010" / "N48E010.hgt", "wb") as f:
+            f.truncate(25_934_402)
+        with open(self.dem / "+40+010" / "N48E011.hgt", "wb") as f:
+            f.truncate(2_884_802)
+        (self.patches / "+40+010" / "+48+011").mkdir(parents=True)
+        (self.patches / "+40+010" / "+48+011" / "EDDM.patch.osm").write_text("x")
+        self.env = oxo_compose.Env(
+            now="2026-10-24T10:00:00Z", ops_commit="0ccb5b2", ortho4xp_commit="c363134",
+            patches_tree="3a9e", dem_dir=self.dem, patches_dir=self.patches, ledger_dir=self.ledger)
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def record(self, created=True):
+        spec = compose()[0]
+        return spec, oxo_compose.record(spec, {"provider": "house"}, "job-1", created, self.env)
+
+    def test_record_holds_spec_and_provenance(self):
+        spec, path = self.record()
+        self.assertEqual(path, self.ledger / "eu_pilot" / "EU-PILOT-1-r2.toml")
+        rec = tomllib.loads(path.read_text())
+        self.assertEqual(rec["spec"], spec)
+        p = rec["provenance"]
+        self.assertEqual((p["job_id"], p["submitted"], p["ops_commit"], p["ortho4xp_commit"], p["patches_tree"]),
+                         ("job-1", "2026-10-24T10:00:00Z", "0ccb5b2", "c363134", "3a9e"))
+        self.assertEqual(p["overrides"], {"provider": "house"})
+
+    def test_record_classifies_dem_and_lists_patches_per_tile(self):
+        _, path = self.record()
+        tiles = tomllib.loads(path.read_text())["tiles"]
+        self.assertEqual(tiles["+48+010"], {"dem": "1s", "patches": []})
+        self.assertEqual(tiles["+48+011"], {"dem": "3s", "patches": ["EDDM.patch.osm"]})
+
+    def test_missing_dem_is_recorded_as_missing(self):
+        spec = compose()[1]
+        path = oxo_compose.record(spec, {}, "job-2", True, self.env)
+        self.assertEqual(tomllib.loads(path.read_text())["tiles"]["+48+012"]["dem"], "missing")
+
+    def test_an_existing_job_does_not_overwrite_its_record(self):
+        _, path = self.record()
+        path.write_text("# original\n")
+        self.record(created=False)
+        self.assertEqual(path.read_text(), "# original\n")
+
+    def test_keys_that_are_not_bare_are_quoted(self):
+        self.assertEqual(tomllib.loads(oxo_compose.to_toml({"t": {"+48+011": {"dem": "1s"}}})),
+                         {"t": {"+48+011": {"dem": "1s"}}})

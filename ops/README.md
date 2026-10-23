@@ -14,6 +14,8 @@ Why it looks like this: `docs/plans/2026-10-23-own-package-production.md`.
 | `ops/worker-pod.yaml` | Worker pod with this host's paths. |
 | `ops/bin/import-dem` | Flat `.hgt` → `Elevation_data` layout (btrfs reflinks). |
 | `ops/bin/oxo-package` | Delivered tiles → `~/.local/share/xearthlayer/packages/zzXEL_<name>_ortho/`. |
+| `ops/ledger/<package>/` | The books: one `<region_code>-r<rev>.toml` per submitted job, `installs.log`. Committed. |
+| `ops/bin/oxo-whence <tile>` | How a tile was built: builds newest first, commits, DEM, patches, deviations from samsoir, installs. |
 | `/mnt/xplane_data/oxo/dem/` | Sonny/viewfinder DEMs, Ortho4XP layout, mounted read-only. |
 | `/mnt/xplane_data/oxo/artifacts/<package>/` | Delivered `zOrtho4XP_<tile>/` dirs (spec `target.root`). |
 | `/mnt/xplane_data/oxo/content/` | Empty on purpose (no overlays). |
@@ -56,7 +58,10 @@ ops/bin/oxo-compose ops/packages/<name>.toml --out /tmp/specs && \
 
 # 3. Submit, one job per group. A job is identified by (region_code, revision):
 #    resubmitting the same pair returns the existing job — bump revision to rebuild.
+#    Refuses with uncommitted changes in ops/ (the ledger must name a real commit).
+git add ops/packages/<name>.toml && git commit -m "ops: package <name>"
 ops/bin/oxo-compose ops/packages/<name>.toml --submit http://127.0.0.1:8080
+git add ops/ledger && git commit -m "ledger: submit <name>"
 
 # 4. Workers (more: copy ops/worker-pod.yaml with another metadata.name)
 podman kube play ops/worker-pod.yaml
@@ -67,6 +72,10 @@ podman logs -f oxo-worker-1-worker
 # 5. Package (refuses while `xearthlayer run` is serving)
 ops/bin/oxo-package ops/packages/<name>.toml --code A5_<REG> --dry-run
 ops/bin/oxo-package ops/packages/<name>.toml --code A5_<REG>
+git add ops/ledger && git commit -m "ledger: install <name>"
+
+# Later: how was a tile built?
+ops/bin/oxo-whence +48+011
 
 podman kube down ops/worker-pod.yaml
 ```

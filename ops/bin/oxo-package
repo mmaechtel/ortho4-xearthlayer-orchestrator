@@ -163,6 +163,8 @@ def parse_args(argv):
     p.add_argument("--packages-dir", type=Path,
                    default=Path.home() / ".local/share/xearthlayer/packages")
     p.add_argument("--lock-file", type=Path, default=None, help=argparse.SUPPRESS)
+    p.add_argument("--ledger-dir", type=Path, default=Path(__file__).resolve().parents[1] / "ledger",
+                   help=argparse.SUPPRESS)
     return p.parse_args(argv)
 
 
@@ -236,6 +238,12 @@ def run(args):
     size = sum(p.stat().st_size for p in pkg.rglob("*") if p.is_file())
     log(f"package {pkg_name}: dsf={counts['Earth nav data']} ter={counts['terrain']} "
         f"png={counts['textures']} size={size / 2**20:.1f}M")
+
+    installs = args.ledger_dir / name / "installs.log"
+    installs.parent.mkdir(parents=True, exist_ok=True)
+    with installs.open("a") as f:
+        f.write(f"{now}\t{args.code}\t{pkg_name}\t{','.join(t for t, _, _ in good)}\n")
+    log(f"ledger: {installs} (commit ops/ledger/)")
 
 
 def main(argv=None):

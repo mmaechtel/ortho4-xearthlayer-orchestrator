@@ -1,0 +1,73 @@
+#!/usr/bin/env python3
+"""How was a tile built? Reads the ledger written by oxo-compose --submit and oxo-package.
+
+    oxo-whence +48+011
+
+Every build of the tile, newest first: job, commits, DEM and patches, each deviation from
+samsoir's baseline with the layer it came from, and the installs that followed that build.
+"""
+import argparse
+import sys
+import tomllib
+from pathlib import Path
+
+LEDGER = Path(__file__).resolve().parents[1] / "ledger"
+
+
+def builds(ledger, tile):
+    found = []
+    for f in sorted(ledger.glob("*/*.toml")):
+        rec = tomllib.loads(f.read_text())
+        if tile in rec.get("spec", {}).get("tiles", []):
+            found.append(rec)
+    return sorted(found, key=lambda r: r["provenance"]["submitted"], reverse=True)
+
+
+def installs(ledger, name, tile):
+    log = ledger / name / "installs.log"
+    if not log.is_file():
+        return []
+    rows = (line.split("\t") for line in log.read_text().splitlines() if line.strip())
+    return [r for r in rows if tile in r[3].split(",")]
+
+
+def value(spec, key):
+    p = spec["parameters"]
+    return p[key] if key in p else p.get("raw", {}).get(key)
+
+
+def report(ledger, tile):
+    recs = builds(ledger, tile)
+    if not recs:
+        print(f"{tile}: no ledger record")
+        return 1
+    print(tile)
+    later = None
+    for rec in recs:
+        p, spec, t = rec["provenance"], rec["spec"], rec["tiles"].get(tile, {})
+        m = spec["metadata"]
+        print(f"  build {p['submitted']}  job {p['job_id']}  {m['region_code']} r{m['revision']}  package {m['name']}")
+        print(f"    ops {p['ops_commit']}  ortho4xp {p['ortho4xp_commit']}  patches {p['patches_tree']}")
+        print(f"    dem {t.get('dem', '?')}  patch files: {', '.join(t.get('patches', [])) or 'none'}")
+        dev = ", ".join(f"{k}={value(spec, k)} ({layer})" for k, layer in p.get("overrides", {}).items())
+        print(f"    deviations from samsoir: {dev or 'none'}")
+        mine = [r for r in installs(ledger, m["name"], tile)
+                if r[0] >= p["submitted"] and (later is None or r[0] < later)]
+        for when, code, pkg, _ in mine:
+            print(f"    installed {when}  {code}  {pkg}")
+        if not mine:
+            print("    not installed from this build")
+        later = p["submitted"]
+    return 0
+
+
+def main(argv=None):
+    a = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    a.add_argument("tile", help="e.g. +48+011")
+    a.add_argument("--ledger-dir", type=Path, default=LEDGER, help=argparse.SUPPRESS)
+    args = a.parse_args(argv)
+    return report(args.ledger_dir, args.tile)
+
+
+if __name__ == "__main__":
+    sys.exit(main())
