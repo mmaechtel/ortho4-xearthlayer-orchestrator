@@ -61,7 +61,7 @@ def merge(base, over):
 
 
 def _check_region_code(rc):
-    if not REGION_CODE.match(rc):
+    if not REGION_CODE.fullmatch(rc):
         raise ComposeError(f"region_code {rc!r} is not valid: only A-Z, 0-9 and '-', 1 to 512 characters")
 
 

@@ -144,6 +144,11 @@ class Layers(unittest.TestCase):
         with self.assertRaises(oxo_compose.ComposeError):
             compose(package=one)
 
+    def test_region_code_with_trailing_newline_is_refused(self):
+        one = PACKAGE.split("[[group]]\nid")[0].replace('"EU-PILOT"', '"EU-PILOT\\n"')
+        with self.assertRaises(oxo_compose.ComposeError):
+            compose(package=one)
+
     def test_no_groups_is_refused(self):
         with self.assertRaises(oxo_compose.ComposeError):
             compose(package=PACKAGE.split("[[group]]")[0])
