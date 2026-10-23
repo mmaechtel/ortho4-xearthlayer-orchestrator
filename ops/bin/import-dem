@@ -1,0 +1,69 @@
+#!/usr/bin/env python3
+"""Copy flat viewfinder/Sonny .hgt files into Ortho4XP's Elevation_data layout.
+
+    import-dem SRC DEST [--dry-run]
+
+SRC holds files like N48E011.hgt side by side; DEST gets DEST/<10° block>/N48E011.hgt,
+the block named exactly as Ortho4XP's round_latlon names it, so the stock "View"
+source finds them. Copies are btrfs reflinks (no extra space, independent of SRC).
+Files already present in DEST are skipped, so the import can be rerun.
+"""
+import argparse
+import re
+import shutil
+import subprocess
+import sys
+from math import floor
+from pathlib import Path
+
+HGT = re.compile(r"^([NS])(\d{2})([EW])(\d{3})\.hgt$")
+
+
+def block_of(name):
+    m = HGT.match(name)
+    if not m:
+        return None
+    lat = int(m[2]) * (1 if m[1] == "N" else -1)
+    lon = int(m[4]) * (1 if m[3] == "E" else -1)
+    return f"{floor(lat / 10) * 10:+03d}{floor(lon / 10) * 10:+04d}"
+
+
+def reflink_copy(src, dest):
+    subprocess.run(["cp", "--reflink=always", "--preserve=timestamps", str(src), str(dest)], check=True)
+
+
+def plain_copy(src, dest):
+    shutil.copy2(src, dest)
+
+
+def run(src, dest, dry_run, copy=reflink_copy):
+    copied = 0
+    for f in sorted(src.iterdir()):
+        block = block_of(f.name)
+        if block is None or not f.is_file():
+            continue
+        target = dest / block / f.name
+        if target.exists():
+            continue
+        copied += 1
+        if dry_run:
+            continue
+        target.parent.mkdir(parents=True, exist_ok=True)
+        copy(f, target)
+    return copied
+
+
+def main():
+    p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    p.add_argument("src", type=Path)
+    p.add_argument("dest", type=Path)
+    p.add_argument("--dry-run", action="store_true")
+    a = p.parse_args()
+    if not a.src.is_dir():
+        sys.exit(f"import-dem: not a directory: {a.src}")
+    n = run(a.src, a.dest, a.dry_run)
+    print(f"{'would copy' if a.dry_run else 'copied'} {n} files into {a.dest}")
+
+
+if __name__ == "__main__":
+    main()

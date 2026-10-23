@@ -1,0 +1,252 @@
+#!/usr/bin/env python3
+"""Package OXO-delivered Ortho4XP tiles into an installed XEarthLayer package.
+
+Usage: oxo-package <spec.toml> --code <CODE> [--dry-run] [--strict|--loose]
+                   [--packages-dir DIR]
+
+Every zOrtho4XP_<tile>/ under the spec's [target] root counts as done (egress
+is atomic). All tiles are validated first; any rejection aborts before
+anything is copied. Then DSF, .ter and .png masks are merged into
+<packages-dir>/zzXEL_<metadata.name>_ortho/ and
+xearthlayer_scenery_package.txt is written. Ported from sync-xel-package.
+
+  --strict  (default) cfg default_website=BI, DSF > 10000 B, .ter references
+            _BI<zl>.dds, at least one .png mask, no partial files, no newer
+            .dsf.bak
+  --loose   .png masks optional (desert tiles); everything else still required
+"""
+import argparse
+import datetime
+import fnmatch
+import math
+import os
+import re
+import shutil
+import sys
+import tomllib
+from pathlib import Path
+
+TILE_RE = re.compile(r"^[+-]\d{2}[+-]\d{3}$")
+SAFE_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]*$")
+PARTIAL_PATTERNS = ("*.tmp", "*.part", "*.partial")
+
+
+class Fatal(Exception):
+    pass
+
+
+def log(msg):
+    print(f"[{datetime.datetime.now():%F %T}] {msg}", flush=True)
+
+
+def default_lock_file():
+    state = os.environ.get("XDG_STATE_HOME") or Path.home() / ".local/state"
+    return Path(state) / "xearthlayer" / "xearthlayer.lock"
+
+
+def check_lock(lock_file):
+    """Return the PID of a live `xearthlayer run`, or None. Warns on a stale lock."""
+    try:
+        text = Path(lock_file).read_text().strip()
+    except FileNotFoundError:
+        return None
+    if not text:
+        return None
+    try:
+        pid = int(text.split()[0])
+    except ValueError:
+        print(f"WARNING: unreadable lock file {lock_file}: {text[:40]!r}", file=sys.stderr)
+        return None
+    try:
+        os.kill(pid, 0)
+    except PermissionError:
+        return pid
+    except (ProcessLookupError, OverflowError):
+        print(f"WARNING: stale lock {lock_file} (PID {pid} not running), left in place",
+              file=sys.stderr)
+        return None
+    return pid
+
+
+def block_of(tile):
+    """10-degree block directory of a tile, as Ortho4XP names it (floor)."""
+    lat, lon = int(tile[:3]), int(tile[3:])
+    return f"{math.floor(lat / 10) * 10:+03d}{math.floor(lon / 10) * 10:+04d}"
+
+
+def has_partials(d):
+    base_depth = len(d.parts)
+    for dirpath, dirnames, filenames in os.walk(d):
+        depth = len(Path(dirpath).parts) - base_depth
+        for name in dirnames + filenames:
+            if any(fnmatch.fnmatch(name, p) for p in PARTIAL_PATTERNS):
+                return True
+        if depth >= 2:
+            dirnames[:] = []
+    return False
+
+
+def validate_tile(d, tile, mode):
+    """Return (dsf_path, None) if valid, else (None, reason)."""
+    if not TILE_RE.match(tile):
+        return None, "bad tile name"
+
+    cfg = d / f"Ortho4XP_{tile}.cfg"
+    if not cfg.is_file():
+        return None, "missing cfg"
+    if "default_website=BI" not in cfg.read_text(errors="replace").splitlines():
+        return None, "cfg default_website!=BI"
+
+    nav = d / "Earth nav data"
+    candidates = [nav / f"{tile}.dsf"] + sorted(nav.glob(f"*/{tile}.dsf"))
+    dsf = next((p for p in candidates if p.is_file()), None)
+    if dsf is None:
+        return None, "no DSF"
+    size = dsf.stat().st_size
+    if size <= 10000:
+        return None, f"DSF too small: {size}B"
+
+    ters = sorted((d / "terrain").glob("*.ter"))
+    if not ters:
+        return None, "no .ter files"
+    if not re.search(r"_BI[0-9]+\.dds", ters[0].read_text(errors="replace")):
+        return None, "no BI provider in .ter"
+
+    if mode == "strict" and not any((d / "textures").glob("*.png")):
+        return None, "no .png masks"
+
+    if has_partials(d):
+        return None, "partial files present"
+
+    bak = Path(f"{dsf}.bak")
+    if bak.is_file() and bak.stat().st_mtime > dsf.stat().st_mtime:
+        return None, "stale DSF (.bak newer)"
+
+    return dsf, None
+
+
+def sync_file(src, dest_dir):
+    """Copy like `rsync -a`: skip when size and mtime already match."""
+    dest = dest_dir / src.name
+    s = src.stat()
+    if dest.exists():
+        t = dest.stat()
+        if t.st_size == s.st_size and int(t.st_mtime) == int(s.st_mtime):
+            return
+    shutil.copy2(src, dest)
+
+
+def load_spec(path):
+    try:
+        with open(path, "rb") as f:
+            spec = tomllib.load(f)
+    except (OSError, tomllib.TOMLDecodeError) as e:
+        raise Fatal(f"cannot read spec {path}: {e}")
+    name = spec.get("metadata", {}).get("name")
+    root = spec.get("target", {}).get("root")
+    if not isinstance(name, str) or not SAFE_NAME_RE.match(name):
+        raise Fatal(f"unsafe or missing metadata.name: {name!r}")
+    if not isinstance(root, str) or not root:
+        raise Fatal("missing target.root in spec")
+    return name, Path(root)
+
+
+def parse_args(argv):
+    p = argparse.ArgumentParser(prog="oxo-package", description=__doc__.split("\n")[0])
+    p.add_argument("spec", help="OXO region spec TOML")
+    p.add_argument("--code", required=True, help="package region code, e.g. A4_PILOT")
+    p.add_argument("--dry-run", action="store_true", help="validate only, change nothing")
+    g = p.add_mutually_exclusive_group()
+    g.add_argument("--strict", dest="mode", action="store_const", const="strict")
+    g.add_argument("--loose", dest="mode", action="store_const", const="loose")
+    p.set_defaults(mode="strict")
+    p.add_argument("--packages-dir", type=Path,
+                   default=Path.home() / ".local/share/xearthlayer/packages")
+    p.add_argument("--lock-file", type=Path, default=None, help=argparse.SUPPRESS)
+    return p.parse_args(argv)
+
+
+def run(args):
+    name, root = load_spec(args.spec)
+    if not root.is_dir():
+        raise Fatal(f"target.root not found: {root}")
+    pkg_name = f"zzXEL_{name}_ortho"
+    pkg = args.packages_dir / pkg_name
+
+    log(f"source:  {root}")
+    log(f"package: {pkg}  (code {args.code})")
+    log(f"mode:    {args.mode}  dry_run={int(args.dry_run)}")
+
+    pid = check_lock(args.lock_file or default_lock_file())
+    if pid is not None:
+        msg = f"xearthlayer run is serving (PID {pid}); stop it before packaging"
+        if not args.dry_run:
+            raise Fatal(msg)
+        print(f"WARNING: {msg}", file=sys.stderr)
+
+    tile_dirs = sorted(p for p in root.glob("zOrtho4XP_*") if p.is_dir())
+    if not tile_dirs:
+        raise Fatal(f"no zOrtho4XP_* tiles under {root}")
+    log(f"tiles present: {len(tile_dirs)}")
+
+    good, bad = [], []
+    for d in tile_dirs:
+        tile = d.name[len("zOrtho4XP_"):]
+        dsf, reason = validate_tile(d, tile, args.mode)
+        if dsf:
+            good.append((tile, d, dsf))
+        else:
+            bad.append(f"{tile}: {reason}")
+    log(f"valid: {len(good)}    rejected: {len(bad)}")
+    if bad:
+        print("Rejected tiles (sample ≤10):")
+        for b in bad[:10]:
+            print(f"  - {b}")
+        if len(bad) > 10:
+            print(f"  ... ({len(bad) - 10} more)")
+        raise Fatal(f"{len(bad)} tile(s) rejected, nothing copied")
+
+    if args.dry_run:
+        log("dry-run: no package changes")
+        return
+
+    for sub in ("Earth nav data", "terrain", "textures"):
+        (pkg / sub).mkdir(parents=True, exist_ok=True)
+
+    total = len(good)
+    for n, (tile, d, dsf) in enumerate(good, 1):
+        dest_nav = pkg / "Earth nav data" / block_of(tile)
+        dest_nav.mkdir(exist_ok=True)
+        sync_file(dsf, dest_nav)
+        for ter in (d / "terrain").glob("*.ter"):
+            sync_file(ter, pkg / "terrain")
+        for png in (d / "textures").glob("*.png"):
+            sync_file(png, pkg / "textures")
+        if n % 50 == 0 or n == total:
+            log(f"  synced {n}/{total} (last: {tile})")
+
+    now = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    (pkg / "xearthlayer_scenery_package.txt").write_text(
+        f"REGIONAL SCENERY PACKAGE\n1.0.0\n{args.code}  99.99.99\n{now}\nZ\n"
+        f"{pkg_name}\n{pkg_name}-99.99.99.tar.gz\n0\n")
+    log("metadata written: xearthlayer_scenery_package.txt")
+
+    counts = {sub: sum(1 for _ in (pkg / sub).rglob(pat)) for sub, pat in
+              (("Earth nav data", "*.dsf"), ("terrain", "*.ter"), ("textures", "*.png"))}
+    size = sum(p.stat().st_size for p in pkg.rglob("*") if p.is_file())
+    log(f"package {pkg_name}: dsf={counts['Earth nav data']} ter={counts['terrain']} "
+        f"png={counts['textures']} size={size / 2**20:.1f}M")
+
+
+def main(argv=None):
+    args = parse_args(argv)
+    try:
+        run(args)
+    except Fatal as e:
+        print(f"FATAL: {e}", file=sys.stderr)
+        return 2
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
