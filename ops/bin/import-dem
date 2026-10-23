@@ -6,9 +6,12 @@
 SRC holds files like N48E011.hgt side by side; DEST gets DEST/<10° block>/N48E011.hgt,
 the block named exactly as Ortho4XP's round_latlon names it, so the stock "View"
 source finds them. Copies are btrfs reflinks (no extra space, independent of SRC).
-Files already present in DEST are skipped, so the import can be rerun.
+Each file is copied to <name>.part and renamed into place, so an interrupted run
+never leaves a truncated .hgt; files already present in DEST are skipped and the
+import can be rerun.
 """
 import argparse
+import os
 import re
 import shutil
 import subprocess
@@ -49,7 +52,9 @@ def run(src, dest, dry_run, copy=reflink_copy):
         if dry_run:
             continue
         target.parent.mkdir(parents=True, exist_ok=True)
-        copy(f, target)
+        part = target.with_name(target.name + ".part")
+        copy(f, part)
+        os.replace(part, target)
     return copied
 
 

@@ -10,7 +10,7 @@ anything is copied. Then DSF, .ter and .png masks are merged into
 <packages-dir>/zzXEL_<metadata.name>_ortho/ and
 xearthlayer_scenery_package.txt is written. Ported from sync-xel-package.
 
-  --strict  (default) cfg default_website=BI, DSF > 10000 B, .ter references
+  --strict  (default) DSF > 10000 B, .ter references
             _BI<zl>.dds, at least one .png mask, no partial files, no newer
             .dsf.bak
   --loose   .png masks optional (desert tiles); everything else still required
@@ -27,6 +27,7 @@ import tomllib
 from pathlib import Path
 
 TILE_RE = re.compile(r"^[+-]\d{2}[+-]\d{3}$")
+CODE_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]*$")
 SAFE_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]*$")
 PARTIAL_PATTERNS = ("*.tmp", "*.part", "*.partial")
 
@@ -90,12 +91,6 @@ def validate_tile(d, tile, mode):
     """Return (dsf_path, None) if valid, else (None, reason)."""
     if not TILE_RE.match(tile):
         return None, "bad tile name"
-
-    cfg = d / f"Ortho4XP_{tile}.cfg"
-    if not cfg.is_file():
-        return None, "missing cfg"
-    if "default_website=BI" not in cfg.read_text(errors="replace").splitlines():
-        return None, "cfg default_website!=BI"
 
     nav = d / "Earth nav data"
     candidates = [nav / f"{tile}.dsf"] + sorted(nav.glob(f"*/{tile}.dsf"))
@@ -169,6 +164,9 @@ def parse_args(argv):
 
 
 def run(args):
+    if not CODE_RE.fullmatch(args.code):
+        raise Fatal(f"invalid --code {args.code!r}: use letters, digits, _ and -, "
+                    "starting with a letter or digit")
     name, root = load_spec(args.spec)
     if not root.is_dir():
         raise Fatal(f"target.root not found: {root}")

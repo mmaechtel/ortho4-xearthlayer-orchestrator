@@ -54,6 +54,28 @@ class Import(unittest.TestCase):
         copied = import_dem.run(self.src, self.dest, dry_run=False, copy=import_dem.plain_copy)
         self.assertEqual(copied, 0)
 
+    def test_interrupted_copy_leaves_no_final_file_and_rerun_recovers(self):
+        def dying_copy(src, dest):
+            Path(dest).write_bytes(b"a" * 3)
+            raise OSError("interrupted")
+
+        with self.assertRaises(OSError):
+            import_dem.run(self.src, self.dest, dry_run=False, copy=dying_copy)
+        final = self.dest / "+40+010" / "N48E011.hgt"
+        self.assertFalse(final.exists())
+        copied = import_dem.run(self.src, self.dest, dry_run=False, copy=import_dem.plain_copy)
+        self.assertEqual(copied, 2)
+        self.assertEqual(final.read_bytes(), b"a" * 10)
+        self.assertFalse(any(self.dest.rglob("*.part")))
+
+    def test_leftover_part_file_is_overwritten(self):
+        part = self.dest / "+40+010" / "N48E011.hgt.part"
+        part.parent.mkdir(parents=True)
+        part.write_bytes(b"junk")
+        import_dem.run(self.src, self.dest, dry_run=False, copy=import_dem.plain_copy)
+        self.assertEqual((self.dest / "+40+010" / "N48E011.hgt").read_bytes(), b"a" * 10)
+        self.assertFalse(part.exists())
+
     def test_dry_run_writes_nothing(self):
         copied = import_dem.run(self.src, self.dest, dry_run=True, copy=import_dem.plain_copy)
         self.assertEqual(copied, 2)

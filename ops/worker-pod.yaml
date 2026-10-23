@@ -22,9 +22,10 @@ spec:
           value: "http://host.containers.internal:8080"
         - name: OXO_MODE
           value: "recycle"
-        # deploy/worker-pod.yaml's production values plus the legacy Overpass choice.
+        # deploy/worker-pod.yaml's production values. No overpass_server_choice:
+        # a fixed server is used for every retry; stock "random" fails over DE/KU.
         - name: OXO_O4_APP_OVERRIDES
-          value: '{"overpass_server_choice":"DE","max_download_slots":"2","max_convert_slots":"8","http_timeout":"10.0","max_connect_retries":"5","max_baddata_retries":"5","ovl_exclude_pol":"[0]","ovl_exclude_net":"[]"}'
+          value: '{"max_download_slots":"2","max_convert_slots":"8","http_timeout":"10.0","max_connect_retries":"5","max_baddata_retries":"5","ovl_exclude_pol":"[0]","ovl_exclude_net":"[]"}'
         # OXO_MIN_FREE_SCRATCH_BYTES stays at its 8 GiB default: a ZL16 floor,
         # matching our ZL16 production. Raise it if a package group goes above ZL16.
       resources:

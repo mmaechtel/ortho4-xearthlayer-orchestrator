@@ -15,7 +15,7 @@ oxo_package = importlib.util.module_from_spec(_spec)
 _loader.exec_module(oxo_package)
 
 
-def make_tile(root, tile="+48+010", *, cfg="default_website=BI", dsf_size=20000,
+def make_tile(root, tile="+48+010", *, cfg=None, dsf_size=20000,
               ter="BASE_TEXTURE ../textures/24432_34768_BI17.dds\n", png=True,
               extra=None, block=None):
     d = root / f"zOrtho4XP_{tile}"
@@ -60,9 +60,9 @@ class Base(unittest.TestCase):
             '[parameters]\nprovider = "BI"\nzoom = 17\ninclude_overlays = false\n'
             f'[target]\nroot = "{self.root}"\n')
 
-    def run_main(self, *args):
+    def run_main(self, *args, code="A4_PILOT"):
         out, err = io.StringIO(), io.StringIO()
-        argv = [str(self.spec), "--code", "A4_PILOT", "--packages-dir", str(self.pkgs),
+        argv = [str(self.spec), "--code", code, "--packages-dir", str(self.pkgs),
                 "--lock-file", str(self.lock), "--ledger-dir", str(self.ledger), *args]
         with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
             try:
@@ -117,6 +117,27 @@ class Packaging(Base):
         self.assertEqual(oxo_package.block_of("+00+000"), "+00+000")
 
 
+class CodeValidation(Base):
+    def test_valid_codes_accepted(self):
+        for code in ("A4_PILOT", "eu-1", "X"):
+            with self.subTest(code=code):
+                self.tearDown(); self.setUp()
+                make_tile(self.root)
+                rc, _, err = self.run_main(code=code)
+                self.assertEqual(rc, 0, err)
+
+    def test_invalid_codes_rejected_before_anything_is_written(self):
+        make_tile(self.root)
+        self.lock.write_text(f"{os.getpid()}\n")  # a live lock must not mask the code error
+        for code in ("", "a/b", "..", "a b", "a..b/", "_x", "A5_EU\n"):
+            with self.subTest(code=code):
+                rc, out, err = self.run_main(code=code)
+                self.assertNotEqual(rc, 0)
+                self.assertIn("invalid --code", err)
+                self.assertFalse(self.pkgs.exists())
+                self.assertFalse(self.ledger.exists())
+
+
 class StrictRules(Base):
     def assert_rejected(self, reason, *args, **tile_kw):
         make_tile(self.root, "+48+010")
@@ -126,11 +147,11 @@ class StrictRules(Base):
         self.assertIn(f"+48+011: {reason}", out + err)
         self.assertFalse(self.pkg.exists(), "nothing may be copied on rejection")
 
-    def test_missing_cfg(self):
-        self.assert_rejected("missing cfg", cfg=None)
-
-    def test_cfg_not_bi(self):
-        self.assert_rejected("cfg default_website!=BI", cfg="default_website=GO2")
+    def test_tile_without_cfg_is_valid(self):
+        # the worker withholds Ortho4XP_<tile>.cfg from egress
+        make_tile(self.root)
+        rc, _, err = self.run_main()
+        self.assertEqual(rc, 0, err)
 
     def test_no_dsf(self):
         self.assert_rejected("no DSF", dsf_size=None)
@@ -174,10 +195,10 @@ class StrictRules(Base):
 
     def test_lists_at_most_ten(self):
         for i in range(12):
-            make_tile(self.root, f"+48+0{i:02d}", cfg=None)
+            make_tile(self.root, f"+48+0{i:02d}", ter=None)
         rc, out, err = self.run_main()
         self.assertNotEqual(rc, 0)
-        self.assertEqual((out + err).count("missing cfg"), 10)
+        self.assertEqual((out + err).count("no .ter files"), 10)
         self.assertIn("(2 more)", out + err)
 
 
@@ -189,10 +210,10 @@ class LooseMode(Base):
         self.assertTrue((self.pkg / "Earth nav data/+40+010/+48+010.dsf").is_file())
 
     def test_loose_keeps_bi_rules(self):
-        make_tile(self.root, png=False, cfg="default_website=GO2")
+        make_tile(self.root, png=False, ter="BASE_TEXTURE ../textures/1_2_GO217.dds\n")
         rc, out, err = self.run_main("--loose")
         self.assertNotEqual(rc, 0)
-        self.assertIn("cfg default_website!=BI", out + err)
+        self.assertIn("no BI provider in .ter", out + err)
 
 
 class DryRun(Base):
@@ -204,10 +225,10 @@ class DryRun(Base):
         self.assertIn("dry-run", out)
 
     def test_dry_run_reports_rejections(self):
-        make_tile(self.root, cfg=None)
+        make_tile(self.root, ter=None)
         rc, out, err = self.run_main("--dry-run")
         self.assertNotEqual(rc, 0)
-        self.assertIn("missing cfg", out + err)
+        self.assertIn("no .ter files", out + err)
         self.assertFalse(self.pkgs.exists())
 
 
