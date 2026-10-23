@@ -383,6 +383,28 @@ class Night(Base):
                          "the source artifact is never modified")
         self.assertFalse((self.pkg / "night").exists(), "recipes stay in their package")
 
+    def test_shared_ter_stays_lit_when_a_later_tile_has_no_recipe(self):
+        # a texture straddling a 1° line lands as the same .ter in both tile dirs
+        self.our_tile("+48+011", water=())
+        self.our_tile("+48+012", water=())
+        make_installed(self.pkgs, "zzXEL_eu-west_ortho", "EU-WEST  0.5.0", recipes=["+48+011"],
+                       ters={"22672_34864_GO216.ter": lit_ter_text("22672_34864_GO216")})
+        rc, _, err = self.run_main()
+        self.assertEqual(rc, 0, err)
+        self.assertEqual(self.staged(self.LAND), ter_text(self.LAND) +
+                         f"TEXTURE_LIT ../textures/{self.LAND}_LIT.dds\nLUMINANCE 600\n")
+
+    def test_existing_lit_lines_are_replaced_not_duplicated(self):
+        d = self.our_tile(water=())
+        (d / "terrain" / f"{self.LAND}.ter").write_text(
+            ter_text(self.LAND) + f"TEXTURE_LIT ../textures/{self.LAND}_LIT.dds\nLUMINANCE 150\n")
+        make_installed(self.pkgs, "zzXEL_eu-west_ortho", "EU-WEST  0.5.0", recipes=["+48+011"],
+                       ters={"22672_34864_GO216.ter": lit_ter_text("22672_34864_GO216")})
+        rc, _, err = self.run_main()
+        self.assertEqual(rc, 0, err)
+        self.assertEqual(self.staged(self.LAND), ter_text(self.LAND) +
+                         f"TEXTURE_LIT ../textures/{self.LAND}_LIT.dds\nLUMINANCE 600\n")
+
     def test_values_are_read_per_tile(self):
         self.our_tile("+48+011", stems=("22672_34864_BI16",), water=())
         self.our_tile("+48+012", stems=("22672_34880_BI16",), water=())

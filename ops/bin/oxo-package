@@ -46,7 +46,7 @@ CODE_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]*$")
 SAFE_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]*$")
 PARTIAL_PATTERNS = ("*.tmp", "*.part", "*.partial")
 # <y>_<x>_<provider><zl>[_<kind>_overlay].ter, provider as XEL's DDS pattern has it
-TER_RE = re.compile(r"^(\d+)_(\d+)_[A-Za-z]+\d?(\d{2})(_[a-z]+_overlay)?\.ter$")
+TER_RE = re.compile(r"^(\d+)_(\d+)_([A-Za-z]+\d?)(\d{2})(_[a-z]+_overlay)?\.ter$")
 BASE_RE = re.compile(r"^BASE_TEX\S*\s+(\S+)\.dds\s*$", re.M)
 LIT_KEYS = ("TEXTURE_LIT", "LUMINANCE")
 
@@ -160,11 +160,12 @@ def lit_lines(text):
             and l.split()[0] in LIT_KEYS]
 
 
-def night_plan(tile, tile_dir, sources, land_index):
+def night_plan(tile, tile_dir, sources, providers):
     """What night lighting a tile gets: {source, code, lit: {ter name: lines}, notes}.
-    `land_index` caches per source dir {(y, x, zl): land .ter name}."""
+    `providers` caches per source dir the provider prefixes of its land .ter (e.g.
+    GO2), so a counterpart is looked up by name instead of indexing every file."""
     land = [t for t in sorted((tile_dir / "terrain").glob("*.ter"))
-            if (m := TER_RE.match(t.name)) and not m[4]]
+            if (m := TER_RE.match(t.name)) and not m[5]]
     plan = {"source": "", "code": "", "land": len(land), "lit": {}, "notes": []}
     rel = Path("night") / block_of(tile) / f"{tile}.oxn"
     src = next(((d, line) for d, line in sources if (d / rel).is_file()), None)
@@ -173,10 +174,9 @@ def night_plan(tile, tile_dir, sources, land_index):
         return plan
     sdir, plan["code"] = src
     plan["source"] = sdir.name
-    if sdir not in land_index:
-        land_index[sdir] = {m.group(1, 2, 3): n for n in os.listdir(sdir / "terrain")
-                            if (m := TER_RE.match(n)) and not m[4]}
-    index = land_index[sdir]
+    if sdir not in providers:
+        providers[sdir] = sorted({m[3] for n in os.listdir(sdir / "terrain")
+                                  if (m := TER_RE.match(n)) and not m[5]})
 
     sets, uncovered, missing_base = {}, [], []
     for ter in land:
@@ -186,11 +186,13 @@ def night_plan(tile, tile_dir, sources, land_index):
             missing_base.append(ter.name)
             continue
         ours = f"TEXTURE_LIT {base[1]}_LIT.dds"
-        theirs = index.get(m.group(1, 2, 3))
+        theirs = next((sdir / "terrain" / f"{m[1]}_{m[2]}_{p}{m[4]}.ter"
+                       for p in providers[sdir]
+                       if (sdir / "terrain" / f"{m[1]}_{m[2]}_{p}{m[4]}.ter").is_file()), None)
         if theirs is None:
             uncovered.append((ter.name, ours))
             continue
-        lines = lit_lines((sdir / "terrain" / theirs).read_text(errors="replace"))
+        lines = lit_lines(theirs.read_text(errors="replace"))
         lines = [ours if l.split()[0] == "TEXTURE_LIT" else l for l in lines]
         sets[tuple(l.split()[0] if l.startswith("TEXTURE_LIT") else l for l in lines)] = lines
         if lines:
@@ -308,8 +310,8 @@ def run(args):
             print(f"  ... ({len(bad) - 10} more)")
         raise Fatal(f"{len(bad)} tile(s) rejected, nothing copied")
 
-    sources, land_index = night_sources(args.packages_dir, pkg_name), {}
-    plans = {tile: night_plan(tile, d, sources, land_index) for tile, d, _ in good}
+    sources, providers = night_sources(args.packages_dir, pkg_name), {}
+    plans = {tile: night_plan(tile, d, sources, providers) for tile, d, _ in good}
     report_night(plans)
 
     if args.dry_run:
@@ -330,15 +332,22 @@ def run(args):
         sync_file(dsf, dest_nav)
         for ter in (d / "terrain").glob("*.ter"):
             sync_file(ter, stage / "terrain")
-        for ter_name, lines in plans[tile]["lit"].items():
-            staged = stage / "terrain" / ter_name
-            text = staged.read_text()
-            staged.write_text(text + ("" if text.endswith("\n") else "\n")
-                              + "".join(f"{l}\n" for l in lines))
         for png in (d / "textures").glob("*.png"):
             sync_file(png, stage / "textures")
         if n % 50 == 0 or n == total:
             log(f"  staged {n}/{total} (last: {tile})")
+
+    # A .ter shared by neighbouring tiles is staged once per tile; it stays lit if
+    # any tile lights it (the lines agree), and its own LIT lines are replaced.
+    lit = {}
+    for plan in plans.values():
+        for ter_name, lines in plan["lit"].items():
+            lit.setdefault(ter_name, lines)
+    for ter_name, lines in lit.items():
+        staged = stage / "terrain" / ter_name
+        kept = [l for l in staged.read_text().splitlines()
+                if not l.split() or l.split()[0] not in LIT_KEYS]
+        staged.write_text("".join(f"{l}\n" for l in kept + lines))
 
     now = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     (stage / "xearthlayer_scenery_package.txt").write_text(
