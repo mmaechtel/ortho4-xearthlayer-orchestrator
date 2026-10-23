@@ -647,6 +647,53 @@ class SharedMasks(Base):
         img = Image.open(self.pkg / "textures" / self.NAME)
         self.assertEqual([img.getpixel((0, r)) for r in range(6)], [255, 255, 120, 40, 255, 255])
 
+    def test_no_mask_merge_keeps_the_first_tiles_copy_and_warns(self):
+        self.mask_tile("+51+008", [255, 255, 120, 40, 0, 0])
+        d0 = self.mask_tile("+50+008", [0, 0, 60, 0, 255, 255])
+        rc, out, err = self.run_main("--no-mask-merge")
+        self.assertEqual(rc, 0, err)
+        self.assertEqual((self.pkg / "textures" / self.NAME).read_bytes(),
+                         (d0 / "textures" / self.NAME).read_bytes())
+        self.assertIn(f"WARNING: mask {self.NAME}: kept +50+008, dropped +51+008", err)
+        self.assertIn("masks: not merged, 1 shared, first copy kept", out)
+
+    def test_no_mask_merge_dry_run_shows_the_plan_and_writes_nothing(self):
+        self.mask_tile("+51+008", [255, 0])
+        self.mask_tile("+50+008", [0, 255])
+        rc, out, err = self.run_main("--no-mask-merge", "--dry-run")
+        self.assertEqual(rc, 0, err)
+        self.assertIn("kept +50+008, dropped +51+008", err)
+        self.assertIn("masks: not merged, 1 shared, first copy kept", out)
+        self.assertFalse(self.pkg.exists())
+
+    def test_no_mask_merge_ignores_size_mismatch(self):
+        self.mask_tile("+51+008", [255, 0])
+        self.mask_tile("+50+008", [0, 0, 255])
+        rc, _, err = self.run_main("--no-mask-merge")
+        self.assertEqual(rc, 0, err)
+
+    def test_staged_check_expects_the_kept_copy_with_the_flag(self):
+        self.mask_tile("+51+008", [255, 0])
+        d0 = self.mask_tile("+50+008", [0, 255])
+        good = [(t, self.root / f"zOrtho4XP_{t}", Path("x.dsf")) for t in ("+50+008", "+51+008")]
+        stage = self.tmp / "stage"
+        (stage / "textures").mkdir(parents=True)
+        for t in ("+50+008", "+51+008"):
+            (stage / "Earth nav data" / oxo_package.block_of(t)).mkdir(parents=True, exist_ok=True)
+            (stage / "Earth nav data" / oxo_package.block_of(t) / "x.dsf").write_bytes(b"x")
+        shutil.copy(d0 / "textures" / self.NAME, stage / "textures" / self.NAME)
+        problems = lambda **kw: [p for p in oxo_package.verify_stage(stage, good, {}, **kw)
+                                 if "mask" in p]
+        self.assertEqual(problems(merge=False), [])
+        self.assertTrue(problems(merge=True))
+
+    def test_install_log_format_is_unchanged_with_the_flag(self):
+        self.mask_tile("+51+008", [255, 0])
+        self.mask_tile("+50+008", [0, 255])
+        self.run_main("--no-mask-merge")
+        row = (self.ledger / "oxo_pilot" / "installs.log").read_text().splitlines()[0]
+        self.assertEqual(len(row.split("\t")), 4)
+
     def test_masks_of_different_size_abort(self):
         from PIL import Image
         self.mask_tile("+51+008", [255, 0])

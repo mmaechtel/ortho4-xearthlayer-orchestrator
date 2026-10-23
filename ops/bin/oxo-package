@@ -2,7 +2,7 @@
 """Package OXO-delivered Ortho4XP tiles into an installed XEarthLayer package.
 
 Usage: oxo-package <spec.toml> --code <CODE> [--dry-run] [--strict|--loose]
-                   [--packages-dir DIR]
+                   [--no-mask-merge] [--packages-dir DIR]
 
 Every zOrtho4XP_<tile>/ under the spec's [target] root counts as done (egress
 is atomic). All tiles are validated first; any rejection aborts before
@@ -38,7 +38,7 @@ no overlay .ter is lit. Any problem aborts and leaves the installed package as i
 A mask <y>_<x>_ZL<zl>.png of a texture straddling a 1° line is built by each
 neighbouring tile for its own part only (OXO builds see no neighbour mesh), so
 the copies are merged, brightest per pixel. Needs python3-pil when tiles
-share masks.
+share masks. --no-mask-merge copies the first tile's mask unchanged instead, with a warning per shared mask.
 """
 import argparse
 import datetime
@@ -269,7 +269,16 @@ def tile_masks(good):
     return masks
 
 
-def verify_stage(stage, good, lit):
+def report_unmerged(masks):
+    """Warn per shared mask which tile's copy stays, and log the summary."""
+    shared = {n: srcs for n, srcs in sorted(masks.items()) if len(srcs) > 1}
+    for name, srcs in shared.items():
+        print(f"WARNING: mask {name}: kept {srcs[0][0]}, dropped "
+              f"{', '.join(t for t, _ in srcs[1:])}", file=sys.stderr)
+    log(f"masks: not merged, {len(shared)} shared, first copy kept")
+
+
+def verify_stage(stage, good, lit, merge=True):
     """What is wrong with the staged package, measured against the delivered tiles
     and the night plan `lit` {ter name: lines}; an empty list when nothing is."""
     problems, sources = [], {}
@@ -283,10 +292,14 @@ def verify_stage(stage, good, lit):
         if not staged.is_file():
             problems.append(f"{srcs[0][0]}: {name} missing")
         elif len(srcs) > 1:
+            tiles = ", ".join(t for t, _ in srcs)
+            if not merge:
+                if staged.read_bytes() != srcs[0][1].read_bytes():
+                    problems.append(f"{name}: shared mask is not the copy of tile {srcs[0][0]}")
+                continue
             from PIL import Image, ImageChops
             if ImageChops.difference(Image.open(staged), merge_masks(name, srcs)).getbbox():
-                problems.append(f"{name}: shared mask is not the merge of tiles "
-                                f"{', '.join(t for t, _ in srcs)}")
+                problems.append(f"{name}: shared mask is not the merge of tiles {tiles}")
     unlit = lambda text: [l for l in text.splitlines() if not l.split() or l.split()[0] not in LIT_KEYS]
     for name, srcs in sorted(sources.items()):
         staged = stage / "terrain" / name
@@ -339,6 +352,8 @@ def parse_args(argv):
     p.add_argument("spec", help="OXO region spec TOML")
     p.add_argument("--code", required=True, help="package region code, e.g. A4_PILOT")
     p.add_argument("--dry-run", action="store_true", help="validate only, change nothing")
+    p.add_argument("--no-mask-merge", dest="merge", action="store_false",
+                   help="keep the first tile's copy of a shared mask instead of merging")
     g = p.add_mutually_exclusive_group()
     g.add_argument("--strict", dest="mode", action="store_const", const="strict")
     g.add_argument("--loose", dest="mode", action="store_const", const="loose")
@@ -398,6 +413,11 @@ def run(args):
     plans = {tile: night_plan(tile, d, sources, providers) for tile, d, _ in good}
     report_night(plans)
 
+    if not args.merge:
+        masks = tile_masks(good)
+        if args.dry_run:
+            report_unmerged(masks)
+
     if args.dry_run:
         log("dry-run: no package changes")
         return
@@ -421,12 +441,15 @@ def run(args):
 
     shared = 0
     for mask, srcs in tile_masks(good).items():
-        if len(srcs) == 1:
+        if len(srcs) == 1 or not args.merge:
             sync_file(srcs[0][1], stage / "textures")
         else:
             merge_masks(mask, srcs).save(stage / "textures" / mask)
             shared += 1
-    log(f"masks staged, {shared} shared by neighbouring tiles merged")
+    if args.merge:
+        log(f"masks staged, {shared} shared by neighbouring tiles merged")
+    else:
+        report_unmerged(masks)
 
     # A .ter shared by neighbouring tiles is staged once per tile; it stays lit if
     # any tile lights it (the lines agree), and its own LIT lines are replaced.
@@ -440,7 +463,7 @@ def run(args):
                 if not l.split() or l.split()[0] not in LIT_KEYS]
         staged.write_text("".join(f"{l}\n" for l in kept + lines))
 
-    problems = verify_stage(stage, good, lit)
+    problems = verify_stage(stage, good, lit, args.merge)
     if problems:
         print("Staged package problems (sample ≤10):", file=sys.stderr)
         for problem in problems[:10]:
