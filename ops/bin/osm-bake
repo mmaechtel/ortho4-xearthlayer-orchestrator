@@ -1,0 +1,227 @@
+#!/usr/bin/env python3
+"""Bake per-tile OSM layer files from a Geofabrik .osm.pbf with osmium.
+
+    osm-bake --pbf REGION.osm.pbf --out CACHE --poly REGION.poly [--force]
+    osm-bake --pbf REGION.osm.pbf --out CACHE --tile LAT LON [--poly REGION.poly] [--force]
+
+Writes CACHE/<10° block>/<tile>/<tile>_<layer>.osm.bz2 for the five layers
+Ortho4XP queries from Overpass, exactly the layout the worker seeds from
+(OXO_OSM_CACHE). With --poly and no --tile, every 1x1 tile wholly inside the
+extract's .poly is baked; border tiles must come from a larger extract. A
+single --tile without --poly is baked as asked (the operator vouches for it).
+
+Each layer is written to a hidden .part file and renamed into place; a layer
+without matches becomes an empty <osm/> document, never a missing file.
+Existing layers are skipped unless --force. Provenance: one line per baked
+tile is appended to CACHE/osm-bake.log (tile, extract timestamp, pbf, baked at).
+"""
+import argparse
+import bz2
+import os
+import subprocess
+import sys
+import tempfile
+from datetime import datetime, timezone
+from math import ceil, floor
+from pathlib import Path
+
+# Selectors in osmium tags-filter syntax, one list per cache layer, taken from
+# the Ortho4XP the worker image runs (src/O4_Vector_Map.py): airports l.200,
+# big_roads l.270-275, small_roads l.298-307, coastline l.399, water l.534-538.
+# small_roads uses the widest road_level (5: tertiary, unclassified,
+# residential, service, track); Ortho4XP re-filters cached data on load
+# (O4_OSM_Utils.update_dicosm), so a narrower road_level still works.
+# osmium keeps referenced nodes/ways/members by default, as Overpass' ">>".
+LAYERS = {
+    "airports": ["nwr/aeroway"],
+    "big_roads": ["w/highway=motorway,trunk,primary,secondary", "w/railway=rail,narrow_gauge"],
+    "small_roads": ["w/highway=tertiary,unclassified,residential,service,track"],
+    "coastline": ["w/natural=coastline"],
+    "water": ["r/natural=water", "r/waterway=riverbank", "w/natural=water", "w/waterway=riverbank,dock"],
+}
+
+EMPTY_OSM = b"<?xml version='1.0' encoding='UTF-8'?>\n<osm version=\"0.6\" generator=\"osm-bake\">\n</osm>\n"
+
+
+def tile_name(lat, lon):
+    return f"{lat:+03d}{lon:+04d}"
+
+
+def block_name(lat, lon):
+    return tile_name(floor(lat / 10) * 10, floor(lon / 10) * 10)
+
+
+def layer_path(out, lat, lon, layer):
+    tile = tile_name(lat, lon)
+    return Path(out) / block_name(lat, lon) / tile / f"{tile}_{layer}.osm.bz2"
+
+
+def prefilter_cmd(pbf, dst):
+    selectors = [s for sel in LAYERS.values() for s in sel]
+    return ["osmium", "tags-filter", str(pbf), *selectors, "-o", str(dst), "--overwrite"]
+
+
+def extract_cmd(src, dst, lat, lon):
+    bbox = f"{lon},{lat},{lon + 1},{lat + 1}"
+    return ["osmium", "extract", "-s", "complete_ways", "-b", bbox, str(src), "-o", str(dst), "--overwrite"]
+
+
+def filter_cmd(src, dst, layer):
+    return ["osmium", "tags-filter", str(src), *LAYERS[layer], "-f", "osm.bz2", "-o", str(dst), "--overwrite"]
+
+
+def bake_tile(out, lat, lon, prefiltered, work, force, run):
+    """Bake the tile's missing layers (all with force); returns how many."""
+    todo = [l for l in LAYERS if force or not layer_path(out, lat, lon, l).exists()]
+    if not todo:
+        return 0
+    tile_pbf = Path(work) / f"{tile_name(lat, lon)}.osm.pbf"
+    run(extract_cmd(prefiltered, tile_pbf, lat, lon))
+    for layer in todo:
+        final = layer_path(out, lat, lon, layer)
+        final.parent.mkdir(parents=True, exist_ok=True)
+        part = final.with_name(f".{final.name}.part")
+        try:
+            run(filter_cmd(tile_pbf, part, layer))
+            if not part.exists():
+                part.write_bytes(bz2.compress(EMPTY_OSM))
+            os.replace(part, final)
+        finally:
+            part.unlink(missing_ok=True)
+    tile_pbf.unlink(missing_ok=True)
+    return len(todo)
+
+
+# --- .poly handling (Osmosis polygon filter format, as Geofabrik ships it) ---
+
+def parse_poly(text):
+    """Returns [(is_hole, [(lon, lat), ...]), ...]."""
+    rings, cur = [], None
+    for line in text.splitlines()[1:]:
+        line = line.strip()
+        if not line:
+            continue
+        if cur is None:
+            if line == "END":
+                break
+            cur = (line.startswith("!"), [])
+        elif line == "END":
+            rings.append(cur)
+            cur = None
+        else:
+            lon, lat = line.split()[:2]
+            cur[1].append((float(lon), float(lat)))
+    return rings
+
+
+def _cross(o, a, b):
+    return (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0])
+
+
+def _on_segment(p, a, b):
+    return (_cross(a, b, p) == 0 and min(a[0], b[0]) <= p[0] <= max(a[0], b[0])
+            and min(a[1], b[1]) <= p[1] <= max(a[1], b[1]))
+
+
+def _ring_pos(p, pts):
+    """1 inside, 0 on the boundary, -1 outside (ray casting)."""
+    inside = False
+    for a, b in zip(pts, pts[1:] + pts[:1]):
+        if _on_segment(p, a, b):
+            return 0
+        if (a[1] > p[1]) != (b[1] > p[1]) and p[0] < a[0] + (p[1] - a[1]) * (b[0] - a[0]) / (b[1] - a[1]):
+            inside = not inside
+    return 1 if inside else -1
+
+
+def _in_region(p, rings):
+    return (any(_ring_pos(p, pts) >= 0 for hole, pts in rings if not hole)
+            and all(_ring_pos(p, pts) <= 0 for hole, pts in rings if hole))
+
+
+def _properly_cross(a, b, c, d):
+    return (_cross(a, b, c) * _cross(a, b, d) < 0) and (_cross(c, d, a) * _cross(c, d, b) < 0)
+
+
+def tile_inside(rings, lat, lon):
+    """True when the whole 1x1 tile lies in the polygon region: a 5x5 grid of
+    sample points inside, no polygon vertex strictly inside the tile, no
+    polygon edge properly crossing a tile edge."""
+    for i in range(5):
+        for j in range(5):
+            if not _in_region((lon + i / 4, lat + j / 4), rings):
+                return False
+    corners = [(lon, lat), (lon + 1, lat), (lon + 1, lat + 1), (lon, lat + 1)]
+    sides = list(zip(corners, corners[1:] + corners[:1]))
+    for _, pts in rings:
+        for a, b in zip(pts, pts[1:] + pts[:1]):
+            if lon < a[0] < lon + 1 and lat < a[1] < lat + 1:
+                return False
+            if any(_properly_cross(a, b, c, d) for c, d in sides):
+                return False
+    return True
+
+
+def tiles_inside(rings):
+    pts = [p for hole, ring in rings if not hole for p in ring]
+    lons, lats = [p[0] for p in pts], [p[1] for p in pts]
+    return [(lat, lon)
+            for lat in range(floor(min(lats)), ceil(max(lats)))
+            for lon in range(floor(min(lons)), ceil(max(lons)))
+            if tile_inside(rings, lat, lon)]
+
+
+# --- CLI ---
+
+def parse_args(argv=None):
+    p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    p.add_argument("--pbf", type=Path, required=True)
+    p.add_argument("--out", type=Path, required=True, help="the OSM cache root (OXO_OSM_CACHE)")
+    p.add_argument("--tile", type=int, nargs=2, metavar=("LAT", "LON"))
+    p.add_argument("--poly", type=Path, help="the extract's .poly; limits baking to tiles wholly inside")
+    p.add_argument("--force", action="store_true", help="overwrite existing layers")
+    return p.parse_args(argv)
+
+
+def extract_timestamp(pbf, run):
+    r = run(["osmium", "fileinfo", "-g", "header.option.osmosis_replication_timestamp", str(pbf)],
+            capture_output=True, text=True)
+    return r.stdout.strip() or "unknown"
+
+
+def run_main(a, run):
+    if a.tile is None and a.poly is None:
+        sys.exit("osm-bake: without --tile, --poly is required")
+    rings = parse_poly(a.poly.read_text()) if a.poly else None
+    if a.tile is not None:
+        tiles = [tuple(a.tile)]
+        if rings is not None and not tile_inside(rings, *tiles[0]):
+            sys.exit(f"osm-bake: tile {tile_name(*tiles[0])} is not wholly inside {a.poly}")
+    else:
+        tiles = tiles_inside(rings)
+    pending = [t for t in tiles if a.force or not all(layer_path(a.out, *t, l).exists() for l in LAYERS)]
+    if not pending:
+        print(f"nothing to bake ({len(tiles)} tiles already complete)")
+        return
+    a.out.mkdir(parents=True, exist_ok=True)
+    extract = extract_timestamp(a.pbf, run)
+    with tempfile.TemporaryDirectory(dir=a.out, prefix=".osm-bake-") as work:
+        pre = Path(work) / "prefiltered.osm.pbf"
+        run(prefilter_cmd(a.pbf, pre))
+        for lat, lon in pending:
+            n = bake_tile(a.out, lat, lon, pre, work, a.force, run)
+            now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+            with open(a.out / "osm-bake.log", "a") as log:
+                log.write(f"{tile_name(lat, lon)}\t{extract}\t{a.pbf.name}\t{now}\n")
+            print(f"{tile_name(lat, lon)}: {n} layers")
+
+
+def main():
+    def run(argv, **kw):
+        return subprocess.run(argv, check=True, **kw)
+
+    run_main(parse_args(), run)
+
+
+if __name__ == "__main__":
+    main()

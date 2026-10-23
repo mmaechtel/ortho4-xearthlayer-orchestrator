@@ -13,6 +13,7 @@ Why it looks like this: `docs/plans/2026-10-23-own-package-production.md`.
 | `ops/bin/oxo-compose` | Baseline (`docs/examples/example-region.toml`, samsoir) + house + package → one spec per group; prints, writes or submits. |
 | `ops/worker-pod.yaml` | Worker pod with this host's paths; `worker-pod-2..6.yaml` are its copies for workers 2–6. |
 | `ops/bin/import-dem` | Flat `.hgt` → `Elevation_data` layout (btrfs reflinks). |
+| `ops/bin/osm-bake` | Geofabrik `.osm.pbf` → per-tile OSM layers in the OSM cache (needs `osmium-tool`), see below. |
 | `ops/bin/oxo-package` | Delivered tiles → `~/.local/share/xearthlayer/packages/zzXEL_<name>_ortho/`. |
 | `ops/ledger/<package>/` | The books: one `<region_code>-r<rev>.toml` per submitted job, `installs.log`. Committed. |
 | `ops/bin/oxo-whence <tile>` | How a tile was built: builds newest first, commits, DEM, patches, deviations from samsoir, installs; last the adoption record. |
@@ -91,6 +92,19 @@ ops/bin/oxo-whence +48+011
 
 podman kube down ops/worker-pod.yaml   # and ops/worker-pod-N.yaml
 ```
+
+## Baking OSM layers locally
+
+Instead of waiting on Overpass, bake the five layers per tile from a Geofabrik extract (needs `osmium-tool`; download `<region>.osm.pbf` and `<region>.poly` yourself):
+
+```sh
+# every tile wholly inside the extract's .poly (border tiles need a larger extract)
+ops/bin/osm-bake --pbf great-britain-261022.osm.pbf --poly great-britain.poly --out /mnt/xplane_data/oxo/osm-cache
+# one tile (without --poly it is baked as asked); --force overwrites existing layers
+ops/bin/osm-bake --pbf ... --out ... --tile 53 -3
+```
+
+Existing layers are skipped. `osm-cache/osm-bake.log` gets one line per baked tile: tile, extract timestamp (from the PBF header), PBF name, bake time.
 
 ## Settings: three layers
 
