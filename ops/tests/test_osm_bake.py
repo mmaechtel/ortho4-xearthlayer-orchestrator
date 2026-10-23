@@ -146,7 +146,7 @@ class BakeTile(unittest.TestCase):
         class WorkerPublishes(FakeOsmium):
             def __call__(inner, argv, **kw):
                 r = super().__call__(argv, **kw)
-                if "w/natural=coastline" in argv:  # after the water layer was staged
+                if "w/natural=coastline" in argv:  # after `todo` was computed, before the rename loop
                     final.parent.mkdir(parents=True, exist_ok=True)
                     final.write_bytes(b"worker")
                 return r
