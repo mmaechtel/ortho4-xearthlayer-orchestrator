@@ -1,0 +1,105 @@
+# OXO worker pod for own XEarthLayer packages — this host's real paths.
+# Generic template and mount-point contract: deploy/worker-pod.yaml, worker/README.md.
+# Copy of ops/worker-pod.yaml for worker 5: only metadata.name and the scratch
+# volume differ (scratch-5). Keep in sync when worker-pod.yaml changes.
+#
+#   podman kube play ops/worker-pod-5.yaml
+#   podman kube down ops/worker-pod-5.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: oxo-worker-5
+  labels:
+    app: oxo-worker
+spec:
+  restartPolicy: Always
+  containers:
+    - name: worker
+      image: localhost/oxo-worker:dev
+      imagePullPolicy: Never
+      env:
+        # oxo-controld on this host, bound to 0.0.0.0:8080 (ops/README.md).
+        - name: OXO_CONTROL_URL
+          value: "http://host.containers.internal:8080"
+        - name: OXO_MODE
+          value: "recycle"
+        # deploy/worker-pod.yaml's production values. No overpass_server_choice:
+        # a fixed server is used for every retry; stock "random" fails over
+        # between the servers listed in ops/o4-overlay/overpass_servers.txt.
+        - name: OXO_OVERLAY_SRC
+          value: "/var/oxo/content/X-Plane 12 Global Scenery"
+        - name: OXO_O4_CONFIG_OVERLAY
+          value: "/var/oxo/o4-overlay"
+        - name: OXO_O4_APP_OVERRIDES
+          value: '{"max_download_slots":"2","max_convert_slots":"8","http_timeout":"10.0","max_connect_retries":"5","max_baddata_retries":"5","ovl_exclude_pol":"[0]","ovl_exclude_net":"[]"}'
+        # Shared OSM cache (#11): the runner seeds each tile's layers from it and
+        # publishes freshly downloaded ones, so Overpass is asked only on a miss.
+        - name: OXO_OSM_CACHE
+          value: "/var/oxo/osm-cache"
+        # OXO_MIN_FREE_SCRATCH_BYTES stays at its 8 GiB default: a ZL16 floor,
+        # matching our ZL16 production. Raise it if a package group goes above ZL16.
+      resources:
+        requests:
+          memory: "6Gi"
+        limits:
+          memory: "8Gi"
+      volumeMounts:
+        - name: scratch-5
+          mountPath: /var/oxo/scratch
+        # Sonny DEMs, read-only: a tile without coverage fails instead of
+        # building on downloaded data.
+        - name: dem-cache
+          mountPath: /var/oxo/dem
+          readOnly: true
+        - name: content
+          mountPath: /var/oxo/content
+          readOnly: true
+        - name: patches
+          mountPath: /var/oxo/patches-active
+          readOnly: true
+        - name: o4-overlay
+          mountPath: /var/oxo/o4-overlay
+          readOnly: true
+        - name: osm-cache
+          mountPath: /var/oxo/osm-cache
+        # Same path as on the host, so a spec's target.root is valid for the
+        # worker and for ops/bin/oxo-package alike.
+        - name: artifacts
+          mountPath: /mnt/xplane_data/oxo/artifacts
+  volumes:
+    # Unique per pod: podman kube play turns an emptyDir into a *named* volume,
+    # shared by every pod that uses the same name — and each worker's cleanup
+    # then wipes the other's build (seen 2026-10-23, pilot +48+012).
+    - name: scratch-5
+      emptyDir: {}
+    - name: dem-cache
+      hostPath:
+        path: /mnt/xplane_data/oxo/dem
+        type: Directory
+    # X-Plane 12's Global Scenery, read-only. Not only for overlays: every
+    # ortho DSF takes its DEM and bathymetry rasters from the matching Global
+    # Scenery DSF (O4_DSF_Utils.extract_elevation_and_bathymetry_data). The
+    # worker reads it at /var/oxo/content/xplane (OXO_OVERLAY_SRC default).
+    - name: content
+      hostPath:
+        path: /home/maechtel/X-Plane-12/Global Scenery
+        type: Directory
+    - name: patches
+      hostPath:
+        path: /home/maechtel/Work/Git/x-plane/ortho4-xearthlayer-orchestrator/ops/patches
+        type: Directory
+    # Install-root .txt files copied over the image's at worker start.
+    - name: o4-overlay
+      hostPath:
+        path: /home/maechtel/Work/Git/x-plane/ortho4-xearthlayer-orchestrator/ops/o4-overlay
+        type: Directory
+    # Shared by every worker, read-write. Seeded once from the legacy tree:
+    #   cp -a --reflink=always /mnt/xplane_data/docker/Ortho4XP/OSM_data /mnt/xplane_data/oxo/osm-cache
+    - name: osm-cache
+      hostPath:
+        path: /mnt/xplane_data/oxo/osm-cache
+        type: Directory
+    - name: artifacts
+      hostPath:
+        path: /mnt/xplane_data/oxo/artifacts
+        type: Directory

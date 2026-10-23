@@ -11,7 +11,7 @@ Why it looks like this: `docs/plans/2026-10-23-own-package-production.md`.
 | `ops/packages/<package>.toml` | One file per package: metadata, target, tile groups with per-group overrides. |
 | `ops/profiles/house.toml` | Our few deliberate deviations from samsoir's settings. |
 | `ops/bin/oxo-compose` | Baseline (`docs/examples/example-region.toml`, samsoir) + house + package → one spec per group; prints, writes or submits. |
-| `ops/worker-pod.yaml` | Worker pod with this host's paths. |
+| `ops/worker-pod.yaml` | Worker pod with this host's paths; `worker-pod-2..6.yaml` are its copies for workers 2–6. |
 | `ops/bin/import-dem` | Flat `.hgt` → `Elevation_data` layout (btrfs reflinks). |
 | `ops/bin/oxo-package` | Delivered tiles → `~/.local/share/xearthlayer/packages/zzXEL_<name>_ortho/`. |
 | `ops/ledger/<package>/` | The books: one `<region_code>-r<rev>.toml` per submitted job, `installs.log`. Committed. |
@@ -72,10 +72,11 @@ git add ops/packages/<name>.toml && git commit -m "ops: package <name>"
 ops/bin/oxo-compose ops/packages/<name>.toml --submit http://127.0.0.1:8080
 git add ops/ledger && git commit -m "ledger: submit <name>"
 
-# 4. Workers. More: copy ops/worker-pod.yaml and change metadata.name AND the
-#    scratch volume name (scratch-1 -> scratch-2): podman shares same-named
-#    emptyDir volumes between pods, and the workers wipe each other's builds.
+# 4. Workers. Up to six: ops/worker-pod-2.yaml .. -6.yaml differ only in metadata.name
+#    AND the scratch volume name (scratch-N): podman shares same-named emptyDir
+#    volumes between pods, and the workers wipe each other's builds.
 podman kube play ops/worker-pod.yaml
+for n in 2 3 4 5 6; do podman kube play ops/worker-pod-$n.yaml; done
 curl -sS http://127.0.0.1:8080/api/v1/jobs/<job_id>              # complete / failed / in_progress
 curl -sS http://127.0.0.1:8080/api/v1/jobs/<job_id>/throughput
 podman logs -f oxo-worker-1-worker
@@ -88,7 +89,7 @@ git add ops/ledger && git commit -m "ledger: install <name>"
 # Later: how was a tile built?
 ops/bin/oxo-whence +48+011
 
-podman kube down ops/worker-pod.yaml
+podman kube down ops/worker-pod.yaml   # and ops/worker-pod-N.yaml
 ```
 
 ## Settings: three layers
