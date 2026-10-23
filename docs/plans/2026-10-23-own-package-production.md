@@ -90,6 +90,14 @@ XEarthLayer's night-lighting design (`xearthlayer/docs/dev/night-lighting-design
 - XEL runtime patches and the rest of `xearthlayer-config`.
 - The texture-bytes sanity floor (deferred in the worker design); `oxo-package` validation is the gate meanwhile.
 
+## Follow-up: OSM data without waiting on Overpass
+
+Measured in the pilot (2026-10-23): ~19 of the first tile's 24 min were Overpass downloads; KU timed out on every request (60 s each). Ortho4XP reuses `OSM_data/<block>/<tile>/<tile>_<layer>.osm.bz2` when the file exists (`O4_OSM_Utils.py:427-429`), but in the pod `OSM_data` is a symlink onto scratch, so every task downloads everything again. Three steps:
+
+1. **Done:** `ops/o4-overlay/overpass_servers.txt` (DE, FR; KU dropped) via `OXO_O4_CONFIG_OVERLAY`.
+2. **Persistent OSM cache** (decision pending, own issue): an `osm-cache` volume beside `dem-cache`, seeded once by reflink from the legacy `OSM_data` (7.9 GB, 4227 tiles, Aug 2026); the runner copies a tile's layers into scratch before the build and publishes new ones atomically afterwards. Not a plain mount over `scratch/OSM_data`: worker cleanup `remove_dir_all`s it (`oxo-worker/src/exec.rs:273`). Touches `worker/` — upstream PR or fork-only is open.
+3. **`ops/bin/osm-bake`** (idea from OrthoForge `tools/osm_prebake/bake.py`, GPL v3 — reimplemented, not copied): Geofabrik `.pbf` → `osmium tags-filter` prefilter → per tile `osmium extract -s complete_ways` → per layer `osmium tags-filter` with the same selectors Ortho4XP queries (`small_roads` at the widest road level; `update_dicosm` re-filters on load) → `.osm.bz2` written via `.part` + rename; empty layers written as an empty `<osm/>`, never skipped; only tiles wholly inside the extract's `.poly`, as orthostudio does. Output is the cache of step 2.
+
 ## Migration
 
 ### M0 — Checks ✅ (2026-10-23, issue #1)

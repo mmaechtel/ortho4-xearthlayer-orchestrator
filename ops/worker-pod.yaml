@@ -23,7 +23,10 @@ spec:
         - name: OXO_MODE
           value: "recycle"
         # deploy/worker-pod.yaml's production values. No overpass_server_choice:
-        # a fixed server is used for every retry; stock "random" fails over DE/KU.
+        # a fixed server is used for every retry; stock "random" fails over
+        # between the servers listed in ops/o4-overlay/overpass_servers.txt.
+        - name: OXO_O4_CONFIG_OVERLAY
+          value: "/var/oxo/o4-overlay"
         - name: OXO_O4_APP_OVERRIDES
           value: '{"max_download_slots":"2","max_convert_slots":"8","http_timeout":"10.0","max_connect_retries":"5","max_baddata_retries":"5","ovl_exclude_pol":"[0]","ovl_exclude_net":"[]"}'
         # OXO_MIN_FREE_SCRATCH_BYTES stays at its 8 GiB default: a ZL16 floor,
@@ -47,6 +50,9 @@ spec:
         - name: patches
           mountPath: /var/oxo/patches-active
           readOnly: true
+        - name: o4-overlay
+          mountPath: /var/oxo/o4-overlay
+          readOnly: true
         # Same path as on the host, so a spec's target.root is valid for the
         # worker and for ops/bin/oxo-package alike.
         - name: artifacts
@@ -66,6 +72,11 @@ spec:
     - name: patches
       hostPath:
         path: /home/maechtel/Work/Git/x-plane/ortho4-xearthlayer-orchestrator/ops/patches
+        type: Directory
+    # Install-root .txt files copied over the image's at worker start.
+    - name: o4-overlay
+      hostPath:
+        path: /home/maechtel/Work/Git/x-plane/ortho4-xearthlayer-orchestrator/ops/o4-overlay
         type: Directory
     - name: artifacts
       hostPath:
