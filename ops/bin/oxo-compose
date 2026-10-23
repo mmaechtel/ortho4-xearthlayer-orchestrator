@@ -403,6 +403,8 @@ def main():
     p.add_argument("--force", action="store_true", help="submit although the OSM check fails")
     a = p.parse_args()
     try:
+        if a.osm_check and a.submit:
+            raise ComposeError("--osm-check submits nothing: drop --submit (which runs the same check anyway)")
         layers = load(BASELINE), load(HOUSE), load(a.package)
         groups = layers[2].get("group") or []
         all_specs = compose(*layers)

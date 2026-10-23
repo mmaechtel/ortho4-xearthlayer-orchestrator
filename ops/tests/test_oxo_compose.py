@@ -438,6 +438,13 @@ class OsmGate(unittest.TestCase):
         self.assertIn("+10+010: layers missing", msg)
         self.assertEqual(self.hits, [])
 
+    def test_osm_check_with_submit_is_refused_and_posts_nothing(self):
+        for t in ("+10+010", "+10+011", "+10+012"):
+            self.fill(t, "2099-01-01T00:00:00Z")
+        _, msg = self.run_main("--osm-check", "--submit", self.url(), "--force")
+        self.assertIn("--osm-check", msg)
+        self.assertEqual(self.hits, [])
+
     def test_osm_check_passes_quietly_when_everything_is_ready(self):
         for t in ("+10+010", "+10+011", "+10+012"):
             self.fill(t)
