@@ -37,8 +37,9 @@ no overlay .ter is lit. Any problem aborts and leaves the installed package as i
 
 A mask <y>_<x>_ZL<zl>.png of a texture straddling a 1° line is built by each
 neighbouring tile for its own part only (OXO builds see no neighbour mesh), so
-the copies are merged, brightest per pixel. Needs python3-pil when tiles
-share masks.
+the copies are merged, brightest per pixel, and so are same-named masks in the
+installed other packages (names carry no provider; same size only, else a warning).
+Needs python3-pil when tiles share masks or a neighbour has one.
 """
 import argparse
 import datetime
@@ -269,9 +270,33 @@ def tile_masks(good):
     return masks
 
 
-def verify_stage(stage, good, lit):
-    """What is wrong with the staged package, measured against the delivered tiles
-    and the night plan `lit` {ter name: lines}; an empty list when nothing is."""
+def neighbour_masks(name, srcs, sources, warn=True):
+    """Copies [(package name, path)] of mask `name` in the installed other packages
+    `sources` (night_sources). Mask names carry no provider, so XEL resolves them by
+    package priority and ours would shadow the neighbour tile's half there. A copy
+    of other size or mode than ours is left out with a warning."""
+    from PIL import Image
+    paths = [(d, d / "textures" / name) for d, _ in sources]
+    paths = [(d, p) for d, p in paths if p.is_file()]
+    if not paths:
+        return []
+    mine = Image.open(srcs[0][1])
+    found = []
+    for d, theirs in paths:
+        other = Image.open(theirs)
+        if (other.mode, other.size) != (mine.mode, mine.size):
+            if warn:
+                print(f"WARNING: mask {name}: {theirs} ({other.mode} {other.size}) not merged "
+                      f"with {srcs[0][1]} ({mine.mode} {mine.size})", file=sys.stderr)
+            continue
+        found.append((d.name, theirs))
+    return found
+
+
+def verify_stage(stage, good, lit, others=()):
+    """What is wrong with the staged package, measured against the delivered tiles,
+    the night plan `lit` {ter name: lines} and the installed other packages
+    `others`; an empty list when nothing is."""
     problems, sources = [], {}
     for tile, d, dsf in good:
         if not (stage / "Earth nav data" / block_of(tile) / dsf.name).is_file():
@@ -282,11 +307,14 @@ def verify_stage(stage, good, lit):
         staged = stage / "textures" / name
         if not staged.is_file():
             problems.append(f"{srcs[0][0]}: {name} missing")
-        elif len(srcs) > 1:
-            from PIL import Image, ImageChops
-            if ImageChops.difference(Image.open(staged), merge_masks(name, srcs)).getbbox():
-                problems.append(f"{name}: shared mask is not the merge of tiles "
-                                f"{', '.join(t for t, _ in srcs)}")
+        else:
+            theirs = neighbour_masks(name, srcs, others, warn=False) if others else []
+            if len(srcs) > 1 or theirs:
+                from PIL import Image, ImageChops
+                if ImageChops.difference(Image.open(staged),
+                                         merge_masks(name, srcs + theirs)).getbbox():
+                    problems.append(f"{name}: shared mask is not the merge of "
+                                    f"{', '.join(t for t, _ in srcs + theirs)}")
     unlit = lambda text: [l for l in text.splitlines() if not l.split() or l.split()[0] not in LIT_KEYS]
     for name, srcs in sorted(sources.items()):
         staged = stage / "terrain" / name
@@ -421,11 +449,14 @@ def run(args):
 
     shared = 0
     for mask, srcs in tile_masks(good).items():
-        if len(srcs) == 1:
+        theirs = neighbour_masks(mask, srcs, sources)
+        for pkg_dir_name, _ in theirs:
+            log(f"mask {mask}: merged with {pkg_dir_name}")
+        if len(srcs) == 1 and not theirs:
             sync_file(srcs[0][1], stage / "textures")
         else:
-            merge_masks(mask, srcs).save(stage / "textures" / mask)
-            shared += 1
+            merge_masks(mask, srcs + theirs).save(stage / "textures" / mask)
+            shared += len(srcs) > 1
     log(f"masks staged, {shared} shared by neighbouring tiles merged")
 
     # A .ter shared by neighbouring tiles is staged once per tile; it stays lit if
@@ -440,7 +471,7 @@ def run(args):
                 if not l.split() or l.split()[0] not in LIT_KEYS]
         staged.write_text("".join(f"{l}\n" for l in kept + lines))
 
-    problems = verify_stage(stage, good, lit)
+    problems = verify_stage(stage, good, lit, sources)
     if problems:
         print("Staged package problems (sample ≤10):", file=sys.stderr)
         for problem in problems[:10]:

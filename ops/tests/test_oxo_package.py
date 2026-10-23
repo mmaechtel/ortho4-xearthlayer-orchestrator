@@ -656,5 +656,80 @@ class SharedMasks(Base):
         self.assertIn(f"cannot merge shared mask {self.NAME}", err)
 
 
+class NeighbourMasks(SharedMasks):
+    """Mask names carry no provider, so XEL resolves them by package priority across
+    all installed packages: a same-named mask in another installed package is merged
+    in, so our copy does not shadow its neighbour half empty."""
+
+    def neighbour(self, rows, name="zzXEL_eu_ortho", size=4):
+        from PIL import Image
+        d = make_installed(self.pkgs, name, "A5_EU")
+        (d / "textures").mkdir()
+        img = Image.new("L", (size, len(rows)))
+        img.putdata([v for v in rows for _ in range(size)])
+        img.save(d / "textures" / self.NAME)
+        return d
+
+    def staged_rows(self, n):
+        from PIL import Image
+        img = Image.open(self.pkg / "textures" / self.NAME)
+        return [img.getpixel((0, r)) for r in range(n)]
+
+    def test_installed_neighbour_copy_is_merged_in(self):
+        self.mask_tile("+51+008", [255, 255, 120, 40, 0, 0])
+        self.neighbour([0, 0, 0, 90, 255, 255])
+        rc, out, err = self.run_main()
+        self.assertEqual(rc, 0, err)
+        self.assertEqual(self.staged_rows(6), [255, 255, 120, 90, 255, 255])
+        self.assertIn(f"mask {self.NAME}: merged with zzXEL_eu_ortho", out)
+
+    def test_every_installed_package_with_the_mask_is_merged(self):
+        self.mask_tile("+51+008", [10, 0, 0])
+        self.neighbour([0, 20, 0], name="zzXEL_eu_ortho")
+        self.neighbour([0, 0, 30], name="zzXEL_na_ortho")
+        rc, out, err = self.run_main()
+        self.assertEqual(rc, 0, err)
+        self.assertEqual(self.staged_rows(3), [10, 20, 30])
+        self.assertIn("merged with zzXEL_na_ortho", out)
+
+    def test_package_being_built_is_never_a_neighbour(self):
+        self.mask_tile("+51+008", [10, 0])
+        old = self.neighbour([0, 200], name="zzXEL_oxo_pilot_ortho")
+        rc, out, err = self.run_main()
+        self.assertEqual(rc, 0, err)
+        self.assertEqual(self.staged_rows(2), [10, 0])
+        self.assertNotIn("merged with", out)
+
+    def test_neighbour_of_other_size_is_left_out_with_warning(self):
+        self.mask_tile("+51+008", [10, 0])
+        self.neighbour([0, 200, 200], name="zzXEL_eu_ortho")
+        rc, out, err = self.run_main()
+        self.assertEqual(rc, 0, err)
+        self.assertEqual(self.staged_rows(2), [10, 0])
+        self.assertIn(f"WARNING: mask {self.NAME}", err)
+        self.assertIn("zzXEL_eu_ortho", err)
+        self.assertNotIn("merged with", out)
+
+    def test_staged_check_accepts_the_merge(self):
+        d = self.mask_tile("+51+008", [255, 0, 0])
+        self.neighbour([0, 0, 90])
+        src = oxo_package.night_sources(self.pkgs, "zzXEL_oxo_pilot_ortho")
+        rc, _, err = self.run_main()
+        self.assertEqual(rc, 0, err)  # run_main verifies its own output
+        good = [("+51+008", d, next((d / "Earth nav data").rglob("*.dsf")))]
+        self.assertEqual(oxo_package.verify_stage(self.pkg, good, {}, src), [])
+        shutil.copy2(d / "textures" / self.NAME, self.pkg / "textures" / self.NAME)
+        self.assertIn(self.NAME, "".join(oxo_package.verify_stage(self.pkg, good, {}, src)),
+                      "an unmerged copy must fail the check")
+
+    def test_no_neighbour_changes_nothing(self):
+        self.mask_tile("+51+008", [255, 0])
+        make_installed(self.pkgs, "zzXEL_eu_ortho", "A5_EU")  # no textures at all
+        rc, out, err = self.run_main()
+        self.assertEqual(rc, 0, err)
+        self.assertEqual(self.staged_rows(2), [255, 0])
+        self.assertNotIn("merged with", out)
+
+
 if __name__ == "__main__":
     unittest.main()
