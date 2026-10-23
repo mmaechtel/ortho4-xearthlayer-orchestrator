@@ -57,10 +57,10 @@ ops/bin/oxo-compose ops/packages/<name>.toml --out /tmp/specs && \
   for f in /tmp/specs/*.toml; do cargo run -q -p oxo-spec-cli -- validate "$f"; done
 
 # 3. Submit, one job per group. A job is identified by (region_code, revision):
-#    resubmitting the same pair returns the existing job if tiles, failure policy,
-#    provider, zoom, raw parameters and target.root are unchanged, and is refused
-#    (409) if any of them changed; other fields (e.g. metadata.name) are not
-#    compared. Bump revision to rebuild or change anything.
+#    resubmitting the same pair returns the existing job if the planned tasks,
+#    max_attempts/backoff_seconds and the worker payload (oxo-control/src/planner.rs
+#    WorkerPayload) are unchanged, else 409. metadata.name and alert destinations
+#    are not compared. Bump revision to rebuild or change anything.
 #    Refuses with uncommitted changes in ops/ (the ledger must name a real commit).
 git add ops/packages/<name>.toml && git commit -m "ops: package <name>"
 ops/bin/oxo-compose ops/packages/<name>.toml --submit http://127.0.0.1:8080

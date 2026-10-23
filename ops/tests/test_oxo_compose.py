@@ -290,6 +290,15 @@ class Ledger(unittest.TestCase):
         self.assertFalse((self.ledger / "renamed").exists())
         self.assertIn(str(first), buf.getvalue())
 
+    def test_an_existing_job_without_a_record_gets_none_written(self):
+        # its provenance is unknown: current commits would describe a different build
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            path = oxo_compose.record(compose()[0], {}, "job-1", False, self.env)
+        self.assertIsNone(path)
+        self.assertEqual(list(self.ledger.rglob("*.toml")), [])
+        self.assertIn("no ledger record", buf.getvalue())
+
     def test_keys_that_are_not_bare_are_quoted(self):
         self.assertEqual(tomllib.loads(oxo_compose.to_toml({"t": {"+48+011": {"dem": "1s"}}})),
                          {"t": {"+48+011": {"dem": "1s"}}})

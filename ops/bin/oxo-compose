@@ -159,15 +159,18 @@ def _patches(env, tile):
 
 
 def record(spec, overrides, job_id, created, env):
-    """Write the ledger entry for one submitted spec; an existing job keeps its record."""
+    """Write the ledger entry for a newly created job; an existing job is never (re)recorded."""
     m = spec["metadata"]
     path = env.ledger_dir / m["name"] / f"{m['region_code']}-r{m['revision']}.toml"
     if not created:
-        # the server ignores metadata.name, so a renamed package still hits the same job
+        # the server ignores metadata.name, so a renamed package still hits the same job;
+        # without a record, today's commits would describe a build that never happened
         kept = sorted(env.ledger_dir.glob(f"*/{m['region_code']}-r{m['revision']}.toml"))
         if kept:
             print(f"{m['region_code']}: job already existed, record kept: {kept[0]}")
             return kept[0]
+        print(f"{m['region_code']}: job already existed, no ledger record for it; none written")
+        return None
     rec = {
         "provenance": {"submitted": env.now, "job_id": job_id, "ops_commit": env.ops_commit,
                        "ortho4xp_commit": env.ortho4xp_commit, "image_id": env.image_id,
