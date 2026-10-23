@@ -1,0 +1,979 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>OXO Fliessband</title>
+<style>
+@property --p { syntax: '<number>'; inherits: true; initial-value: 0; }
+:root {
+  color-scheme: dark;
+  --bg: #0c0f14; --panel: #131820; --panel2: #19202a; --line: #252d38; --text: #e4e8ee; --muted: #8b95a4; --faint: #586272;
+  --pending: #9aa3af; --claimed: #4cc4f2; --succeeded: #62c98e; --retry: #f29a4c; --abandoned: #cc6b73; --stale: #e8b34b;
+  --j0: #a78bfa; --j1: #f472b6; --j2: #d6c17d; --j3: #5ee0cc; --j4: #818cf8; --j5: #e8a2f4;
+  --mono: ui-monospace, "JetBrains Mono", "SF Mono", Menlo, Consolas, monospace;
+  --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    color-scheme: light;
+    --bg: #f3f5f8; --panel: #ffffff; --panel2: #eef1f5; --line: #dbe0e7; --text: #1a2230; --muted: #5b6676; --faint: #9aa3b0;
+    --pending: #6c7581; --claimed: #0a8cc2; --succeeded: #22925a; --retry: #d36c0c; --abandoned: #b34b54; --stale: #b07b05;
+    --j0: #7b5ce0; --j1: #cf3f8d; --j2: #a3862a; --j3: #1d9a87; --j4: #4e5ad3; --j5: #b155c6;
+  }
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { background: var(--bg); color: var(--text); font: 14px/1.4 var(--sans); padding-bottom: 56px; overflow-x: hidden; }
+.mono { font-family: var(--mono); }
+[hidden] { display: none !important; }
+
+/* status bar */
+#status { position: sticky; top: 0; z-index: 10; display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+  padding: 10px 24px; background: color-mix(in srgb, var(--panel) 92%, transparent); backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--line); transition: background .3s; }
+#status b { letter-spacing: .12em; font-size: 15px; }
+.dbdot { width: 9px; height: 9px; border-radius: 50%; background: var(--succeeded); box-shadow: 0 0 0 3px color-mix(in srgb, var(--succeeded) 25%, transparent); }
+#summary, #changed { color: var(--muted); }
+#msg { font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#clock { margin-left: auto; font-family: var(--mono); color: var(--muted); }
+#status[data-level] #summary, #status[data-level] #changed { display: none; }
+#status[data-level="warn"] { background: color-mix(in srgb, var(--stale) 30%, var(--panel)); border-color: var(--stale); }
+#status[data-level="bad"] { background: color-mix(in srgb, var(--abandoned) 30%, var(--panel)); border-color: var(--abandoned); }
+#status[data-level="off"] { background: color-mix(in srgb, var(--faint) 40%, var(--panel)); }
+#status[data-level="off"] .dbdot { background: var(--abandoned); box-shadow: none; }
+
+main { padding: 16px 24px; display: flex; flex-direction: column; gap: 16px; }
+
+/* band */
+.band { display: grid; gap: 12px; grid-template-columns: minmax(140px, 1fr) minmax(0, 2.7fr) minmax(130px, .9fr) minmax(190px, 1.15fr);
+  grid-template-areas: "q l d p"; align-items: start; transition: filter .4s, opacity .4s; }
+.band.offline { filter: grayscale(1); opacity: .55; }
+.col { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 12px; min-width: 0; }
+.col.q { grid-area: q; } .col.l { grid-area: l; } .col.d { grid-area: d; } .col.p { grid-area: p; }
+.chead { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 10px;
+  font-size: 11px; font-weight: 700; letter-spacing: .14em; color: var(--muted); }
+.chead .n { font: 600 18px var(--mono); letter-spacing: 0; color: var(--text); }
+.chead::after { content: ""; }
+.grp + .grp, .prow + .prow { margin-top: 10px; }
+.ghead { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--muted); margin-bottom: 5px; min-width: 0; }
+.ghead i { width: 8px; height: 8px; border-radius: 2px; background: var(--job); flex: none; }
+.ghead span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ghead .c { margin-left: auto; font-family: var(--mono); }
+.gbody { display: flex; flex-wrap: wrap; gap: 5px; min-height: 4px; }
+.empty { color: var(--faint); font-size: 12px; }
+
+/* tokens */
+.tok { position: relative; display: inline-flex; align-items: center; gap: 5px; padding: 4px 7px 4px 6px; border-radius: 7px;
+  border: 2px solid var(--job); background: color-mix(in srgb, var(--sc) 15%, var(--panel)); color: var(--text);
+  font: 500 12px/1 var(--mono); white-space: nowrap; --sc: var(--pending); }
+.tok::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--sc); flex: none; }
+.tok[data-s="claimed"] { --sc: var(--claimed); }
+.tok[data-s="succeeded"] { --sc: var(--succeeded); }
+.tok[data-s="abandoned"] { --sc: var(--abandoned); opacity: .8; }
+.tok.ghost { --job: var(--line); }
+.tok .att, .tok .why { display: none; }
+.tok.retry { box-shadow: 0 0 0 2px var(--retry); }
+.tok.retry .att { display: inline; font: 600 10px var(--sans); color: var(--retry); }
+.seg .tok.retry .att { display: none; } /* the lane head already says "Versuch 2/3" */
+.tok.stale { outline: 2px dashed var(--stale); outline-offset: 3px; }
+.tok.neu { outline: 2px solid var(--claimed); outline-offset: 3px; }
+.ripple { position: absolute; inset: -3px; border-radius: 9px; border: 2px solid var(--claimed); pointer-events: none; }
+
+/* density matrix: lots of tokens, and the narrow tablet columns */
+.dense .gbody { gap: 2px; }
+.dense .tok { width: 6px; height: 6px; padding: 0; border: 0; border-radius: 1.5px; background: var(--job); box-shadow: none; outline: 0; }
+.dense .tok > *, .dense .tok::before { display: none !important; }
+.dense .tok[data-s="abandoned"] { opacity: .5; }
+
+/* lanes */
+#lanes { display: flex; flex-direction: column; gap: 10px; }
+.lane { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; background: var(--panel2); min-width: 0; }
+.lhead { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; font-size: 12px; min-width: 0; }
+.lname { font: 600 13px var(--mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hb { color: var(--succeeded); font-family: var(--mono); white-space: nowrap; }
+.latt { color: var(--muted); white-space: nowrap; }
+.latt.r { color: var(--retry); font-weight: 600; }
+.lidle { color: var(--faint); display: none; }
+.steps { display: flex; align-items: stretch; gap: 4px; }
+.sep { align-self: center; color: var(--faint); font-size: 11px; }
+.seg { flex: 1 1 0; min-width: 0; position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+  min-height: 74px; padding: 18px 4px 8px; border-radius: 8px; background: var(--panel); border: 1px solid var(--line); }
+.slab { position: absolute; top: 5px; left: 7px; font: 600 10px var(--mono); color: var(--faint); }
+.seg.done .slab { color: var(--succeeded); }
+.seg.done .slab::after { content: " ✓"; }
+.seg.active { border-color: color-mix(in srgb, var(--claimed) 60%, var(--line)); background: color-mix(in srgb, var(--claimed) 7%, var(--panel)); }
+.seg.active .slab { color: var(--claimed); }
+.slot { display: flex; justify-content: center; min-height: 24px; }
+.meter { display: flex; align-items: center; gap: 6px; font: 11px var(--mono); color: var(--muted); white-space: nowrap; }
+.ring { width: 22px; height: 22px; border-radius: 50%; flex: none; --ringc: var(--claimed);
+  background: conic-gradient(var(--ringc) calc(var(--p) * 360deg), var(--line) 0);
+  -webkit-mask: radial-gradient(circle, transparent 52%, #000 56%); mask: radial-gradient(circle, transparent 52%, #000 56%);
+  transition: --p 1s linear; }
+.ring.amber { --ringc: var(--stale); }
+.meter.amber { color: var(--stale); }
+.raw { margin-top: 6px; font: 11px var(--mono); color: var(--stale); overflow-wrap: anywhere; }
+.ticker { position: relative; height: 1.6em; margin-top: 8px; overflow: hidden; font: 11px/1.6em var(--mono); color: var(--muted);
+  border-top: 1px dashed var(--line); }
+.tline { position: absolute; inset: 0; white-space: pre; overflow: hidden; text-overflow: ellipsis; }
+.lane.stale { border: 2px dashed var(--stale); }
+.lane.stale .hb { color: var(--stale); }
+.lane.idle { padding: 8px 12px; background: transparent; border-style: dashed; }
+.lane.idle .lhead { margin: 0; }
+.lane.idle .steps, .lane.idle .ticker, .lane.idle .hb, .lane.idle .latt, .lane.idle .raw { display: none; }
+.lane.idle .lidle { display: inline; }
+.lane.idle .lname { color: var(--faint); }
+/* many workers: 44 px lanes, ticker on hover/tap */
+#lanes.compact { gap: 4px; }
+#lanes.compact .lane { display: grid; grid-template-columns: minmax(0, 170px) minmax(0, 1fr); align-items: center; gap: 10px; padding: 3px 8px; min-height: 44px; position: relative; }
+#lanes.compact .lhead { margin: 0; gap: 8px; }
+#lanes.compact .latt { display: none; }
+#lanes.compact .seg { min-height: 36px; padding: 2px 4px; flex-direction: row; gap: 6px; }
+#lanes.compact .slab { position: static; }
+#lanes.compact .seg.active { flex-grow: 2.4; }
+#lanes.compact .seg.active .slab { display: none; }
+#lanes.compact .seg:not(.active) .slab { margin: auto; }
+#lanes.compact .meter span:last-child { display: none; }
+#lanes.compact .ring { width: 16px; height: 16px; }
+#lanes.compact .ticker { position: absolute; left: 8px; right: 8px; top: 100%; z-index: 3; margin: 0; padding: 0 8px; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; display: none; }
+#lanes.compact .lane:hover .ticker, #lanes.compact .lane:focus-within .ticker { display: block; }
+#lanes.compact .lane.idle { min-height: 26px; display: flex; }
+
+/* packaged */
+.prow { border-left: 3px solid var(--line); padding: 4px 0 4px 8px; transition: border-color .3s, background .3s; border-radius: 0 6px 6px 0; }
+.prow .ghead { color: var(--text); }
+.prow .code { font: 600 12px var(--mono); }
+.prow .own { color: var(--faint); font-size: 10px; text-transform: uppercase; letter-spacing: .08em; }
+.prow .new { font-size: 10px; font-weight: 700; color: var(--bg); background: var(--succeeded); padding: 1px 5px; border-radius: 4px; display: none; }
+.prow.fresh { border-color: var(--succeeded); background: color-mix(in srgb, var(--succeeded) 10%, transparent); }
+.prow.fresh .new { display: inline; }
+
+/* scrap gutter */
+.scrap { background: color-mix(in srgb, var(--abandoned) 6%, var(--panel)); border: 1px solid color-mix(in srgb, var(--abandoned) 35%, var(--line)); border-radius: 12px; padding: 10px 12px; }
+.scrap summary { cursor: pointer; font-size: 11px; font-weight: 700; letter-spacing: .14em; color: var(--abandoned); }
+#scrap { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; align-items: flex-start; }
+#scrap .tok { white-space: normal; max-width: 100%; }
+#scrap .tok .why { display: inline; font: 12px var(--sans); color: var(--muted); padding-left: 6px; }
+#scrap.dense { flex-direction: row; flex-wrap: wrap; gap: 2px; }
+
+/* job bar */
+#jobs { display: flex; flex-direction: column; gap: 2px; }
+.jrow { display: grid; grid-template-columns: 10px minmax(90px, 160px) 36px minmax(80px, 1fr) auto 92px; align-items: center; gap: 12px; padding: 6px 10px; border-radius: 8px; font-size: 13px; }
+.jrow:nth-child(odd) { background: var(--panel); }
+.jrow i { width: 10px; height: 10px; border-radius: 3px; background: var(--job); }
+.jrow .reg { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.jrow .rev { color: var(--muted); font-family: var(--mono); font-size: 12px; }
+.bar { display: flex; height: 8px; border-radius: 4px; overflow: hidden; background: var(--line); }
+.bar span { transition: flex-grow .3s ease-out; }
+.bar span:nth-child(1) { background: var(--succeeded); } .bar span:nth-child(2) { background: var(--claimed); }
+.bar span:nth-child(3) { background: var(--pending); opacity: .55; } .bar span:nth-child(4) { background: var(--abandoned); }
+.nums { display: flex; gap: 10px; font: 12px var(--mono); color: var(--muted); }
+.nums b { font-weight: 600; }
+.nums .s { color: var(--succeeded); } .nums .c { color: var(--claimed); } .nums .a { color: var(--abandoned); }
+.st { justify-self: end; font-size: 11px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); }
+.st[data-st="failed"] { color: var(--abandoned); border-color: var(--abandoned); }
+.st[data-st="in_progress"] { color: var(--claimed); border-color: var(--claimed); }
+.st[data-st="complete"] { color: var(--succeeded); }
+
+/* demo tag */
+.demo { position: fixed; right: 12px; bottom: 12px; z-index: 20; display: flex; gap: 8px; align-items: center; padding: 6px 8px 6px 12px;
+  border-radius: 999px; background: var(--panel); border: 1px solid var(--line); font-size: 11px; color: var(--muted); box-shadow: 0 4px 18px rgb(0 0 0 / .25); }
+.demo button { font: inherit; color: var(--text); background: var(--panel2); border: 1px solid var(--line); border-radius: 999px; padding: 4px 10px; cursor: pointer; }
+.demo button:focus-visible { outline: 2px solid var(--claimed); outline-offset: 2px; }
+
+/* tablet: queue/delivered become narrow count + dot field, packaged slides under the band */
+@media (max-width: 1023px) {
+  main { padding: 16px; }
+  #status { padding: 10px 16px; flex-wrap: nowrap; gap: 10px; }
+  #summary, #changed { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+  .band { grid-template-columns: 96px minmax(0, 1fr) 96px; grid-template-areas: "q l d" "p p p"; }
+  .col.q, .col.d { padding: 10px 8px; }
+  .col.q .ghead, .col.d .ghead { display: none; }
+  .col.q .chead, .col.d .chead { flex-direction: column; align-items: flex-start; gap: 2px; }
+  .col.q .chead .n, .col.d .chead .n { font-size: 26px; }
+  .col.q .gbody, .col.d .gbody { gap: 2px; }
+  .col.q .tok, .col.d .tok { width: 6px; height: 6px; padding: 0; border: 0; border-radius: 1.5px; background: var(--job); box-shadow: none; outline: 0; }
+  .col.q .tok > *, .col.d .tok > *, .col.q .tok::before, .col.d .tok::before { display: none !important; }
+  .col.p .gbody { gap: 5px; }
+  .jrow { grid-template-columns: 10px minmax(80px, 1fr) 30px minmax(60px, 1.2fr) 80px; }
+  .jrow .nums { display: none; }
+}
+/* phone: the band turns 90 degrees and flows top to bottom */
+@media (max-width: 599px) {
+  .band { display: flex; flex-direction: column; align-items: stretch; }
+  .col.q .ghead, .col.d .ghead { display: flex; }
+  .col.q .chead, .col.d .chead { flex-direction: row; align-items: baseline; }
+  .col.q .chead .n, .col.d .chead .n { font-size: 18px; }
+  .col.q:not(.dense) .tok, .col.d:not(.dense) .tok { width: auto; height: auto; padding: 4px 7px 4px 6px; border: 2px solid var(--job); border-radius: 7px; background: color-mix(in srgb, var(--sc) 15%, var(--panel)); }
+  .col.q:not(.dense) .tok::before, .col.d:not(.dense) .tok::before { display: block !important; }
+  .col.q:not(.dense) .tok .tile, .col.d:not(.dense) .tok .tile { display: inline !important; }
+  .col.q:not(.dense) .tok.retry .att { display: inline !important; }
+  .col.q:not(.dense) .tok.retry { box-shadow: 0 0 0 2px var(--retry); }
+  .col.l { padding: 0; background: none; border: 0; }
+  .col.l > .chead { padding: 0 4px; }
+  .lane { padding: 12px; }
+  .lhead { flex-wrap: wrap; row-gap: 2px; }
+  .steps { flex-direction: column; gap: 2px; }
+  .sep { display: none; }
+  #msg { white-space: normal; line-height: 1.25; }
+  .seg { flex: none; flex-direction: row; flex-wrap: wrap; justify-content: flex-start; min-height: 32px; padding: 4px 8px 4px 26px; gap: 4px 10px; border: 0; background: none; }
+  .seg::before { content: ""; position: absolute; left: 8px; top: 50%; width: 9px; height: 9px; margin-top: -5px; border-radius: 50%; border: 2px solid var(--faint); }
+  .seg.done::before { background: var(--succeeded); border-color: var(--succeeded); }
+  .seg.active::before { background: var(--claimed); border-color: var(--claimed); }
+  .seg.active { background: color-mix(in srgb, var(--claimed) 8%, transparent); }
+  .slab { position: static; min-width: 84px; }
+  .slab::before { content: attr(data-name); }
+  .slab { font-size: 0; }
+  .slab::before, .seg.done .slab::after { font-size: 11px; }
+  .jrow { grid-template-columns: 10px minmax(0, 1fr) 30px 76px; row-gap: 4px; }
+  .jrow .bar { grid-column: 2 / -1; grid-row: 2; }
+  .scrap { order: 3; }
+  #lanes.compact .lane { display: block; }
+  #lanes.compact .ticker { display: none !important; }
+  #lanes.compact .seg { min-height: 26px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ring { display: none; }
+  .ring, .bar span, #status { transition: none; }
+}
+</style>
+</head>
+<body>
+<header id="status" role="status">
+  <b>OXO</b><span class="dbdot" id="db" title="Datenbank"></span>
+  <span id="summary"></span><span id="changed"></span><span id="msg"></span>
+  <span id="clock"></span>
+</header>
+<main>
+  <section class="band" id="band" aria-label="Fliessband">
+    <div class="col q" id="colq"><div class="chead">QUEUE <span class="n" id="nq">0</span></div><div id="q"></div></div>
+    <div class="col l"><div class="chead">WORKER <span class="n" id="nl">0</span></div><div id="lanes"></div></div>
+    <div class="col d" id="cold"><div class="chead">DELIVERED <span class="n" id="nd">0</span></div><div id="d"></div></div>
+    <div class="col p" id="colp"><div class="chead">PACKAGED <span class="n" id="np">0</span></div><div id="p"></div></div>
+  </section>
+  <details class="scrap" id="scrapbox"><summary>AUSSCHUSS <span id="ns">0</span></summary><div id="scrap"></div></details>
+  <section id="jobs" aria-label="Jobs"></section>
+</main>
+<div class="demo"><span>MOCKUP · simulierte Daten</span><button id="big" type="button">Demo: 10 Worker / 500 Tiles</button></div>
+<script>
+"use strict";
+const SAMPLE = {
+ "generated_at": "2026-10-23T11:21:00Z",
+ "database": {
+  "reachable": true,
+  "error": null
+ },
+ "jobs": [
+  {
+   "id": "5cadb9e9-d37e-4016-af57-165443649137",
+   "region_code": "OXO-APT",
+   "revision": 1,
+   "package": "oxo_apt",
+   "created_at": "2026-10-23T11:08:41Z",
+   "max_attempts": 3,
+   "state": "in_progress",
+   "counts": {
+    "pending": 0,
+    "claimed": 1,
+    "succeeded": 0,
+    "abandoned": 0
+   },
+   "total": 1,
+   "tasks": [
+    {
+     "id": "99335416-c161-437d-9007-cb1a2aecfb8d",
+     "tile": "+48+011",
+     "task_type": "ortho",
+     "state": "claimed",
+     "attempts": 2,
+     "claimed_by": "oxo-worker-1",
+     "claimed_at": "2026-10-23T11:10:12Z",
+     "last_heartbeat_at": "2026-10-23T11:20:42Z",
+     "last_failure": "prepare: target root /mnt/xplane_data/oxo/artifacts/oxo_apt is not writable: No such file or directory",
+     "replaces": "eu_apt (A0_EU) cfg agrees",
+     "patches": [
+      "EDDM.patch.osm"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "74ac7077-0eb5-4283-b0ba-bb93410b3be2",
+   "region_code": "OXO-SONNY",
+   "revision": 1,
+   "package": "oxo_sonny",
+   "created_at": "2026-10-23T11:08:43Z",
+   "max_attempts": 3,
+   "state": "failed",
+   "counts": {
+    "pending": 0,
+    "claimed": 0,
+    "succeeded": 0,
+    "abandoned": 2
+   },
+   "total": 2,
+   "tasks": [
+    {
+     "id": "12f5d4b4-226a-4984-a488-de03de2475e8",
+     "tile": "+48+010",
+     "task_type": "ortho",
+     "state": "abandoned",
+     "attempts": 1,
+     "claimed_by": null,
+     "claimed_at": null,
+     "last_heartbeat_at": null,
+     "last_failure": "cancelled by operator",
+     "replaces": "eu_sonny (A5_EU) cfg agrees",
+     "patches": []
+    },
+    {
+     "id": "711e62ff-f009-440e-8ab9-a3647f7d6166",
+     "tile": "+48+012",
+     "task_type": "ortho",
+     "state": "abandoned",
+     "attempts": 1,
+     "claimed_by": null,
+     "claimed_at": null,
+     "last_heartbeat_at": null,
+     "last_failure": "cancelled by operator",
+     "replaces": "eu_sonny (A5_EU) cfg agrees",
+     "patches": []
+    }
+   ]
+  },
+  {
+   "id": "d125946d-ef3d-4f34-b4ce-17bc0b1dea73",
+   "region_code": "EU-PILOT",
+   "revision": 3,
+   "package": "oxo_pilot",
+   "created_at": "2026-10-23T09:10:38Z",
+   "max_attempts": 3,
+   "state": "complete",
+   "counts": {
+    "pending": 0,
+    "claimed": 0,
+    "succeeded": 3,
+    "abandoned": 0
+   },
+   "total": 3,
+   "tasks": [
+    {
+     "id": "64ad6949-ade0-4305-afb0-838448c2f0d7",
+     "tile": "+48+012",
+     "task_type": "ortho",
+     "state": "succeeded",
+     "attempts": 1,
+     "claimed_by": null,
+     "claimed_at": null,
+     "last_heartbeat_at": null,
+     "last_failure": null,
+     "replaces": null,
+     "patches": []
+    },
+    {
+     "id": "710468a8-2c04-4306-8318-887d347a5a77",
+     "tile": "+48+010",
+     "task_type": "ortho",
+     "state": "succeeded",
+     "attempts": 1,
+     "claimed_by": null,
+     "claimed_at": null,
+     "last_heartbeat_at": null,
+     "last_failure": null,
+     "replaces": null,
+     "patches": []
+    },
+    {
+     "id": "f08ded77-bda3-49ae-bb9d-b2b78213250d",
+     "tile": "+48+011",
+     "task_type": "ortho",
+     "state": "succeeded",
+     "attempts": 1,
+     "claimed_by": null,
+     "claimed_at": null,
+     "last_heartbeat_at": null,
+     "last_failure": null,
+     "replaces": null,
+     "patches": [
+      "EDDM.patch.osm"
+     ]
+    }
+   ]
+  }
+ ],
+ "workers": [
+  {
+   "name": "oxo-worker-1-worker",
+   "state": "running",
+   "started_at": "2026-10-23T10:14:23Z",
+   "current": {
+    "task_id": "99335416-c161-437d-9007-cb1a2aecfb8d",
+    "tile": "+48+011",
+    "task_type": "ortho",
+    "attempt": 2,
+    "since": "2026-10-23T11:10:12Z",
+    "step": "Step 1 : Building vector data for tile +48+011",
+    "step_since": "2026-10-23T11:10:13Z"
+   },
+   "log_tail": [
+    {
+     "at": "2026-10-23T11:20:35Z",
+     "line": "   Number of edges at this point: 124650"
+    },
+    {
+     "at": "2026-10-23T11:20:35Z",
+     "line": "-> Dealing with inland water"
+    },
+    {
+     "at": "2026-10-23T11:20:35Z",
+     "line": "    * Downloading OSM data for rel[\"natural\"=\"water\"]"
+    }
+   ]
+  }
+ ],
+ "packages": [
+  {
+   "name": "zzXEL_eu_apt_ortho",
+   "code": "A0_EU",
+   "version": "99.99.99",
+   "tiles": 53,
+   "owner": "own"
+  },
+  {
+   "name": "zzXEL_oxo_pilot_ortho",
+   "code": "A4_PILOT",
+   "version": "99.99.99",
+   "tiles": 3,
+   "owner": "oxo"
+  },
+  {
+   "name": "zzXEL_eu_sonny_ortho",
+   "code": "A5_EU",
+   "version": "99.99.99",
+   "tiles": 2036,
+   "owner": "own"
+  },
+  {
+   "name": "zzXEL_eu-west_ortho",
+   "code": "EU-WEST",
+   "version": "0.5.0",
+   "tiles": 1500,
+   "owner": "samsoir"
+  }
+ ],
+ "installs": [
+  {
+   "at": "2026-10-23T10:26:45Z",
+   "code": "A4_PILOT",
+   "package": "zzXEL_oxo_pilot_ortho",
+   "tiles": [
+    "+48+010",
+    "+48+011",
+    "+48+012"
+   ]
+  }
+ ]
+};
+
+/* ---------- helpers ---------- */
+const $ = id => document.getElementById(id);
+const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+const ms = iso => Date.parse(iso);
+const SEGS = ["1", "2", "2.5", "3"];
+const SEG_NAMES = ["S1 Vektordaten", "S2 Mesh", "S2.5 Masken", "S3 DSF"];
+const reduceMQ = matchMedia("(prefers-reduced-motion: reduce)");
+const pad = n => String(n).padStart(2, "0");
+const dur = s => { s = Math.max(0, Math.floor(s)); const h = s / 3600 | 0, m = (s % 3600) / 60 | 0; return (h ? h + ":" + pad(m) : m) + ":" + pad(s % 60); };
+const ago = s => { s = Math.max(0, Math.round(s)); return s < 90 ? s + " s" : s < 5400 ? Math.round(s / 60) + " min" : Math.round(s / 3600) + " h"; };
+const hhmm = t => new Date(t).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" });
+const shortName = n => n.replace(/-worker$/, "");
+const stepKey = text => { const m = /Step (\d(?:\.5)?)/.exec(text || ""); return m && SEGS.includes(m[1]) ? m[1] : "?"; };
+const pkgName = job => `zzXEL_${job.package}_ortho`;
+function jobColor(id) { let h = 2166136261; for (const c of id) h = Math.imul(h ^ c.charCodeAt(0), 16777619); return `var(--j${(h >>> 0) % 6})`; } // FNV-1a
+function prio(p) { // A00 < A0 < A4 < A5 < A10 ... < other own < samsoir
+  if (p.owner === "samsoir") return 1e6;
+  const m = /^A(\d+)/.exec(p.code);
+  return m ? +m[1] * 10 + (m[1].length > 1 && +m[1] === 0 ? 0 : 1) : 1e5;
+}
+function rollNum(e, to) {
+  const from = +e.textContent || 0, id = e._roll = (e._roll || 0) + 1; // a newer roll cancels an older one
+  if (from === to || reduceMQ.matches) { e.textContent = to; return; }
+  const t0 = performance.now();
+  const step = t => { if (e._roll !== id) return; const k = Math.min(1, (t - t0) / 300); e.textContent = Math.round(from + (to - from) * k); if (k < 1) requestAnimationFrame(step); };
+  requestAnimationFrame(step);
+}
+
+/* ---------- view state: one DOM node per task.id / worker.name, kept across polls ---------- */
+const tokens = new Map(), lanes = new Map(), groups = new Map(), prows = new Map(), jrows = new Map(), idleSince = new Map();
+let last = null, lastGood = null, pollAt = 0, clockRate = 1, lastChange = 0, lastSig = "";
+const now = () => last ? ms(last.generated_at) + (performance.now() - pollAt) * clockRate : Date.now();
+
+function makeTok(tile, color) {
+  const e = el("span", "tok");
+  e.append(el("span", "tile", tile), el("span", "att"), el("span", "why"));
+  e.style.setProperty("--job", color);
+  return e;
+}
+function updateTok(e, t, job) {
+  e.dataset.s = t.state;
+  const retry = t.attempts > (t.state === "pending" ? 0 : 1) && t.state !== "succeeded" && t.state !== "abandoned";
+  e.classList.toggle("retry", retry);
+  e.children[1].textContent = retry ? `Versuch ${t.state === "pending" ? t.attempts + 1 : t.attempts}/${job.max_attempts}` : "";
+  e.children[2].textContent = t.last_failure || "";
+  e.title = [`${t.tile} · ${job.region_code} r${job.revision} · ${t.state} · Versuche ${t.attempts}/${job.max_attempts}`,
+    t.last_failure && "Fehler: " + t.last_failure, t.replaces && "ersetzt " + t.replaces,
+    t.patches?.length && "Patches: " + t.patches.join(", ")].filter(Boolean).join("\n");
+}
+function group(colId, job) {
+  const key = colId + job.id;
+  let g = groups.get(key);
+  if (!g) {
+    g = el("div", "grp"); g.style.setProperty("--job", jobColor(job.id));
+    const h = el("div", "ghead"); h.append(el("i"), el("span", null, job.region_code), el("span", "c"));
+    g.append(h, el("div", "gbody"));
+    groups.set(key, g);
+  }
+  g.firstChild.children[1].textContent = job.region_code;
+  $(colId).appendChild(g); // re-append keeps groups in job order
+  return g.lastChild;
+}
+function prow(code, owner, tiles) {
+  let r = prows.get(code);
+  if (!r) {
+    r = el("div", "prow");
+    const h = el("div", "ghead");
+    h.append(el("span", "code", code), el("span", "own"), el("span", "new", "neu"), el("span", "c"));
+    r.append(h, el("div", "gbody"));
+    prows.set(code, r);
+  }
+  r.querySelector(".own").textContent = owner || "";
+  r.querySelector(".c").textContent = tiles == null ? "" : tiles.toLocaleString("de-DE") + " Tiles";
+  return r;
+}
+function makeLane(name) {
+  const L = el("div", "lane"); L.tabIndex = 0;
+  const head = el("div", "lhead");
+  const _ = { name: el("span", "lname", shortName(name)), hb: el("span", "hb"), att: el("span", "latt"), idle: el("span", "lidle"),
+    segs: [], slots: [], meter: el("div", "meter"), ring: el("span", "ring"), mtxt: el("span"), raw: el("div", "raw"),
+    ticker: el("div", "ticker"), idx: 0, p: 0, hbSeen: 0, logKey: "", stepId: "", cur: null, target: null };
+  _.name.title = name;
+  head.append(_.name, _.hb, _.att, _.idle);
+  const steps = el("div", "steps");
+  SEGS.forEach((k, i) => {
+    if (i) steps.append(el("span", "sep", "▸"));
+    const seg = el("div", "seg"), lab = el("span", "slab", "S" + k), slot = el("div", "slot");
+    lab.dataset.name = SEG_NAMES[i];
+    seg.append(lab, slot); steps.append(seg);
+    _.segs.push(seg); _.slots.push(slot);
+  });
+  _.meter.append(_.ring, _.mtxt);
+  L.append(head, steps, _.raw, _.ticker);
+  L._ = _;
+  return L;
+}
+function tickerLine(_, text, animate) {
+  while (_.ticker.children.length > 1) _.ticker.firstChild.remove(); // polls faster than the slide
+  const n = el("div", "tline", text), old = _.ticker.lastElementChild;
+  _.ticker.append(n);
+  if (!old) return;
+  if (!animate) { old.remove(); return; }
+  old.animate([{ transform: "none" }, { transform: "translateY(-100%)", opacity: 0 }], { duration: 350, easing: "ease-in" }).onfinish = () => old.remove();
+  n.animate([{ transform: "translateY(100%)" }, { transform: "none" }], { duration: 350, easing: "ease-out" });
+}
+function ripple(e) {
+  const r = el("span", "ripple"); e.append(r);
+  r.animate([{ transform: "scale(1)", opacity: .8 }, { transform: "scale(1.6)", opacity: 0 }], { duration: 500, easing: "ease-out" }).onfinish = () => r.remove();
+}
+
+/* ---------- the one render function: fed a fresh state per poll ---------- */
+function render(state, prev) {
+  const offline = !state.database.reachable;
+  if (!offline) lastGood = state;
+  const data = offline && lastGood ? lastGood : state; // DB down: keep the last picture, greyed
+  const motion = !!prev && !reduceMQ.matches;
+  const genT = ms(data.generated_at);
+  $("band").classList.toggle("offline", offline);
+
+  const before = new Map();
+  for (const [id, e] of tokens) before.set(id, e.getBoundingClientRect());
+  const prevTask = new Map(), taskById = new Map(), jobOf = new Map();
+  for (const j of prev?.jobs || []) for (const t of j.tasks) prevTask.set(t.id, t);
+  for (const j of data.jobs) for (const t of j.tasks) { taskById.set(t.id, t); jobOf.set(t.id, j); }
+  const jobs = [...data.jobs].sort((a, b) => ms(a.created_at) - ms(b.created_at));
+
+  /* lanes */
+  const wrap = $("lanes");
+  wrap.classList.toggle("compact", data.workers.length > 4);
+  const prevWorkers = new Map((prev?.workers || []).map(w => [w.name, w]));
+  const laneOf = new Map(), ripples = [], stale = new Set();
+  const workers = [...data.workers].sort((a, b) => a.name.localeCompare(b.name, "de", { numeric: true }));
+  for (const w of workers) {
+    let L = lanes.get(w.name);
+    if (!L) { L = makeLane(w.name); lanes.set(w.name, L); }
+    wrap.appendChild(L);
+    const _ = L._, c = w.current;
+    L.classList.toggle("idle", !c);
+    if (!c) {
+      if (!idleSince.has(w.name)) idleSince.set(w.name, prevWorkers.get(w.name)?.current ? genT : ms(w.started_at));
+      L.classList.remove("stale"); _.cur = null; _.target = null;
+      continue;
+    }
+    idleSince.delete(w.name);
+    const t = taskById.get(c.task_id), job = jobOf.get(c.task_id);
+    const hb = t?.last_heartbeat_at ? ms(t.last_heartbeat_at) : 0;
+    const isStale = !hb || genT - hb > 90000;
+    L.classList.toggle("stale", isStale);
+    if (isStale && t) stale.add(t.id);
+    const k = stepKey(c.step), known = SEGS.indexOf(k);
+    if (known >= 0) _.idx = known; // unknown step text: the token stays where it was
+    _.segs.forEach((s, i) => { s.classList.toggle("done", i < _.idx); s.classList.toggle("active", i === _.idx); });
+    _.segs[_.idx].append(_.meter);
+    _.target = _.slots[_.idx];
+    _.raw.hidden = k !== "?"; _.raw.textContent = k === "?" ? c.step || "(kein Step)" : "";
+    _.att.textContent = `Versuch ${c.attempt}/${job?.max_attempts ?? "?"}`;
+    _.att.classList.toggle("r", c.attempt > 1);
+    const stepId = c.task_id + "|" + c.step_since;
+    if (stepId !== _.stepId) { _.ring.style.transition = "none"; _.ring.style.setProperty("--p", 0); _.p = 0; void _.ring.offsetWidth; _.ring.style.transition = ""; _.stepId = stepId; }
+    if (hb > _.hbSeen && _.hbSeen && !isStale && t) ripples.push(t.id);
+    _.hbSeen = hb;
+    _.cur = { since: ms(c.step_since), hb, k, stale: isStale };
+    const line = w.log_tail?.at(-1);
+    const logKey = line ? line.at + line.line : "";
+    if (logKey !== _.logKey) { tickerLine(_, line ? line.line : "", motion && !!_.logKey); _.logKey = logKey; }
+    if (t) laneOf.set(t.id, L);
+  }
+  for (const [name, L] of lanes) if (!data.workers.some(w => w.name === name)) { L.remove(); lanes.delete(name); }
+
+  /* packaged rows, in priority order */
+  const pkgBox = $("p");
+  const codes = new Map(data.packages.map(p => [p.code, p]));
+  for (const i of data.installs) if (!codes.has(i.code)) codes.set(i.code, { code: i.code, owner: "", tiles: null });
+  [...codes.values()].sort((a, b) => prio(a) - prio(b) || a.code.localeCompare(b.code))
+    .forEach(p => pkgBox.appendChild(prow(p.code, p.owner, p.tiles)));
+  for (const [code, r] of prows) if (!codes.has(code)) { r.remove(); prows.delete(code); }
+  const prevInstalls = new Set((prev?.installs || []).map(i => i.at + i.code));
+  if (prev) for (const i of data.installs) if (!prevInstalls.has(i.at + i.code)) {
+    const r = prows.get(i.code); r.classList.add("fresh"); clearTimeout(r._t); r._t = setTimeout(() => r.classList.remove("fresh"), 3000);
+  }
+  const installedIn = new Map(); // "package|tile" -> code
+  for (const i of data.installs) for (const tile of i.tiles) installedIn.set(i.package + "|" + tile, i.code);
+
+  /* place every token */
+  const moves = [], seen = new Set();
+  const place = (id, e, target, kind) => {
+    seen.add(id);
+    const isNew = !before.has(id);
+    if (e.parentNode !== target) { moves.push({ id, e, kind, isNew, from: e.parentNode }); target.appendChild(e); }
+  };
+  for (const job of jobs) for (const t of job.tasks) {
+    let e = tokens.get(t.id);
+    if (!e) { e = makeTok(t.tile, jobColor(job.id)); tokens.set(t.id, e); }
+    updateTok(e, t, job);
+    e.classList.toggle("stale", stale.has(t.id));
+    const p = prevTask.get(t.id), L = laneOf.get(t.id);
+    let target, kind = "stage";
+    if (t.state === "claimed" && L) target = L._.target;
+    else if (t.state === "pending" || t.state === "claimed") target = group("q", job);
+    else if (t.state === "succeeded") { const code = installedIn.get(pkgName(job) + "|" + t.tile); target = code ? prows.get(code).lastChild : group("d", job); }
+    else target = $("scrap");
+    if (p && t.attempts > p.attempts && p.state === "claimed" && t.state === "claimed") kind = "reclaim";
+    else if (p && t.state === "pending" && p.state === "claimed") kind = "retry";
+    else if (t.state === "abandoned") kind = "drop";
+    else if (p && p.state === "claimed" && t.state === "claimed") kind = "step";
+    if (kind === "reclaim" && e.parentNode === target) moves.push({ id: t.id, e, kind, isNew: false });
+    place(t.id, e, target, kind);
+  }
+  // installed tiles OXO has no task for (legacy or pruned jobs): plain chips
+  for (const i of data.installs) for (const tile of i.tiles) {
+    const id = "g|" + i.code + "|" + tile;
+    if (seen.has(id) || data.jobs.some(j => pkgName(j) === i.package && j.tasks.some(t => t.tile === tile))) continue;
+    let e = tokens.get(id);
+    if (!e) { e = makeTok(tile, "var(--line)"); e.classList.add("ghost"); e.dataset.s = "succeeded"; e.title = `${tile} · ${i.code}`; tokens.set(id, e); }
+    place(id, e, prows.get(i.code).lastChild, "stage");
+  }
+  for (const [id, e] of tokens) if (!seen.has(id)) { e.remove(); tokens.delete(id); }
+
+  /* group heads, counts, density */
+  for (const g of groups.values()) { const n = g.lastChild.childElementCount; g.hidden = !n; g.querySelector(".c").textContent = n || ""; }
+  for (const r of prows.values()) r.lastChild.hidden = !r.lastChild.childElementCount;
+  const nq = $("q").querySelectorAll(".tok").length, nd = $("d").querySelectorAll(".tok").length, np = $("p").querySelectorAll(".tok").length;
+  const ns = $("scrap").childElementCount;
+  $("nq").textContent = nq; $("nd").textContent = nd; $("np").textContent = np; $("ns").textContent = ns;
+  $("nl").textContent = data.workers.length;
+  $("colq").classList.toggle("dense", nq >= 40); $("cold").classList.toggle("dense", nd >= 40);
+  $("colp").classList.toggle("dense", np >= 40); $("scrap").classList.toggle("dense", ns >= 40);
+  $("scrapbox").hidden = !ns;
+  if (!$("q").querySelector(".tok")) { if (!$("q").querySelector(".empty")) $("q").append(el("div", "empty", "leer")); } else $("q").querySelector(".empty")?.remove();
+
+  /* motion: FLIP every token that changed place */
+  const reduce = reduceMQ.matches, bulk = moves.length > 30;
+  if (prev && !bulk) for (const m of moves) {
+    if (reduce) { m.e.classList.add("neu"); setTimeout(() => m.e.classList.remove("neu"), 2000); continue; }
+    const a = before.get(m.id), b = m.e.getBoundingClientRect();
+    if (m.isNew || !a || !a.width || !b.width) {
+      if (b.width) m.e.animate([{ opacity: 0, transform: "scale(.6)" }, { opacity: 1, transform: "none" }], { duration: 300, easing: "ease-out" });
+      continue;
+    }
+    const d = r => `translate(${r.left + r.width / 2 - (b.left + b.width / 2)}px, ${r.top + r.height / 2 - (b.top + b.height / 2)}px)`;
+    if (m.kind === "reclaim") { // failed and re-claimed between two polls: still show the trip back through the queue
+      const q = $("colq").getBoundingClientRect();
+      m.e.animate([{ transform: d(a) }, { transform: d({ left: q.left, width: q.width, top: q.top + 40, height: 0 }), offset: .5 }, { transform: "none" }],
+        { duration: 1200, easing: "ease-in-out" });
+      continue;
+    }
+    const opts = { stage: [600, "cubic-bezier(.2,.7,.2,1)"], step: [400, "cubic-bezier(.3,.7,.3,1)"],
+      retry: [750, "cubic-bezier(.6,0,.3,1)"], drop: [700, "cubic-bezier(.55,0,1,.45)"] }[m.kind];
+    m.e.animate([{ transform: d(a) }, { transform: "none" }], { duration: opts[0], easing: opts[1] });
+  }
+  if (motion && !bulk) for (const id of ripples) ripple(tokens.get(id));
+
+  /* job bar: problems first, complete last */
+  const rank = j => (j.counts.abandoned && j.state !== "complete") || j.tasks.some(t => stale.has(t.id)) ? 0 : j.state === "complete" ? 2 : 1;
+  const jbox = $("jobs");
+  [...data.jobs].sort((a, b) => rank(a) - rank(b) || ms(b.created_at) - ms(a.created_at)).forEach(j => {
+    let r = jrows.get(j.id);
+    if (!r) {
+      r = el("div", "jrow"); r.style.setProperty("--job", jobColor(j.id));
+      const bar = el("div", "bar"), nums = el("div", "nums");
+      for (let i = 0; i < 4; i++) bar.append(el("span"));
+      for (const [cls, sym] of [["s", "✓"], ["c", "▶"], ["p", "…"], ["a", "✕"]]) { const s = el("span", cls, sym + " "); s.append(el("b", null, "0")); nums.append(s); }
+      r.append(el("i"), el("span", "reg", j.region_code), el("span", "rev"), bar, nums, el("span", "st"));
+      jrows.set(j.id, r);
+    }
+    r.children[2].textContent = "r" + j.revision;
+    ["succeeded", "claimed", "pending", "abandoned"].forEach((k, i) => {
+      r.children[3].children[i].style.flexGrow = j.counts[k];
+      rollNum(r.children[4].children[i].lastChild, j.counts[k]);
+    });
+    r.children[3].title = `${j.counts.succeeded} succeeded · ${j.counts.claimed} claimed · ${j.counts.pending} pending · ${j.counts.abandoned} abandoned`;
+    const st = r.children[5]; st.textContent = j.state; st.dataset.st = j.state;
+    jbox.appendChild(r);
+  });
+  for (const [id, r] of jrows) if (!data.jobs.some(j => j.id === id)) { r.remove(); jrows.delete(id); }
+
+  /* status bar inputs */
+  const sig = JSON.stringify([data.jobs.map(j => j.tasks.map(t => t.state + t.attempts)), data.workers.map(w => w.current?.step), data.installs.length]);
+  if (sig !== lastSig) { lastSig = sig; lastChange = genT; }
+  const active = data.jobs.filter(j => j.state !== "complete").length;
+  $("summary").textContent = `${data.jobs.length} Jobs (${active} aktiv) · ${data.workers.length} Worker`;
+  $("db").title = offline ? "Datenbank nicht erreichbar: " + (state.database.error || "") : "Datenbank erreichbar";
+}
+
+/* ---------- clocks: client-side, once a second ---------- */
+function tickClocks() {
+  if (!last) return;
+  const t = now();
+  $("clock").textContent = new Date(t).toLocaleTimeString("de-DE");
+  $("changed").textContent = "letzte Änderung vor " + ago((t - lastChange) / 1000);
+  for (const [name, L] of lanes) {
+    const _ = L._, c = _.cur;
+    if (!c) { _.idle.textContent = "idle seit " + ago((t - (idleSince.get(name) || t)) / 1000); continue; }
+    const s = (t - c.since) / 1000, p = (s % 300) / 300;
+    if (p < _.p) { _.ring.style.transition = "none"; _.ring.style.setProperty("--p", p); void _.ring.offsetWidth; _.ring.style.transition = ""; }
+    else _.ring.style.setProperty("--p", p);
+    _.p = p;
+    const long = s > 1800;
+    _.ring.classList.toggle("amber", long); _.meter.classList.toggle("amber", long);
+    _.mtxt.textContent = `Step ${c.k} · ${dur(s)}`;
+    _.meter.title = `Step ${c.k} läuft seit ${dur(s)}`;
+    _.hb.textContent = c.hb ? `♥ vor ${ago((t - c.hb) / 1000)}` : "♥ –";
+  }
+  // one sentence for the most urgent problem
+  const bar = $("status"), msg = $("msg");
+  let level = "", text = "";
+  if (!last.database.reachable) { level = "off"; text = `Datenbank nicht erreichbar · Stand von ${lastGood ? hhmm(ms(lastGood.generated_at)) : "–"}`; }
+  else {
+    const st = [...lanes].find(([, L]) => L._.cur?.stale);
+    const ab = (lastGood || last).jobs.find(j => j.counts.abandoned && j.state !== "complete");
+    if (st) { level = "warn"; text = `${shortName(st[0])} Heartbeat ${st[1]._.cur.hb ? ago((t - st[1]._.cur.hb) / 1000) : "fehlt"} alt`; }
+    else if (ab) { level = "bad"; text = `${ab.region_code}: ${ab.counts.abandoned} Tiles abandoned`; }
+  }
+  if (level) bar.dataset.level = level; else delete bar.dataset.level;
+  msg.textContent = text;
+}
+
+/* ---------- SIMULATOR (mockup only): swap for fetch('/api/state') ---------- */
+const SIM = (() => {
+  const POLL_S = 30; // simulated seconds per 3 s poll
+  const STEP_TEXT = { "1": "Step 1 : Building vector data for tile ", "2": "Step 2 : Building mesh for tile ",
+    "2.5": "Step 2.5 : Building masks for tile ", "3": "Step 3 : Building the tile DSF and imagery for tile " };
+  const DWELL = { "1": 2, "2": 2, "2.5": 1, "3": 2 };
+  const LOGS = {
+    "1": n => [`   Number of edges at this point: ${120000 + n * 731 % 9000}`, "-> Dealing with inland water", '    * Downloading OSM data for way["highway"]', "-> Cleaning and simplifying the vector data"],
+    "2": n => ["-> Calling Triangle4XP", `   Vertices: ${400000 + n * 977 % 60000}`, "-> Smoothing elevation", "   Removing spurious triangles"],
+    "2.5": n => ["-> Building masks for zl16", `   Mask tile ${n % 16}/16 done`],
+    "3": n => [`   Downloading imagery: ${(n * 13) % 100} %`, "-> Converting textures to DDS", "-> Writing the DSF with DSFTool"],
+  };
+  const CODES = { oxo_apt: "A00_OXO", oxo_pilot: "A4_PILOT", oxo_sonny: "A5_OXO" };
+  const tileName = (lat, lon) => (lat < 0 ? "-" : "+") + pad(Math.abs(lat)) + (lon < 0 ? "-" : "+") + String(Math.abs(lon)).padStart(3, "0");
+  let s, t, poll, seq = 0, meta, retryAt, firstDelivered, script, quiet, big, rnd;
+  const iso = x => new Date(x).toISOString().replace(/\.\d+Z$/, "Z");
+  const tasks = () => s.jobs.flatMap(j => j.tasks.map(task => [task, j]));
+
+  function newJob(region, pkg, tiles, at, doomed) {
+    const rev = 1 + s.jobs.filter(j => j.region_code === region).reduce((m, j) => Math.max(m, j.revision), 0);
+    const job = { id: `sim-job-${++seq}`, region_code: region, revision: rev, package: pkg, created_at: at, max_attempts: 3, state: "pending",
+      counts: {}, total: tiles.length, tasks: tiles.map(tile => ({ id: `sim-task-${++seq}`, tile, task_type: "ortho", state: "pending", attempts: 0,
+        claimed_by: null, claimed_at: null, last_heartbeat_at: null, last_failure: null, replaces: null, patches: [], _doomed: tile === doomed })) };
+    s.jobs.unshift(job);
+    return job;
+  }
+  function claim(w, at) {
+    const pick = tasks().filter(([x]) => x.state === "pending" && (retryAt.get(x.id) || 0) <= poll)
+      .sort((a, b) => ms(a[1].created_at) - ms(b[1].created_at))[0];
+    if (!pick) return;
+    const [x] = pick;
+    Object.assign(x, { state: "claimed", attempts: x.attempts + 1, claimed_by: shortName(w.name), claimed_at: at, last_heartbeat_at: at });
+    w.current = { task_id: x.id, tile: x.tile, task_type: "ortho", attempt: x.attempts, since: at, step: STEP_TEXT["1"] + x.tile, step_since: at };
+    Object.assign(meta.get(w.name), { k: "1", dwell: 0 });
+    w.log_tail = [{ at, line: `oxo_worker::run: claimed task ${x.id.slice(0, 8)} ${x.tile} ortho attempt ${x.attempts}` }];
+  }
+  function release(w, x, at, m) {
+    Object.assign(x, { claimed_by: null, claimed_at: null, last_heartbeat_at: null });
+    w.current = null; m.wait = poll + 1;
+  }
+  function log(w, k, n, at) {
+    const lines = LOGS[k](n);
+    w.log_tail = [...w.log_tail, { at, line: lines[n % lines.length] }].slice(-3);
+  }
+  function workerStep(w, at, i) {
+    const m = meta.get(w.name);
+    if (!w.current) { if (poll >= m.wait) claim(w, at); return; }
+    const [x, job] = tasks().find(([y]) => y.id === w.current.task_id);
+    if (i === 0 && script.staleUntil > poll) return; // silence: no heartbeat, no progress
+    m.dwell++;
+    if (poll % m.hbEvery === 0) x.last_heartbeat_at = at;
+    log(w, m.k, poll + i * 7, at);
+    const failNow = m.k === "2" && m.dwell === 1 &&
+      (x._doomed || (!script.failed && job.region_code === "OXO-BAVARIA") || (big && (seq + poll + i) % 23 === 0));
+    if (failNow) {
+      x.last_failure = x._doomed ? "Step 2: no elevation data for this tile (DEM missing)" : "Step 2: Triangle4XP exited with status 1";
+      x.state = x.attempts >= job.max_attempts ? "abandoned" : "pending";
+      retryAt.set(x.id, poll + 2);
+      if (!script.failed && !x._doomed && !big) { script.failed = true; script.watch = x.id; }
+      w.log_tail = [...w.log_tail, { at, line: "oxo_worker::run: failed task " + x.id.slice(0, 8) + ": " + x.last_failure }].slice(-3);
+      release(w, x, at, m);
+      return;
+    }
+    // after the retry is re-claimed, the worker goes silent for a while (stale demo)
+    if (script.watch && m.k === "2" && m.dwell === 1 && !script.staleUntil) { script.staleUntil = poll + 8; script.dbAt = poll + 16; return; }
+    if (m.dwell < DWELL[m.k]) return;
+    const next = SEGS[SEGS.indexOf(m.k) + 1];
+    if (!next) {
+      x.state = "succeeded";
+      w.log_tail = [...w.log_tail, { at, line: `oxo_worker::run: completed task ${x.id.slice(0, 8)} (64 MB delivered)` }].slice(-3);
+      release(w, x, at, m);
+      return;
+    }
+    Object.assign(m, { k: next, dwell: 0 });
+    Object.assign(w.current, { step: STEP_TEXT[next] + x.tile, step_since: at });
+    x.last_heartbeat_at = at;
+  }
+  function packaging(at) {
+    for (const job of s.jobs) {
+      const pkg = pkgName(job);
+      const done = new Set(s.installs.filter(i => i.package === pkg).flatMap(i => i.tiles));
+      const fresh = job.tasks.filter(x => x.state === "succeeded" && !done.has(x.tile)).map(x => x.tile);
+      if (!fresh.length) { firstDelivered.delete(job.id); continue; }
+      if (!firstDelivered.has(job.id)) firstDelivered.set(job.id, poll);
+      const open = job.tasks.some(x => x.state === "pending" || x.state === "claimed");
+      if (poll - firstDelivered.get(job.id) < 2 || (open && fresh.length < 10)) continue;
+      const code = CODES[job.package] || "A4_" + job.region_code.replace(/^OXO-/, "");
+      s.installs.push({ at, code, package: pkg, tiles: fresh });
+      const p = s.packages.find(q => q.code === code);
+      if (p) p.tiles += fresh.length; else s.packages.push({ name: pkg, code, version: "99.99.99", tiles: fresh.length, owner: "oxo" });
+      firstDelivered.delete(job.id);
+      if (job.package === "oxo_apt") script.bavariaAt = poll + 1;
+    }
+  }
+  function recount() {
+    for (const j of s.jobs) {
+      const c = { pending: 0, claimed: 0, succeeded: 0, abandoned: 0 };
+      for (const x of j.tasks) c[x.state]++;
+      j.counts = c; j.total = j.tasks.length;
+      j.state = c.succeeded === j.total ? "complete" : c.pending + c.claimed === 0 ? "failed"
+        : c.pending === j.total && j.tasks.every(x => !x.attempts) ? "pending" : "in_progress";
+    }
+  }
+  function strip() { // the contract has no simulator fields
+    return JSON.parse(JSON.stringify(s, (k, v) => k.startsWith("_") ? undefined : v));
+  }
+  function reset(bigMode) {
+    big = bigMode; s = structuredClone(SAMPLE); t = ms(s.generated_at); poll = 0; // seq keeps counting: ids stay unique across resets
+    meta = new Map(); retryAt = new Map(); firstDelivered = new Map(); script = {}; quiet = 0;
+    let r = 7; rnd = () => (r = (r * 16807) % 2147483647) / 2147483647;
+    for (const w of s.workers) meta.set(w.name, { k: stepKey(w.current?.step), dwell: 0, wait: 0, hbEvery: 2 });
+    if (big) {
+      script.failed = true; script.staleUntil = -1; script.bavariaAt = -1;
+      const at = iso(t - 3 * 3600e3), tiles = [];
+      for (let lat = 44; lat < 54; lat++) for (let lon = 0; lon < 50; lon++) tiles.push(tileName(lat, lon));
+      const job = newJob("OXO-EUROPE-S", "oxo_europe_s", tiles, at, tileName(47, 23));
+      job.tasks.forEach((x, i) => {
+        if (i < 150) Object.assign(x, { state: "succeeded", attempts: 1 });
+        else if (i < 153) Object.assign(x, { state: "abandoned", attempts: 3, last_failure: "Step 2: no elevation data for this tile (DEM missing)" });
+        else if (i % 37 === 0) Object.assign(x, { attempts: 1, last_failure: "Step 3: imagery provider timed out" });
+      });
+      s.installs.push({ at, code: "A4_EUROPE-S", package: pkgName(job), tiles: tiles.slice(0, 110) });
+      s.packages.push({ name: pkgName(job), code: "A4_EUROPE-S", version: "99.99.99", tiles: 110, owner: "oxo" });
+      for (let n = 2; n <= 10; n++) {
+        const w = { name: `oxo-worker-${n}-worker`, state: "running", started_at: iso(t - 4 * 3600e3), current: null, log_tail: [] };
+        s.workers.push(w);
+        meta.set(w.name, { k: "1", dwell: 0, wait: n > 8 ? 9 : 0, hbEvery: 2 + (n % 2) });
+        if (n <= 8) {
+          const x = job.tasks[150 + n * 2];
+          const k = SEGS[n % 4], since = t - (n === 5 ? 34 : 2 + rnd() * 12) * 60e3;
+          Object.assign(x, { state: "claimed", attempts: 1, claimed_by: shortName(w.name), claimed_at: iso(since - 600e3), last_heartbeat_at: iso(t - rnd() * 40e3) });
+          w.current = { task_id: x.id, tile: x.tile, task_type: "ortho", attempt: 1, since: iso(since - 600e3), step: STEP_TEXT[k] + x.tile, step_since: iso(since) };
+          w.log_tail = [{ at: iso(t - 5e3), line: LOGS[k](n)[0] }];
+          meta.get(w.name).k = k;
+        }
+      }
+    }
+    recount();
+    return strip();
+  }
+  function next() {
+    poll++; t += POLL_S * 1000;
+    const at = iso(t);
+    s.generated_at = at;
+    if (script.dbAt && poll >= script.dbAt && poll < script.dbAt + 4) { s.database = { reachable: false, error: "connection refused (oxo-pg)" }; return strip(); }
+    s.database = { reachable: true, error: null };
+    s.workers.forEach((w, i) => workerStep(w, at, i));
+    if (script.bavariaAt === poll) {
+      newJob("OXO-BAVARIA", "oxo_bavaria", ["+47+010", "+47+011", "+47+012", "+47+013", "+48+013", "+49+011"], at);
+    }
+    packaging(at);
+    quiet = s.jobs.some(j => j.tasks.some(x => x.state === "pending" || x.state === "claimed")) ? 0 : quiet + 1;
+    if (quiet >= 3 && (big || poll > script.dbAt + 4)) { // small demo: the scripted story first
+      const tiles = []; for (let lon = 6; lon < 12; lon++) tiles.push(tileName(46, lon), tileName(47, lon));
+      newJob("OXO-ALPS", "oxo_alps", tiles, at, tileName(46, 9));
+      const old = s.jobs.filter(j => j.id.startsWith("sim-") && j.state !== "in_progress");
+      if (s.jobs.length > 6 && old.length) s.jobs.splice(s.jobs.indexOf(old.at(-1)), 1);
+    }
+    recount();
+    return strip();
+  }
+  return { reset, next, rate: POLL_S / 3 };
+})();
+
+/* ---------- poll loop ---------- */
+function feed(state) {
+  const prev = last;
+  last = state; pollAt = performance.now();
+  render(state, prev);
+  tickClocks();
+}
+let isBig = false;
+clockRate = SIM.rate;
+if (matchMedia("(min-width: 600px)").matches) $("scrapbox").open = true;
+feed(SIM.reset(false));
+setInterval(() => feed(SIM.next()), 3000);
+setInterval(tickClocks, 1000);
+$("big").addEventListener("click", () => {
+  isBig = !isBig;
+  $("big").textContent = isBig ? "Demo: heute (1 Worker)" : "Demo: 10 Worker / 500 Tiles";
+  feed(SIM.reset(isBig));
+});
+</script>
+</body>
+</html>

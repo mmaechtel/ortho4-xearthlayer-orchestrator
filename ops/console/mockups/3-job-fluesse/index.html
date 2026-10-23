@@ -1,0 +1,838 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OXO Job-Flüsse</title>
+<style>
+:root {
+  color-scheme: dark;
+  --bg: #0a0e13; --panel: #111821; --panel2: #18212c; --line: #222d3a;
+  --text: #e3e9f0; --muted: #8b98a9; --faint: #566273;
+  --pending: #3d4959; --claimed: #2ab7e9; --claimed-soft: rgba(42,183,233,.15);
+  --succeeded: #4cc472; --packaged: #12914a; --retry: #f28c3b; --abandoned: #b65962;
+  --stale: #e9b53e; --bad: #f0605d; --ok: #4cc472; --dot: rgba(255,255,255,.9);
+  --mono: ui-monospace, "JetBrains Mono", "SF Mono", Menlo, Consolas, monospace;
+  --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    color-scheme: light;
+    --bg: #f4f6f8; --panel: #ffffff; --panel2: #eef1f5; --line: #dce2e9;
+    --text: #16202b; --muted: #5a6778; --faint: #9aa5b3;
+    --pending: #b4bec9; --claimed: #0b94c6; --claimed-soft: rgba(11,148,198,.13);
+    --succeeded: #33a957; --packaged: #0b6a30; --retry: #d9671a; --abandoned: #b2444f;
+    --stale: #c58a00; --bad: #c9302c; --ok: #2f9e50; --dot: rgba(255,255,255,.95);
+  }
+}
+:root[data-theme="light"] {
+  color-scheme: light;
+  --bg: #f4f6f8; --panel: #ffffff; --panel2: #eef1f5; --line: #dce2e9;
+  --text: #16202b; --muted: #5a6778; --faint: #9aa5b3;
+  --pending: #b4bec9; --claimed: #0b94c6; --claimed-soft: rgba(11,148,198,.13);
+  --succeeded: #33a957; --packaged: #0b6a30; --retry: #d9671a; --abandoned: #b2444f;
+  --stale: #c58a00; --bad: #c9302c; --ok: #2f9e50; --dot: rgba(255,255,255,.95);
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { background: var(--bg); color: var(--text); font: 14px/1.45 var(--sans); overflow-x: hidden; }
+.mono, .tile { font-family: var(--mono); }
+button { font: inherit; color: inherit; }
+h2 { font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); font-weight: 600; margin: 26px 0 10px; }
+
+/* status bar */
+.top { position: sticky; top: 0; z-index: 20; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px;
+  padding: 10px 24px; background: color-mix(in srgb, var(--bg) 88%, transparent); backdrop-filter: blur(8px); border-bottom: 1px solid var(--line); }
+.brand { font: 700 15px/1 var(--mono); letter-spacing: .14em; }
+.db { width: 9px; height: 9px; border-radius: 50%; background: var(--ok); box-shadow: 0 0 0 3px color-mix(in srgb, var(--ok) 25%, transparent); }
+.db.down { background: var(--bad); box-shadow: 0 0 0 3px color-mix(in srgb, var(--bad) 25%, transparent); }
+#clock { font-family: var(--mono); color: var(--muted); }
+#ago { color: var(--faint); font-size: 12px; min-width: 52px; }
+.status { font-size: 13px; color: var(--ok); }
+.status.warn { color: var(--stale); } .status.bad { color: var(--bad); }
+.status::before { content: "●"; margin-right: 6px; font-size: 10px; vertical-align: 1px; }
+.spacer { flex: 1; }
+.toggle { background: var(--panel2); border: 1px solid var(--line); border-radius: 999px; padding: 3px 11px; font-size: 12px; cursor: pointer; }
+.toggle[aria-pressed="true"] { border-color: var(--claimed); color: var(--claimed); }
+.demo { font: 600 10px/1 var(--mono); letter-spacing: .08em; color: var(--faint); border: 1px dashed var(--faint); border-radius: 4px; padding: 3px 6px; }
+
+main { max-width: 1240px; margin: 0 auto; padding: 18px 24px 40px; }
+
+/* funnel */
+.funnel { display: grid; grid-template-columns: 1fr 22px 1fr 22px 1fr 22px 1fr 40px minmax(120px, .7fr); align-items: end;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px 20px 18px; }
+.arrow { color: var(--faint); text-align: center; padding-bottom: 18px; }
+.stage { --c: var(--muted); min-width: 0; }
+.stage[data-k="pending"] { --c: var(--pending); } .stage[data-k="claimed"] { --c: var(--claimed); }
+.stage[data-k="succeeded"] { --c: var(--succeeded); } .stage[data-k="packaged"] { --c: var(--packaged); }
+.stage[data-k="abandoned"] { --c: var(--abandoned); border-left: 1px dashed var(--line); padding-left: 18px; }
+.stage .lbl { font: 600 11px/1 var(--mono); color: var(--muted); letter-spacing: .04em; }
+.stage .hint { font-size: 11px; color: var(--faint); margin-left: 6px; font-family: var(--sans); font-weight: 400; }
+.stage .num { display: block; font: 600 30px/1.15 var(--mono); margin: 4px 0 8px; font-variant-numeric: tabular-nums; }
+.stage[data-k="abandoned"] .num { font-size: 22px; color: var(--abandoned); }
+.track { height: 8px; border-radius: 4px; background: var(--panel2); overflow: hidden; }
+.track i { display: block; height: 100%; width: 0; border-radius: 4px; background: var(--c); transition: width .8s cubic-bezier(.2,.7,.2,1); }
+.stage[data-k="packaged"] .track i { background: repeating-linear-gradient(90deg, var(--packaged) 0 6px, color-mix(in srgb, var(--packaged) 70%, var(--dot)) 6px 7px); }
+.bump .num { animation: bump .5s ease-out; }
+@keyframes bump { 30% { transform: scale(1.12); color: var(--c); } }
+.since { margin: 8px 4px 0; font-size: 12px; color: var(--muted); }
+.since b { color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; }
+
+/* workers */
+.workers { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+.wrow { display: grid; grid-template-columns: 170px 60px 72px 128px 118px minmax(0, 1fr); gap: 14px; align-items: center;
+  min-height: 34px; padding: 4px 16px; border-top: 1px solid var(--line); font-size: 13px; }
+.wrow:first-child { border-top: 0; }
+.wname { font-family: var(--mono); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.heart { color: var(--bad); font-family: var(--mono); font-size: 12px; white-space: nowrap; }
+.heart.stale { color: var(--stale); }
+.steps { display: flex; gap: 3px; }
+.steps span { flex: 1; height: 15px; border-radius: 3px; border: 1px solid var(--line); font: 600 9px/13px var(--mono); text-align: center; color: var(--faint); }
+.steps .done { background: var(--claimed-soft); border-color: transparent; color: var(--claimed); }
+.steps .cur { background: var(--claimed); border-color: var(--claimed); color: var(--bg); }
+.wrow.stale .steps .cur { background: var(--stale); border-color: var(--stale); }
+.sclock { font-family: var(--mono); font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ticker { position: relative; height: 18px; overflow: hidden; font: 12px/18px var(--mono); color: var(--muted); }
+.ticker span { position: absolute; inset: 0; white-space: pre; overflow: hidden; text-overflow: ellipsis; }
+.ticker .in { animation: tin .45s ease-out; } .ticker .out { animation: tout .45s ease-in forwards; }
+@keyframes tin { from { transform: translateY(100%); opacity: 0; } }
+@keyframes tout { to { transform: translateY(-100%); opacity: 0; } }
+.wrow.idle { color: var(--faint); } .wrow.idle .wname { color: var(--muted); }
+.wrow.idle .idletxt { grid-column: 2 / -1; font-size: 12px; }
+.wrow.stale { background: color-mix(in srgb, var(--stale) 7%, transparent); }
+
+/* jobs */
+.fold { display: grid; grid-template-rows: 1fr; transition: grid-template-rows .45s ease; }
+.fold > div { overflow: hidden; min-height: 0; }
+.fold.shut { grid-template-rows: 0fr; }
+.instant .fold, .instant.fold { transition: none !important; }
+.job { position: relative; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; margin-bottom: 8px; transition: grid-template-rows .45s ease, margin .45s ease; }
+.job.shut { margin-bottom: 0; border-color: transparent; }
+.job.problem { border-color: color-mix(in srgb, var(--retry) 45%, var(--line)); }
+.job.failed { border-color: color-mix(in srgb, var(--abandoned) 50%, var(--line)); }
+.jgrid { display: grid; grid-template-columns: minmax(150px, 210px) minmax(0, 1fr) 150px; gap: 18px; align-items: center; padding: 12px 16px; }
+.jhead { min-width: 0; }
+.job.complete .jhead { cursor: pointer; }
+.jtitle b { font-weight: 650; letter-spacing: .01em; }
+.rev { color: var(--muted); margin-left: 6px; font-family: var(--mono); font-size: 12px; }
+.jpkg { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 4px; font-size: 12px; color: var(--muted); }
+.chip { font-size: 11px; font-weight: 600; border-radius: 999px; padding: 1px 8px; border: 1px solid currentColor; white-space: nowrap; }
+.chip.in_progress { color: var(--claimed); } .chip.complete { color: var(--succeeded); } .chip.failed { color: var(--abandoned); }
+.chip.retry { color: var(--retry); }
+.waffle { display: grid; grid-template-columns: repeat(auto-fill, var(--cs, 14px)); gap: 3px; padding: 7px 9px 4px 0; }
+.waffle.small { gap: 2px; }
+.cell { --cc: transparent; --f: 0; position: relative; width: var(--cs); height: var(--cs); border-radius: 3px;
+  box-shadow: inset 0 0 0 1px var(--pending); cursor: pointer; }
+.waffle.small .cell { border-radius: 1.5px; }
+.cell::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: calc(var(--f) * 100%); background: var(--cc); border-radius: inherit; transition: height .4s ease, background-color .4s; }
+.cell[data-s="claimed"] { --cc: var(--claimed); background: var(--claimed-soft); box-shadow: inset 0 0 0 1px var(--claimed); animation: breathe 4s ease-in-out infinite; }
+.cell[data-s="succeeded"] { --cc: var(--succeeded); box-shadow: none; }
+.cell[data-s="packaged"] { --cc: var(--packaged); box-shadow: none; }
+.cell[data-s="packaged"]::before { content: ""; position: absolute; z-index: 1; left: 50%; top: 50%; width: max(2px, calc(var(--cs) * .3)); height: max(2px, calc(var(--cs) * .3)); transform: translate(-50%, -50%); border-radius: 50%; background: var(--dot); }
+.cell[data-s="abandoned"] { --cc: var(--abandoned); box-shadow: none; opacity: .8; }
+.cell.retry { box-shadow: inset 0 0 0 1.5px var(--retry); }
+.cell.stale { animation: none; box-shadow: 0 0 0 2px var(--stale); }
+.cell .b { position: absolute; z-index: 2; top: -7px; right: -9px; font: 700 8px/1 var(--mono); padding: 1px 2px; border-radius: 3px; background: var(--retry); color: #15100a; pointer-events: none; }
+.waffle.small .cell .b { display: none; }
+.cell.pop { animation: pop .35s ease-out backwards; }
+.cell.mark { outline: 3px solid var(--text); outline-offset: 1px; z-index: 3; }
+@keyframes breathe { 50% { opacity: .7; } }
+@keyframes pop { from { transform: scale(0); opacity: 0; } }
+.pbar { display: flex; height: 4px; margin-top: 6px; border-radius: 2px; overflow: hidden; background: var(--panel2); }
+.seg { width: 0; transition: width .8s cubic-bezier(.2,.7,.2,1); }
+.s-packaged { background: var(--packaged); } .s-succeeded { background: var(--succeeded); } .s-claimed { background: var(--claimed); }
+.s-pending { background: var(--pending); } .s-abandoned { background: var(--abandoned); }
+.pbar.ring { animation: ring .9s ease-out; }
+@keyframes ring { 30% { box-shadow: 0 0 0 4px color-mix(in srgb, var(--succeeded) 45%, transparent); } }
+.jmeta { text-align: right; font-family: var(--mono); font-size: 13px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.frac { font-weight: 600; }
+.jclock { color: var(--muted); margin-left: 8px; }
+.subline { padding: 0 16px 11px 30px; font-size: 12px; color: var(--retry); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.subline .w { color: var(--muted); }
+.short { display: flex; align-items: center; gap: 10px; width: 100%; padding: 8px 16px; background: none; border: 0; cursor: pointer; text-align: left; font-size: 13px; }
+.short .rev { margin-left: -4px; }
+.sq { display: flex; gap: 2px; flex-wrap: wrap; }
+.sq i { width: 8px; height: 8px; border-radius: 2px; background: var(--succeeded); }
+.sq i[data-s="packaged"] { background: var(--packaged); } .sq i[data-s="abandoned"] { background: var(--abandoned); }
+.short .ok { color: var(--succeeded); font-family: var(--mono); margin-left: auto; white-space: nowrap; }
+.job.shimmer::after { content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+  background: linear-gradient(100deg, transparent 30%, color-mix(in srgb, var(--succeeded) 22%, transparent) 50%, transparent 70%) no-repeat;
+  background-size: 200% 100%; animation: shimmer 1.3s ease-in-out forwards; }
+@keyframes shimmer { from { background-position: 150% 0; } to { background-position: -50% 0; } }
+
+/* packages */
+.pkgs { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; margin-top: 26px; padding-top: 14px; border-top: 1px solid var(--line); font-size: 12px; color: var(--muted); }
+.pkgs .h { font-size: 11px; letter-spacing: .12em; font-weight: 600; margin-right: 4px; }
+.pkg { display: inline-flex; gap: 6px; align-items: baseline; padding: 3px 9px; border-radius: 6px; background: var(--panel); border: 1px solid var(--line); }
+.pkg b { font: 600 12px var(--mono); color: var(--text); }
+.pkg.oxo b { color: var(--packaged); } .pkg.samsoir { opacity: .75; }
+.pkg.bump { animation: pkgbump .9s ease-out; }
+@keyframes pkgbump { 30% { border-color: var(--packaged); box-shadow: 0 0 0 3px color-mix(in srgb, var(--packaged) 30%, transparent); } }
+.lastinst { margin-left: auto; }
+
+/* motion layer, popover */
+#fx { position: fixed; inset: 0; pointer-events: none; z-index: 40; }
+.spark { position: absolute; left: 0; top: 0; width: 8px; height: 8px; margin: -4px; border-radius: 50%; background: var(--c); box-shadow: 0 0 10px 2px var(--c); }
+.k-pending { --c: var(--retry); } .k-claimed { --c: var(--claimed); } .k-succeeded { --c: var(--succeeded); }
+.k-packaged { --c: var(--packaged); } .k-abandoned { --c: var(--abandoned); }
+.pulse { position: absolute; font: 700 12px var(--mono); color: var(--succeeded); background: var(--panel); border: 1px solid currentColor; border-radius: 999px; padding: 1px 7px; transform: translate(-50%, -100%); }
+#pop { position: fixed; z-index: 50; max-width: min(340px, calc(100vw - 32px)); background: var(--panel2); border: 1px solid var(--line); border-radius: 10px;
+  padding: 10px 12px; font-size: 12px; box-shadow: 0 10px 30px rgba(0,0,0,.35); }
+#pop[hidden] { display: none; }
+#pop .t { font: 700 14px var(--mono); }
+#pop dl { display: grid; grid-template-columns: auto 1fr; gap: 3px 10px; margin: 8px 0 0; }
+#pop dt { color: var(--muted); } #pop dd { margin: 0; overflow-wrap: anywhere; }
+#pop .err { color: var(--retry); }
+
+@media (max-width: 760px) {
+  .top { padding: 8px 16px; gap: 4px 10px; }
+  main { padding: 12px 16px 32px; }
+  .status { order: 10; flex-basis: 100%; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .funnel { display: flex; flex-wrap: wrap; gap: 8px 14px; padding: 12px 14px; }
+  .arrow { display: none; }
+  .stage, .stage[data-k="abandoned"] { display: flex; align-items: center; gap: 6px; border: 0; padding: 0; }
+  .stage .hint { display: none; }
+  .stage .num, .stage[data-k="abandoned"] .num { font-size: 15px; margin: 0; order: -1; }
+  .stage .track { width: 36px; height: 5px; }
+  .workers { background: none; border: 0; display: grid; gap: 8px; }
+  .wrow { grid-template-columns: 1fr auto; gap: 6px 10px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); }
+  .wrow:first-child { border-top: 1px solid var(--line); }
+  .wrow .steps, .wrow .ticker { grid-column: 1 / -1; }
+  .wrow .tile { justify-self: start; }
+  .wrow.idle .idletxt { grid-column: 1 / -1; }
+  .jgrid { grid-template-columns: minmax(0, 1fr) auto; gap: 8px 12px; padding: 12px; }
+  .jmid { grid-column: 1 / -1; grid-row: 2; }
+  .jmeta { grid-column: 2; grid-row: 1; align-self: start; display: flex; flex-direction: column; }
+  .jclock { margin: 0; font-size: 12px; }
+  .subline { padding: 0 12px 10px 18px; white-space: normal; }
+  .short { padding: 8px 12px; flex-wrap: wrap; }
+  .lastinst { margin-left: 0; flex-basis: 100%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+</style>
+</head>
+<body>
+<header class="top">
+  <span class="brand">OXO</span>
+  <span class="db" id="db" role="img" aria-label="Datenbank"></span>
+  <span id="clock"></span>
+  <span id="ago" aria-live="off"></span>
+  <span id="status" class="status" role="status">…</span>
+  <span class="spacer"></span>
+  <button class="toggle" id="scale" type="button" aria-pressed="false">500 Tiles / 10 Worker</button>
+  <span class="demo" title="Die Daten auf dieser Seite werden im Browser simuliert">MOCKUP · simulierte Daten</span>
+</header>
+<main>
+  <section class="funnel" id="funnel" aria-label="Pipeline aller Tasks">
+    <div class="stage" data-k="pending"><span class="lbl">pending<span class="hint">wartet</span></span><span class="num">0</span><div class="track"><i></i></div></div>
+    <span class="arrow" aria-hidden="true">→</span>
+    <div class="stage" data-k="claimed"><span class="lbl">claimed<span class="hint">in Arbeit</span></span><span class="num">0</span><div class="track"><i></i></div></div>
+    <span class="arrow" aria-hidden="true">→</span>
+    <div class="stage" data-k="succeeded"><span class="lbl">succeeded<span class="hint">geliefert</span></span><span class="num">0</span><div class="track"><i></i></div></div>
+    <span class="arrow" aria-hidden="true">→</span>
+    <div class="stage" data-k="packaged"><span class="lbl">packaged<span class="hint">installiert</span></span><span class="num">0</span><div class="track"><i></i></div></div>
+    <span></span>
+    <div class="stage" data-k="abandoned"><span class="lbl">✕ abandoned</span><span class="num">0</span><div class="track"><i></i></div></div>
+  </section>
+  <p class="since" id="since"></p>
+  <h2>Worker</h2>
+  <div class="workers" id="workers"></div>
+  <h2>Jobs</h2>
+  <div id="jobs"></div>
+  <footer class="pkgs" id="pkgs"></footer>
+</main>
+<div id="fx" aria-hidden="true"></div>
+<div id="pop" role="tooltip" hidden></div>
+<script>
+'use strict';
+// ---- contract sample (tests/sample_state.json, embedded so file:// works) ----
+const SAMPLE = {
+  "generated_at": "2026-10-23T11:21:00Z",
+  "database": {"reachable": true, "error": null},
+  "jobs": [
+    {"id": "5cadb9e9-d37e-4016-af57-165443649137", "region_code": "OXO-APT", "revision": 1, "package": "oxo_apt", "created_at": "2026-10-23T11:08:41Z", "max_attempts": 3, "state": "in_progress",
+     "counts": {"pending": 0, "claimed": 1, "succeeded": 0, "abandoned": 0}, "total": 1,
+     "tasks": [{"id": "99335416-c161-437d-9007-cb1a2aecfb8d", "tile": "+48+011", "task_type": "ortho", "state": "claimed", "attempts": 2, "claimed_by": "oxo-worker-1", "claimed_at": "2026-10-23T11:10:12Z", "last_heartbeat_at": "2026-10-23T11:20:42Z", "last_failure": "prepare: target root /mnt/xplane_data/oxo/artifacts/oxo_apt is not writable: No such file or directory", "replaces": "eu_apt (A0_EU) cfg agrees", "patches": ["EDDM.patch.osm"]}]},
+    {"id": "74ac7077-0eb5-4283-b0ba-bb93410b3be2", "region_code": "OXO-SONNY", "revision": 1, "package": "oxo_sonny", "created_at": "2026-10-23T11:08:43Z", "max_attempts": 3, "state": "failed",
+     "counts": {"pending": 0, "claimed": 0, "succeeded": 0, "abandoned": 2}, "total": 2,
+     "tasks": [
+       {"id": "12f5d4b4-226a-4984-a488-de03de2475e8", "tile": "+48+010", "task_type": "ortho", "state": "abandoned", "attempts": 1, "claimed_by": null, "claimed_at": null, "last_heartbeat_at": null, "last_failure": "cancelled by operator", "replaces": "eu_sonny (A5_EU) cfg agrees", "patches": []},
+       {"id": "711e62ff-f009-440e-8ab9-a3647f7d6166", "tile": "+48+012", "task_type": "ortho", "state": "abandoned", "attempts": 1, "claimed_by": null, "claimed_at": null, "last_heartbeat_at": null, "last_failure": "cancelled by operator", "replaces": "eu_sonny (A5_EU) cfg agrees", "patches": []}]},
+    {"id": "d125946d-ef3d-4f34-b4ce-17bc0b1dea73", "region_code": "EU-PILOT", "revision": 3, "package": "oxo_pilot", "created_at": "2026-10-23T09:10:38Z", "max_attempts": 3, "state": "complete",
+     "counts": {"pending": 0, "claimed": 0, "succeeded": 3, "abandoned": 0}, "total": 3,
+     "tasks": [
+       {"id": "64ad6949-ade0-4305-afb0-838448c2f0d7", "tile": "+48+012", "task_type": "ortho", "state": "succeeded", "attempts": 1, "claimed_by": null, "claimed_at": null, "last_heartbeat_at": null, "last_failure": null, "replaces": null, "patches": []},
+       {"id": "710468a8-2c04-4306-8318-887d347a5a77", "tile": "+48+010", "task_type": "ortho", "state": "succeeded", "attempts": 1, "claimed_by": null, "claimed_at": null, "last_heartbeat_at": null, "last_failure": null, "replaces": null, "patches": []},
+       {"id": "f08ded77-bda3-49ae-bb9d-b2b78213250d", "tile": "+48+011", "task_type": "ortho", "state": "succeeded", "attempts": 1, "claimed_by": null, "claimed_at": null, "last_heartbeat_at": null, "last_failure": null, "replaces": null, "patches": ["EDDM.patch.osm"]}]}
+  ],
+  "workers": [
+    {"name": "oxo-worker-1-worker", "state": "running", "started_at": "2026-10-23T10:14:23Z",
+     "current": {"task_id": "99335416-c161-437d-9007-cb1a2aecfb8d", "tile": "+48+011", "task_type": "ortho", "attempt": 2, "since": "2026-10-23T11:10:12Z", "step": "Step 1 : Building vector data for tile +48+011", "step_since": "2026-10-23T11:10:13Z"},
+     "log_tail": [
+       {"at": "2026-10-23T11:20:35Z", "line": "   Number of edges at this point: 124650"},
+       {"at": "2026-10-23T11:20:35Z", "line": "-> Dealing with inland water"},
+       {"at": "2026-10-23T11:20:35Z", "line": "    * Downloading OSM data for rel[\"natural\"=\"water\"]"}]}
+  ],
+  "packages": [
+    {"name": "zzXEL_eu_apt_ortho", "code": "A0_EU", "version": "99.99.99", "tiles": 53, "owner": "own"},
+    {"name": "zzXEL_oxo_pilot_ortho", "code": "A4_PILOT", "version": "99.99.99", "tiles": 3, "owner": "oxo"},
+    {"name": "zzXEL_eu_sonny_ortho", "code": "A5_EU", "version": "99.99.99", "tiles": 2036, "owner": "own"},
+    {"name": "zzXEL_eu-west_ortho", "code": "EU-WEST", "version": "0.5.0", "tiles": 1500, "owner": "samsoir"}
+  ],
+  "installs": [
+    {"at": "2026-10-23T10:26:45Z", "code": "A4_PILOT", "package": "zzXEL_oxo_pilot_ortho", "tiles": ["+48+010", "+48+011", "+48+012"]}
+  ]
+};
+
+// ---- helpers ----
+const STEPS = ['1', '2', '2.5', '3'];
+const FILL = { '1': .25, '2': .5, '2.5': .75, '3': .92 };
+const SEGS = ['packaged', 'succeeded', 'claimed', 'pending', 'abandoned'];
+const STALE_MS = 90e3;
+const RM = matchMedia('(prefers-reduced-motion: reduce)');
+const $ = id => document.getElementById(id);
+const ts = s => (s ? Date.parse(s) : NaN);
+const stepOf = s => { const m = /Step (\d(?:\.5)?)/.exec(s || ''); return m ? m[1] : null; };
+const byTile = (a, b) => (a.tile < b.tile ? -1 : a.tile > b.tile ? 1 : a.task_type.localeCompare(b.task_type));
+function h(tag, cls, text) { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+function clockFmt(ms) {
+  if (!(ms >= 0)) return '–';
+  const s = Math.floor(ms / 1000), hh = Math.floor(s / 3600), mm = Math.floor(s / 60) % 60, ss = String(s % 60).padStart(2, '0');
+  return hh ? `${hh}:${String(mm).padStart(2, '0')}:${ss}` : `${mm}:${ss}`;
+}
+const shortFmt = ms => (!(ms >= 0) ? '–' : ms < 60e3 ? Math.floor(ms / 1000) + ' s' : clockFmt(ms));
+const shortName = n => n.replace(/-worker$/, '');
+function bump(el) { el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump'); }
+
+// ---- view state, keyed by stable ids ----
+const V = { state: null, recvAt: 0, jobs: new Map(), tasks: new Map(), workers: new Map(), pkgs: new Map(),
+  stats: { done: 0, retry: 0, durs: [] }, idle: new Map(), base: { cls: '', text: '' }, popId: null, popPinned: false };
+const stageEl = k => document.querySelector(`.stage[data-k="${k}"]`);
+const now = () => (V.state ? ts(V.state.generated_at) + (performance.now() - V.recvAt) : Date.now());
+
+// ---- render: one code path for every poll; prev === null means first paint, no motion ----
+function render(state, prev) {
+  V.state = state; V.recvAt = performance.now();
+  const gen = ts(state.generated_at);
+  const taskWorker = new Map(), taskById = new Map();
+  for (const w of state.workers) if (w.current) taskWorker.set(w.current.task_id, w);
+  for (const j of state.jobs) for (const t of j.tasks) taskById.set(t.id, t);
+  const installed = new Map();
+  for (const i of state.installs) { let s = installed.get(i.package); if (!s) installed.set(i.package, s = new Set()); i.tiles.forEach(t => s.add(t)); }
+  const isPackaged = (job, tile) => { for (const [p, s] of installed) if (p.includes('_' + job.package + '_') && s.has(tile)) return true; return false; };
+  const ctx = { gen, taskWorker, taskById, isPackaged, animate: !!prev, moves: [], counts: { pending: 0, claimed: 0, succeeded: 0, packaged: 0, abandoned: 0 } };
+
+  renderJobs(state, ctx);
+  renderWorkers(state, ctx);
+  renderFunnel(ctx);
+  renderStatus(state, ctx);
+  renderPkgs(state, ctx);
+  if (V.popId) fillPop();
+  if (ctx.moves.length) requestAnimationFrame(() => fire(ctx.moves));
+  tick();
+}
+
+function renderJobs(state, ctx) {
+  const box = $('jobs');
+  const info = state.jobs.map(job => {
+    const retry = job.tasks.filter(t => (t.state === 'claimed' || t.state === 'pending') && (t.attempts > 1 || t.last_failure));
+    const rank = job.state === 'failed' || retry.length ? 0 : job.state === 'in_progress' ? 1 : 2;
+    return { job, retry, rank };
+  }).sort((a, b) => a.rank - b.rank || ts(b.job.created_at) - ts(a.job.created_at));
+  const seen = new Set();
+  info.forEach((x, i) => {
+    let v = V.jobs.get(x.job.id);
+    const fresh = !v;
+    if (fresh) { v = buildJob(); V.jobs.set(x.job.id, v); }
+    if (box.children[i] !== v.el) box.insertBefore(v.el, box.children[i] || null);
+    updateJob(v, x, ctx, fresh);
+    seen.add(x.job.id);
+  });
+  for (const [id, v] of V.jobs) if (!seen.has(id)) { v.el.remove(); V.jobs.delete(id); for (const t of v.job.tasks) V.tasks.delete(t.id); }
+}
+
+function buildJob() {
+  const v = { cells: [], open: false, collapsed: false, last: undefined };
+  v.el = h('article', 'job fold');
+  const inner = h('div'); v.el.append(inner);
+  v.full = h('div', 'fold'); const fullIn = h('div'); v.full.append(fullIn);
+  const grid = h('div', 'jgrid');
+  const head = h('div', 'jhead'), title = h('div', 'jtitle'), pkgRow = h('div', 'jpkg');
+  v.region = h('b'); v.rev = h('span', 'rev'); title.append(v.region, v.rev);
+  v.pkg = h('span', 'mono'); v.chip = h('span', 'chip'); v.rchip = h('span', 'chip retry', '↻ Retry');
+  pkgRow.append(v.pkg, v.chip, v.rchip); head.append(title, pkgRow);
+  const mid = h('div', 'jmid');
+  v.waffle = h('div', 'waffle'); v.waffle.setAttribute('role', 'img');
+  v.bar = h('div', 'pbar'); v.segs = {};
+  for (const k of SEGS) { v.segs[k] = h('span', 'seg s-' + k); v.bar.append(v.segs[k]); }
+  mid.append(v.waffle, v.bar);
+  const meta = h('div', 'jmeta'); v.frac = h('span', 'frac'); v.clk = h('span', 'jclock'); meta.append(v.frac, v.clk);
+  grid.append(head, mid, meta);
+  v.subf = h('div', 'fold shut'); const subIn = h('div'); v.sub = h('div', 'subline mono'); subIn.append(v.sub); v.subf.append(subIn);
+  fullIn.append(grid, v.subf);
+  v.short = h('div', 'fold shut'); const shortIn = h('div'); v.sbtn = h('button', 'short'); v.sbtn.type = 'button'; shortIn.append(v.sbtn); v.short.append(shortIn);
+  inner.append(v.full, v.short);
+  v.sbtn.onclick = () => { v.open = true; setCollapsed(v, false); };
+  head.onclick = () => { if (v.job.state === 'complete') { v.open = false; setCollapsed(v, true); } };
+  return v;
+}
+function setCollapsed(v, c) { v.collapsed = c; v.full.classList.toggle('shut', c); v.short.classList.toggle('shut', !c); v.sbtn.setAttribute('aria-expanded', String(!c)); }
+function instant(el, fn) { el.classList.add('instant'); fn(); void el.offsetWidth; requestAnimationFrame(() => el.classList.remove('instant')); }
+
+function updateJob(v, { job, retry }, ctx, fresh) {
+  v.job = job;
+  const tasks = [...job.tasks].sort(byTile), n = tasks.length;
+  const cs = n <= 40 ? 14 : n <= 120 ? 10 : n <= 250 ? 8 : 6;
+  v.waffle.style.setProperty('--cs', cs + 'px');
+  v.waffle.classList.toggle('small', cs < 10);
+  const appear = fresh && ctx.animate;
+  const jc = { packaged: 0, succeeded: 0, claimed: 0, pending: 0, abandoned: 0 };
+  tasks.forEach((t, i) => {
+    let cv = V.tasks.get(t.id);
+    if (!cv) {
+      cv = { el: h('div', 'cell'), vs: null, attempts: t.attempts, claimedAt: NaN, job: v, id: t.id };
+      cv.el.dataset.id = t.id;
+      V.tasks.set(t.id, cv);
+      if (appear) { cv.el.classList.add('pop'); cv.el.style.animationDelay = Math.round(i * Math.min(40, 600 / n)) + 'ms'; setTimeout(() => cv.el.classList.remove('pop'), 1200); }
+    }
+    if (v.waffle.children[i] !== cv.el) v.waffle.insertBefore(cv.el, v.waffle.children[i] || null);
+    jc[updateCell(cv, t, job, ctx)]++;
+  });
+  for (const k of SEGS) { v.segs[k].style.width = (n ? jc[k] / n * 100 : 0) + '%'; ctx.counts[k] += jc[k]; }
+  ctx.counts.succeeded += jc.packaged; // succeeded in the funnel includes what is packaged
+  v.waffle.setAttribute('aria-label', `${n} Tiles: ${jc.packaged + jc.succeeded} fertig, ${jc.claimed} in Arbeit, ${jc.pending} wartend, ${jc.abandoned} aufgegeben`);
+
+  v.region.textContent = job.region_code; v.rev.textContent = 'r' + job.revision; v.pkg.textContent = job.package;
+  v.chip.className = 'chip ' + job.state;
+  v.chip.textContent = { in_progress: 'läuft', complete: 'fertig', failed: 'fehlgeschlagen' }[job.state] || job.state;
+  v.rchip.hidden = !retry.length;
+  v.el.classList.toggle('problem', retry.length > 0);
+  v.el.classList.toggle('failed', job.state === 'failed');
+  v.el.classList.toggle('complete', job.state === 'complete');
+  v.frac.textContent = `${jc.packaged + jc.succeeded}/${n}`;
+  v.done = jc.packaged + jc.succeeded;
+
+  // retry sub-line
+  v.sub.textContent = '';
+  if (retry.length) {
+    const t = retry[0], w = ctx.taskWorker.get(t.id), step = w && stepOf(w.current.step);
+    const bits = [t.tile, w ? shortName(w.name) : t.state === 'pending' ? 'wartet auf Backoff' : (t.claimed_by || '–')];
+    if (w) bits.push(step ? 'Step ' + step : w.current.step);
+    bits.push(`Versuch ${t.state === 'pending' ? t.attempts + 1 : t.attempts}/${job.max_attempts}`);
+    if (t.last_failure) bits.push(t.last_failure);
+    v.sub.append('└ ' + bits.join(' · '));
+    if (retry.length > 1) v.sub.append(h('span', 'w', `  (+${retry.length - 1} weitere)`));
+  }
+  v.subf.classList.toggle('shut', !retry.length);
+
+  // short form
+  v.sbtn.textContent = '';
+  const sq = h('span', 'sq');
+  tasks.slice(0, 24).forEach(t => { const i = h('i'); i.dataset.s = V.tasks.get(t.id).vs; sq.append(i); });
+  v.sbtn.append(h('b', null, job.region_code), h('span', 'rev', 'r' + job.revision), sq,
+    h('span', 'mono', `${v.done}/${n}` + (n > 24 ? ' …' : '')), h('span', 'ok', job.state === 'complete' ? '✓' : job.state));
+
+  // complete / new-job choreography
+  if (job.state === 'complete' && v.last !== 'complete') {
+    if (!ctx.animate || v.last === undefined) instant(v.el, () => setCollapsed(v, true));
+    else {
+      v.doneAt = ctx.gen;
+      if (!RM.matches) { v.el.classList.remove('shimmer'); void v.el.offsetWidth; v.el.classList.add('shimmer'); }
+      clearTimeout(v.timer);
+      v.timer = setTimeout(() => { if (v.job.state === 'complete' && !v.open) setCollapsed(v, true); }, 10000);
+    }
+  }
+  if (job.state !== 'complete' && v.collapsed) setCollapsed(v, false);
+  if (appear) { instant(v.el, () => v.el.classList.add('shut')); requestAnimationFrame(() => requestAnimationFrame(() => v.el.classList.remove('shut'))); }
+  v.last = job.state;
+}
+
+function updateCell(cv, t, job, ctx) {
+  const w = ctx.taskWorker.get(t.id);
+  const vs = t.state === 'succeeded' && ctx.isPackaged(job, t.tile) ? 'packaged' : t.state;
+  if (cv.vs && ctx.animate) {
+    if (cv.vs === 'claimed' && (vs === 'pending' || (vs === 'claimed' && t.attempts > cv.attempts))) {
+      ctx.moves.push({ cv, to: 'pending', back: true }); V.stats.retry++;
+    } else if (vs !== cv.vs) {
+      ctx.moves.push({ cv, to: vs });
+      if (cv.vs === 'claimed' && (vs === 'succeeded' || vs === 'packaged')) { V.stats.done++; if (cv.claimedAt) V.stats.durs.push(ctx.gen - cv.claimedAt); }
+    }
+  }
+  cv.vs = vs; cv.attempts = t.attempts; cv.task = t; cv.worker = w; cv.jobData = job;
+  if (t.claimed_at) cv.claimedAt = ts(t.claimed_at);
+  const step = w ? stepOf(w.current.step) : null;
+  const el = cv.el;
+  el.dataset.s = vs;
+  el.style.setProperty('--f', vs === 'claimed' ? (FILL[step] ?? .1) : vs === 'pending' ? 0 : 1);
+  el.classList.toggle('stale', vs === 'claimed' && ctx.gen - ts(t.last_heartbeat_at) > STALE_MS);
+  const retrying = (vs === 'claimed' && t.attempts > 1) || (vs === 'pending' && !!t.last_failure);
+  el.classList.toggle('retry', retrying);
+  const badge = retrying || (vs === 'abandoned' && t.attempts > 1) ? '↻' + (vs === 'pending' ? t.attempts + 1 : t.attempts) : '';
+  if (badge) { if (!cv.badge) el.append(cv.badge = h('span', 'b')); cv.badge.textContent = badge; }
+  else if (cv.badge) { cv.badge.remove(); cv.badge = null; }
+  return vs;
+}
+
+// ---- motion: sparks from cell -> job bar segment -> funnel stage ----
+function center(el) { const r = el.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; }
+function fire(moves) {
+  if (document.hidden) return; // a background tab would replay a backlog of sparks on return
+  const byJob = new Map();
+  for (const m of moves) { const l = byJob.get(m.cv.job) || []; l.push(m); byJob.set(m.cv.job, l); }
+  let delay = 0;
+  for (const [v, list] of byJob) {
+    if (list.length > 12) { pulse(v, list); continue; }
+    for (const m of list) { setTimeout(() => spark(v, m), delay); delay += 90; }
+  }
+}
+function flash(cv, key) {
+  if (RM.matches) { cv.el.classList.add('mark'); setTimeout(() => cv.el.classList.remove('mark'), 3000); return; }
+  const c = getComputedStyle(document.documentElement).getPropertyValue('--' + (key === 'pending' ? 'retry' : key));
+  cv.el.animate([{ transform: 'scale(1.6)', backgroundColor: c, offset: 0 }, { transform: 'scale(1)' }], { duration: 650, easing: 'ease-out' });
+}
+function spark(v, m) {
+  const key = m.to, stage = stageEl(key);
+  flash(m.cv, key);
+  if (RM.matches) { bumpStage(stage); return; }
+  const src = v.collapsed ? v.sbtn : m.cv.el, seg = v.collapsed ? v.sbtn : v.segs[key];
+  const a = center(src), b = center(seg), c = center(stage.querySelector('.num'));
+  const lift = (p, q, d) => ({ x: (p.x + q.x) / 2 + (m.back ? -d : d) / 2, y: Math.min(p.y, q.y) - d });
+  const pts = [a, lift(a, b, 18), b, lift(b, c, 60), c];
+  const dot = h('div', 'spark k-' + key); $('fx').append(dot);
+  const anim = dot.animate(pts.map((p, i) => ({ transform: `translate(${p.x}px,${p.y}px) scale(${[1, 1.25, 1, 1.1, .5][i]})`, opacity: i === 4 ? .2 : 1 })),
+    { duration: 1100, easing: 'cubic-bezier(.45,0,.25,1)' });
+  anim.onfinish = () => { dot.remove(); bumpStage(stage); };
+}
+function bumpStage(stage) { bump(stage); }
+function pulse(v, list) {
+  const keys = new Set(list.map(m => m.to));
+  list.forEach(m => flash(m.cv, m.to));
+  const r = (v.collapsed ? v.sbtn : v.bar).getBoundingClientRect();
+  const p = h('div', 'pulse', '+' + list.length);
+  p.style.left = r.left + r.width / 2 + 'px'; p.style.top = r.top - 4 + 'px';
+  $('fx').append(p);
+  if (RM.matches) { setTimeout(() => p.remove(), 3000); return; }
+  v.bar.classList.remove('ring'); void v.bar.offsetWidth; v.bar.classList.add('ring');
+  p.animate([{ opacity: 0, marginTop: '6px' }, { opacity: 1, marginTop: '0px', offset: .25 }, { opacity: 1, offset: .7 }, { opacity: 0, marginTop: '-14px' }], { duration: 1600, easing: 'ease-out' }).onfinish = () => p.remove();
+  setTimeout(() => keys.forEach(k => bumpStage(stageEl(k))), 500);
+}
+function roll(el, n) {
+  const from = +el.dataset.v || 0;
+  el.dataset.v = n;
+  if (from === n) return;
+  cancelAnimationFrame(el._raf);
+  if (RM.matches || !V.rolled) { el.textContent = n.toLocaleString('de-DE'); return; }
+  const t0 = performance.now();
+  const step = t => {
+    const k = Math.min(1, (t - t0) / 800), e = 1 - Math.pow(1 - k, 3);
+    el.textContent = Math.round(from + (n - from) * e).toLocaleString('de-DE');
+    if (k < 1) el._raf = requestAnimationFrame(step);
+  };
+  el._raf = requestAnimationFrame(step);
+}
+
+// ---- funnel, workers, status, packages ----
+function renderFunnel(ctx) {
+  const c = ctx.counts, max = Math.max(1, ...Object.values(c));
+  for (const k of Object.keys(c)) {
+    const st = stageEl(k);
+    roll(st.querySelector('.num'), c[k]);
+    st.querySelector('.track i').style.width = (c[k] ? Math.max(2, c[k] / max * 100) : 0) + '%';
+  }
+  V.rolled = true;
+  const s = V.stats, avg = s.durs.length ? s.durs.reduce((a, b) => a + b, 0) / s.durs.length : NaN;
+  const since = $('since'); since.textContent = 'seit Seitenaufruf: ';
+  since.append(h('b', null, String(s.done)), ' fertig · ', h('b', null, String(s.retry)), s.retry === 1 ? ' Retry · ⌀ ' : ' Retries · ⌀ ',
+    h('b', null, s.durs.length ? shortFmt(avg) : '–'), ' pro Tile (ab Claim)');
+}
+
+function renderWorkers(state, ctx) {
+  const box = $('workers'), seen = new Set();
+  [...state.workers].sort((a, b) => a.name.localeCompare(b.name, 'de', { numeric: true })).forEach((w, i) => {
+    let v = V.workers.get(w.name);
+    if (!v) { v = buildWorker(); V.workers.set(w.name, v); }
+    if (box.children[i] !== v.el) box.insertBefore(v.el, box.children[i] || null);
+    updateWorker(v, w, ctx);
+    seen.add(w.name);
+  });
+  for (const [n, v] of V.workers) if (!seen.has(n)) { v.el.remove(); V.workers.delete(n); }
+}
+function buildWorker() {
+  const v = { el: h('div', 'wrow') };
+  v.name = h('span', 'wname'); v.heart = h('span', 'heart'); v.tile = h('span', 'tile'); v.steps = h('span', 'steps');
+  v.segs = STEPS.map(s => { const e = h('span', null, s === '2.5' ? '2.5' : 'S' + s); v.steps.append(e); return e; });
+  v.sclock = h('span', 'sclock'); v.ticker = h('div', 'ticker'); v.idletxt = h('span', 'idletxt');
+  return v;
+}
+function updateWorker(v, w, ctx) {
+  v.w = w;
+  const cur = w.current, task = cur && ctx.taskById.get(cur.task_id);
+  v.name.textContent = w.name; v.name.title = w.name;
+  v.el.classList.toggle('idle', !cur);
+  if (!cur) {
+    if (!V.idle.has(w.name)) V.idle.set(w.name, { t: ctx.gen, atLoad: !ctx.animate });
+    v.el.replaceChildren(v.name, v.idletxt);
+    v.el.classList.remove('stale');
+    return;
+  }
+  V.idle.delete(w.name);
+  if (v.el.firstChild !== v.name || v.el.childElementCount !== 6) v.el.replaceChildren(v.name, v.heart, v.tile, v.steps, v.sclock, v.ticker);
+  v.hb = task ? ts(task.last_heartbeat_at) : NaN;
+  const stale = ctx.gen - v.hb > STALE_MS;
+  v.el.classList.toggle('stale', stale); v.heart.classList.toggle('stale', stale);
+  v.tile.textContent = cur.tile;
+  const key = stepOf(cur.step), idx = STEPS.indexOf(key);
+  v.segs.forEach((e, i) => { e.className = i < idx ? 'done' : i === idx ? 'cur' : ''; });
+  v.stepLabel = key ? 'Step ' + key : cur.step;
+  v.stepSince = ts(cur.step_since);
+  v.sclock.title = cur.step;
+  const last = w.log_tail[w.log_tail.length - 1];
+  const lk = last ? last.at + last.line : '';
+  if (lk !== v.lk) {
+    const old = v.ticker.lastElementChild, span = h('span', null, last ? last.line : '');
+    span.title = last ? last.line : '';
+    if (old && ctx.animate && !RM.matches) { old.className = 'out'; span.className = 'in'; setTimeout(() => old.remove(), 460); }
+    else if (old) old.remove();
+    v.ticker.append(span); v.lk = lk;
+  }
+}
+
+function renderStatus(state, ctx) {
+  const p = [];
+  if (!state.database.reachable) p.push(['bad', 'Datenbank nicht erreichbar' + (state.database.error ? ': ' + state.database.error : '')]);
+  for (const w of state.workers) {
+    const t = w.current && ctx.taskById.get(w.current.task_id);
+    if (t && ctx.gen - ts(t.last_heartbeat_at) > STALE_MS) p.push(['warn', `${shortName(w.name)}: kein Heartbeat seit ${shortFmt(ctx.gen - ts(t.last_heartbeat_at))} · ${t.tile}`]);
+  }
+  for (const j of state.jobs) for (const t of j.tasks) {
+    if (t.state === 'abandoned' && t.last_failure !== 'cancelled by operator') p.push(['bad', `${t.tile} (${j.region_code}) aufgegeben: ${t.last_failure || '?'}`]);
+    else if ((t.state === 'claimed' || t.state === 'pending') && (t.attempts > 1 || t.last_failure)) p.push(['warn', `Retry ${t.tile} (${j.region_code}) · ${t.last_failure || 'Versuch ' + t.attempts}`]);
+  }
+  p.sort((a, b) => (a[0] === 'bad' ? 0 : 1) - (b[0] === 'bad' ? 0 : 1));
+  const active = state.workers.filter(w => w.current).length;
+  V.base = p.length ? { cls: p[0][0], text: p[0][1] + (p.length > 1 ? `  (+${p.length - 1} weitere)` : '') }
+    : { cls: '', text: `läuft ruhig · ${active}/${state.workers.length} Worker aktiv` };
+  const db = $('db'); db.classList.toggle('down', !state.database.reachable);
+  db.setAttribute('aria-label', state.database.reachable ? 'Datenbank erreichbar' : 'Datenbank nicht erreichbar');
+}
+
+function renderPkgs(state, ctx) {
+  const box = $('pkgs');
+  const rank = p => { const m = /^A(\d+)/.exec(p.code); return [p.owner === 'samsoir' ? 1 : 0, m ? +m[1] : 999, m ? -m[1].length : 0]; };
+  const list = [...state.packages].sort((a, b) => { const x = rank(a), y = rank(b); return x[0] - y[0] || x[1] - y[1] || x[2] - y[2] || a.code.localeCompare(b.code); });
+  box.replaceChildren(h('span', 'h', 'PAKETE'));
+  for (const p of list) {
+    const e = h('span', 'pkg ' + p.owner); e.title = `${p.name} ${p.version} · owner ${p.owner}`;
+    e.append(h('b', null, p.code), p.tiles.toLocaleString('de-DE') + (p.tiles === 1 ? ' Tile' : ' Tiles'));
+    if (p.owner === 'samsoir') e.append(h('span', null, '· samsoir'));
+    const was = V.pkgs.get(p.name);
+    if (ctx.animate && was !== p.tiles && !RM.matches) requestAnimationFrame(() => e.classList.add('bump'));
+    V.pkgs.set(p.name, p.tiles);
+    box.append(e);
+  }
+  const last = state.installs.reduce((a, b) => (!a || ts(b.at) > ts(a.at) ? b : a), null);
+  if (last) box.append(h('span', 'lastinst', `zuletzt installiert: ${last.code} · ${last.tiles.length} ${last.tiles.length === 1 ? 'Tile' : 'Tiles'} · ${new Date(ts(last.at)).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}`));
+}
+
+// ---- seconds clock: text only ----
+function tick() {
+  if (!V.state) return;
+  const n = now(), age = performance.now() - V.recvAt;
+  $('clock').textContent = new Date(n).toLocaleTimeString('de-DE');
+  $('ago').textContent = 'vor ' + Math.floor(age / 1000) + ' s';
+  const st = $('status');
+  const late = age > 15e3;
+  st.className = 'status ' + (late ? 'warn' : V.base.cls);
+  st.textContent = late ? `keine neuen Daten seit ${Math.floor(age / 1000)} s` : V.base.text;
+  for (const v of V.jobs.values()) {
+    const j = v.job;
+    v.clk.textContent = j.state === 'in_progress' ? 'läuft ' + clockFmt(n - ts(j.created_at))
+      : j.state === 'complete' ? (v.doneAt ? 'fertig nach ' + clockFmt(v.doneAt - ts(j.created_at)) : '✓ fertig')
+      : `✕ ${j.counts.abandoned} aufgegeben`;
+  }
+  for (const v of V.workers.values()) {
+    if (v.w.current) { v.heart.textContent = '♥ ' + shortFmt(n - v.hb); v.sclock.textContent = `${v.stepLabel} · ${clockFmt(n - v.stepSince)}`; }
+    else { const i = V.idle.get(v.w.name); v.idletxt.textContent = i ? (i.atLoad ? 'idle ≥ ' : 'idle seit ') + clockFmt(n - i.t) : 'idle'; }
+  }
+}
+setInterval(tick, 1000);
+
+// ---- popover ----
+const pop = $('pop');
+function fillPop() {
+  const cv = V.tasks.get(V.popId);
+  if (!cv) { pop.hidden = true; V.popId = null; return; }
+  const t = cv.task, j = cv.jobData;
+  pop.replaceChildren(h('div', 't', t.tile));
+  const dl = h('dl');
+  const row = (k, val, cls) => { dl.append(h('dt', null, k)); dl.append(h('dd', cls, val)); };
+  row('Job', `${j.region_code} r${j.revision} · ${t.task_type}`);
+  row('state', cv.vs === 'packaged' ? 'succeeded · packaged' : t.state);
+  row('Versuche', `${t.attempts}/${j.max_attempts}`);
+  row('Worker', cv.worker ? cv.worker.name : t.claimed_by || '–');
+  if (cv.worker) row('Step', cv.worker.current.step);
+  if (t.last_failure) row('last_failure', t.last_failure, 'err');
+  row('replaces', t.replaces || '–');
+  row('patches', t.patches.length ? t.patches.join(', ') : '–');
+  pop.append(dl);
+}
+function placePop(el) {
+  pop.hidden = false;
+  const r = el.getBoundingClientRect(), pw = pop.offsetWidth, ph = pop.offsetHeight;
+  let x = Math.min(Math.max(16, r.left + r.width / 2 - pw / 2), innerWidth - pw - 16);
+  let y = r.bottom + 8; if (y + ph > innerHeight - 8) y = r.top - ph - 8;
+  pop.style.left = x + 'px'; pop.style.top = Math.max(8, y) + 'px';
+}
+function openPop(el) { V.popId = el.dataset.id; fillPop(); placePop(el); }
+function closePop() { pop.hidden = true; V.popId = null; V.popPinned = false; }
+document.addEventListener('pointerover', e => { const c = e.target.closest('.cell'); if (c && !V.popPinned && e.pointerType === 'mouse') openPop(c); });
+document.addEventListener('pointerout', e => { if (e.target.closest('.cell') && !V.popPinned && e.pointerType === 'mouse') closePop(); });
+document.addEventListener('click', e => {
+  const c = e.target.closest('.cell');
+  if (c) { if (V.popPinned && V.popId === c.dataset.id) closePop(); else { V.popPinned = true; openPop(c); } }
+  else if (!e.target.closest('#pop')) closePop();
+});
+addEventListener('scroll', () => { if (!V.popPinned) closePop(); }, { passive: true });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closePop(); });
+
+// ---- simulator (DEMO). For production replace with: fetch('/api/state').then(r => r.json()).then(s => { render(s, prev); prev = s; }) ----
+const clone = o => JSON.parse(JSON.stringify(o));
+const rnd = n => Math.floor(Math.random() * n);
+const uid = () => 'sim-' + Math.random().toString(16).slice(2, 10) + Math.random().toString(16).slice(2, 10);
+const tileName = (lat, lon) => (lat < 0 ? '-' : '+') + String(Math.abs(lat)).padStart(2, '0') + (lon < 0 ? '-' : '+') + String(Math.abs(lon)).padStart(3, '0');
+const iso = t => new Date(t).toISOString().replace(/\.\d+Z$/, 'Z');
+const STEP_TEXT = ['Step 1 : Building vector data for tile ', 'Step 2 : Building mesh for tile ', 'Step 2.5 : Building masks for tile ', 'Step 3 : Building DSF and imagery for tile '];
+const LOGS = [
+  ['-> Downloading OSM data for way["highway"]', '   Number of edges at this point: 1%d', '-> Dealing with inland water', '    * Downloading OSM data for rel["natural"="water"]', '-> Treating airport patches'],
+  ['-> Calling Triangle4XP', '   Triangle4XP: %d triangles', '-> Smoothing elevation (dem-cache hit)', '   Min angle 5.0°, max area 0.0004'],
+  ['-> Building masks for coastline', '   Mask zl14: %d/64 done', '-> Blurring masks (radius 8)'],
+  ['-> Downloading imagery (BI zl17)', '   Converting to DDS: %d/1024', '-> Writing DSF via DSFTool', '   Terrain descriptors: %d']];
+const NEW_JOBS = [['EU-ALPS', 'oxo_alps', 46, 10], ['EU-RHEIN', 'oxo_rhein', 49, 6], ['EU-ELBE', 'oxo_elbe', 51, 11], ['EU-DONAU', 'oxo_donau', 47, 13]];
+
+function makeSim(seed, big) {
+  const s = clone(seed);
+  let t = 0, clock = ts(s.generated_at), claims = 0, quiet = 0, jobNo = 0;
+  const wm = new Map(), notBefore = new Map(), done = new Set();
+  const find = id => { for (const j of s.jobs) for (const x of j.tasks) if (x.id === id) return [j, x]; return []; };
+  const log = (w, line) => { w.log_tail.push({ at: iso(clock), line: line.replace('%d', 1000 + rnd(900000)) }); if (w.log_tail.length > 3) w.log_tail.shift(); };
+  const recount = j => {
+    const c = { pending: 0, claimed: 0, succeeded: 0, abandoned: 0 };
+    j.tasks.forEach(x => c[x.state]++);
+    j.counts = c; j.total = j.tasks.length;
+    j.state = c.pending || c.claimed ? 'in_progress' : c.abandoned ? 'failed' : 'complete';
+  };
+  const release = (w, x) => { x.claimed_by = null; x.claimed_at = null; x.last_heartbeat_at = null; w.current = null; wm.delete(w.name); };
+  const failFor = n => big ? (Math.random() < .05 ? { at: rnd(4), msg: 'build_mesh: Triangle4XP exited with signal 11', direct: Math.random() < .5 } : null)
+    : n === 3 ? { at: 1, msg: 'build_mesh: Triangle4XP exited with signal 11', direct: true }
+    : n === 8 ? { at: 0, msg: 'vector data: Overpass API timeout after 3 retries', direct: false } : null;
+  function claim(w) {
+    for (const j of [...s.jobs].reverse()) for (const x of [...j.tasks].sort(byTile)) {
+      if (x.state !== 'pending' || (notBefore.get(x.id) ?? 0) > t) continue;
+      claims++; x.state = 'claimed'; x.attempts++; x.claimed_by = shortName(w.name); x.claimed_at = iso(clock); x.last_heartbeat_at = iso(clock);
+      w.current = { task_id: x.id, tile: x.tile, task_type: x.task_type, attempt: x.attempts, since: iso(clock), step: STEP_TEXT[0] + x.tile, step_since: iso(clock) };
+      log(w, `-> claimed ${x.tile} (attempt ${x.attempts}/${j.max_attempts})`);
+      wm.set(w.name, { i: 0, n: 0, dur: big ? 1 + rnd(2) : 1 + (Math.random() < .3), fail: failFor(claims) });
+      return;
+    }
+  }
+  function install(j) {
+    const pkg = `zzXEL_${j.package}_ortho`;
+    const fresh = j.tasks.filter(x => x.state === 'succeeded' && !done.has(x.id));
+    if (!fresh.length || (j.state === 'in_progress' && fresh.length < 15)) return;
+    fresh.forEach(x => done.add(x.id));
+    const code = j.package === 'oxo_apt' ? 'A00_OXO' : 'A4_' + j.region_code.split('-').pop();
+    s.installs.push({ at: iso(clock), code, package: pkg, tiles: fresh.map(x => x.tile) });
+    let p = s.packages.find(q => q.name === pkg);
+    if (!p) s.packages.push(p = { name: pkg, code, version: '99.99.99', tiles: 0, owner: 'oxo' });
+    p.tiles += fresh.length;
+  }
+  function newJob() {
+    const [code, pkg, lat, lon] = NEW_JOBS[jobNo % NEW_JOBS.length], rev = 1 + Math.floor(jobNo / NEW_JOBS.length);
+    jobNo++;
+    const tasks = [];
+    for (let a = 0; a < 2; a++) for (let b = 0; b < 6; b++) tasks.push({ id: uid(), tile: tileName(lat + a, lon + b), task_type: 'ortho', state: 'pending', attempts: 0,
+      claimed_by: null, claimed_at: null, last_heartbeat_at: null, last_failure: null, replaces: b === 2 ? 'eu_sonny (A5_EU) cfg agrees' : null, patches: [] });
+    s.jobs.unshift({ id: uid(), region_code: code, revision: rev, package: pkg, created_at: iso(clock), max_attempts: 3, state: 'in_progress', counts: {}, total: 12, tasks });
+    recount(s.jobs[0]);
+    while (s.jobs.length > 7) s.jobs.pop();
+  }
+  // tasks already in the seed that are installed count as done
+  for (const j of s.jobs) for (const x of j.tasks) if (x.state === 'succeeded' && s.installs.some(i => i.package === `zzXEL_${j.package}_ortho` && i.tiles.includes(x.tile))) done.add(x.id);
+
+  return function next() {
+    if (t === 0) { t++; return clone(s); }
+    const frozen = t >= (big ? 12 : 22) && t < (big ? 18 : 28) ? s.workers[0] : null;   // stale phase
+    clock += frozen ? 35e3 : 3e3;
+    if (!big && t === 14) s.workers.push({ name: 'oxo-worker-2-worker', state: 'running', started_at: iso(clock), current: null, log_tail: [{ at: iso(clock), line: 'worker ready: dem-cache ok, 412 GB scratch free' }] });
+    for (const w of s.workers) {
+      if (!w.current || w === frozen) continue;
+      const [j, x] = find(w.current.task_id);
+      let m = wm.get(w.name);
+      if (!m) wm.set(w.name, m = { i: Math.max(0, STEPS.indexOf(stepOf(w.current.step))), n: 0, dur: 2, fail: null });
+      x.last_heartbeat_at = iso(clock);
+      if (++m.n < m.dur) { log(w, LOGS[m.i][rnd(LOGS[m.i].length)]); continue; }
+      m.n = 0;
+      if (m.fail && m.fail.at === m.i) {
+        x.last_failure = m.fail.msg; log(w, 'ERROR ' + m.fail.msg); release(w, x);
+        if (x.attempts >= j.max_attempts) x.state = 'abandoned';
+        else { x.state = 'pending'; notBefore.set(x.id, m.fail.direct ? t : t + 3); }
+      } else if (m.i === 3) {
+        x.state = 'succeeded'; log(w, `   ${x.tile}: XEL tile delivered to artifacts (64 MB)`); release(w, x);
+      } else {
+        m.i++; w.current.step = STEP_TEXT[m.i] + x.tile; w.current.step_since = iso(clock); log(w, LOGS[m.i][0]);
+      }
+    }
+    for (const w of s.workers) if (!w.current && w !== frozen) claim(w);
+    s.jobs.forEach(recount);
+    if (t % 3 === 0) s.jobs.forEach(install);
+    quiet = s.jobs.some(j => j.state === 'in_progress') ? 0 : quiet + 1;
+    if (!big && quiet >= 3) { newJob(); quiet = 0; }
+    s.generated_at = iso(clock);
+    t++;
+    return clone(s);
+  };
+}
+
+function bigSeed() {
+  const s = clone(SAMPLE), t0 = ts(s.generated_at), tasks = [], workers = [];
+  for (const j of s.jobs) for (const x of j.tasks) if (x.state === 'claimed') Object.assign(x, { state: 'pending', claimed_by: null, claimed_at: null, last_heartbeat_at: null }); // sample worker is replaced
+  for (let lat = 40; lat < 60; lat++) for (let lon = -5; lon < 20; lon++) tasks.push({ id: uid(), tile: tileName(lat, lon), task_type: 'ortho', state: 'pending', attempts: 0,
+    claimed_by: null, claimed_at: null, last_heartbeat_at: null, last_failure: null, replaces: null, patches: [] });
+  tasks.sort(byTile);
+  tasks.forEach((x, i) => {
+    if (i < 170) { x.state = 'succeeded'; x.attempts = 1; }
+    else if (i < 172) { x.state = 'abandoned'; x.attempts = 3; x.last_failure = 'build_mesh: Triangle4XP exited with signal 11'; }
+    else if (i < 182) {
+      const n = i - 171, name = `oxo-worker-${n}-worker`, step = rnd(4);
+      x.state = 'claimed'; x.attempts = n === 4 ? 2 : 1; x.claimed_by = shortName(name); x.claimed_at = iso(t0 - (5 + rnd(20)) * 60e3); x.last_heartbeat_at = iso(t0 - rnd(20) * 1e3);
+      if (n === 4) x.last_failure = 'vector data: Overpass API timeout after 3 retries';
+      workers.push({ name, state: 'running', started_at: iso(t0 - 3600e3), current: { task_id: x.id, tile: x.tile, task_type: 'ortho', attempt: x.attempts, since: x.claimed_at, step: STEP_TEXT[step] + x.tile, step_since: iso(t0 - rnd(300) * 1e3) },
+        log_tail: [{ at: iso(t0 - 2e3), line: LOGS[step][0] }] });
+    }
+  });
+  s.jobs.unshift({ id: uid(), region_code: 'EU-CENTRAL', revision: 1, package: 'oxo_central', created_at: iso(t0 - 2.3 * 3600e3), max_attempts: 3, state: 'in_progress',
+    counts: { pending: 318, claimed: 10, succeeded: 170, abandoned: 2 }, total: 500, tasks });
+  s.workers = workers;
+  s.installs.push({ at: iso(t0 - 600e3), code: 'A4_CENTRAL', package: 'zzXEL_oxo_central_ortho', tiles: tasks.slice(0, 120).map(x => x.tile) });
+  s.packages.push({ name: 'zzXEL_oxo_central_ortho', code: 'A4_CENTRAL', version: '99.99.99', tiles: 120, owner: 'oxo' });
+  return s;
+}
+
+// ---- poll loop (simulated) ----
+let sim = makeSim(SAMPLE, false), prev = null;
+function poll() { const s = sim(); render(s, prev); prev = s; }
+function reset(big) {
+  closePop();
+  for (const k of ['jobs', 'workers', 'tasks', 'pkgs', 'idle']) V[k].clear();
+  V.stats = { done: 0, retry: 0, durs: [] }; V.rolled = false;
+  $('jobs').replaceChildren(); $('workers').replaceChildren(); $('fx').replaceChildren();
+  sim = makeSim(big ? bigSeed() : SAMPLE, big); prev = null; poll();
+}
+$('scale').onclick = e => { const on = e.currentTarget.getAttribute('aria-pressed') !== 'true'; e.currentTarget.setAttribute('aria-pressed', String(on)); reset(on); };
+poll();
+setInterval(poll, 3000);
+</script>
+</body>
+</html>

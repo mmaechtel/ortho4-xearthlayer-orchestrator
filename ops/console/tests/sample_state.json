@@ -1,0 +1,117 @@
+{
+  "generated_at": "2026-10-23T11:21:00Z",
+  "database": {"reachable": true, "error": null},
+  "jobs": [
+    {
+      "id": "5cadb9e9-d37e-4016-af57-165443649137",
+      "region_code": "OXO-APT",
+      "revision": 1,
+      "package": "oxo_apt",
+      "created_at": "2026-10-23T11:08:41Z",
+      "max_attempts": 3,
+      "state": "in_progress",
+      "counts": {"pending": 0, "claimed": 1, "succeeded": 0, "abandoned": 0},
+      "total": 1,
+      "tasks": [
+        {
+          "id": "99335416-c161-437d-9007-cb1a2aecfb8d",
+          "tile": "+48+011",
+          "task_type": "ortho",
+          "state": "claimed",
+          "attempts": 2,
+          "claimed_by": "oxo-worker-1",
+          "claimed_at": "2026-10-23T11:10:12Z",
+          "last_heartbeat_at": "2026-10-23T11:20:42Z",
+          "last_failure": "prepare: target root /mnt/xplane_data/oxo/artifacts/oxo_apt is not writable: No such file or directory",
+          "replaces": "eu_apt (A0_EU) cfg agrees",
+          "patches": ["EDDM.patch.osm"]
+        }
+      ]
+    },
+    {
+      "id": "74ac7077-0eb5-4283-b0ba-bb93410b3be2",
+      "region_code": "OXO-SONNY",
+      "revision": 1,
+      "package": "oxo_sonny",
+      "created_at": "2026-10-23T11:08:43Z",
+      "max_attempts": 3,
+      "state": "failed",
+      "counts": {"pending": 0, "claimed": 0, "succeeded": 0, "abandoned": 2},
+      "total": 2,
+      "tasks": [
+        {
+          "id": "12f5d4b4-226a-4984-a488-de03de2475e8",
+          "tile": "+48+010",
+          "task_type": "ortho",
+          "state": "abandoned",
+          "attempts": 1,
+          "claimed_by": null,
+          "claimed_at": null,
+          "last_heartbeat_at": null,
+          "last_failure": "cancelled by operator",
+          "replaces": "eu_sonny (A5_EU) cfg agrees",
+          "patches": []
+        },
+        {
+          "id": "711e62ff-f009-440e-8ab9-a3647f7d6166",
+          "tile": "+48+012",
+          "task_type": "ortho",
+          "state": "abandoned",
+          "attempts": 1,
+          "claimed_by": null,
+          "claimed_at": null,
+          "last_heartbeat_at": null,
+          "last_failure": "cancelled by operator",
+          "replaces": "eu_sonny (A5_EU) cfg agrees",
+          "patches": []
+        }
+      ]
+    },
+    {
+      "id": "d125946d-ef3d-4f34-b4ce-17bc0b1dea73",
+      "region_code": "EU-PILOT",
+      "revision": 3,
+      "package": "oxo_pilot",
+      "created_at": "2026-10-23T09:10:38Z",
+      "max_attempts": 3,
+      "state": "complete",
+      "counts": {"pending": 0, "claimed": 0, "succeeded": 3, "abandoned": 0},
+      "total": 3,
+      "tasks": [
+        {"id": "64ad6949-ade0-4305-afb0-838448c2f0d7", "tile": "+48+012", "task_type": "ortho", "state": "succeeded", "attempts": 1, "claimed_by": null, "claimed_at": null, "last_heartbeat_at": null, "last_failure": null, "replaces": null, "patches": []},
+        {"id": "710468a8-2c04-4306-8318-887d347a5a77", "tile": "+48+010", "task_type": "ortho", "state": "succeeded", "attempts": 1, "claimed_by": null, "claimed_at": null, "last_heartbeat_at": null, "last_failure": null, "replaces": null, "patches": []},
+        {"id": "f08ded77-bda3-49ae-bb9d-b2b78213250d", "tile": "+48+011", "task_type": "ortho", "state": "succeeded", "attempts": 1, "claimed_by": null, "claimed_at": null, "last_heartbeat_at": null, "last_failure": null, "replaces": null, "patches": ["EDDM.patch.osm"]}
+      ]
+    }
+  ],
+  "workers": [
+    {
+      "name": "oxo-worker-1-worker",
+      "state": "running",
+      "started_at": "2026-10-23T10:14:23Z",
+      "current": {
+        "task_id": "99335416-c161-437d-9007-cb1a2aecfb8d",
+        "tile": "+48+011",
+        "task_type": "ortho",
+        "attempt": 2,
+        "since": "2026-10-23T11:10:12Z",
+        "step": "Step 1 : Building vector data for tile +48+011",
+        "step_since": "2026-10-23T11:10:13Z"
+      },
+      "log_tail": [
+        {"at": "2026-10-23T11:20:35Z", "line": "   Number of edges at this point: 124650"},
+        {"at": "2026-10-23T11:20:35Z", "line": "-> Dealing with inland water"},
+        {"at": "2026-10-23T11:20:35Z", "line": "    * Downloading OSM data for rel[\"natural\"=\"water\"]"}
+      ]
+    }
+  ],
+  "packages": [
+    {"name": "zzXEL_eu_apt_ortho", "code": "A0_EU", "version": "99.99.99", "tiles": 53, "owner": "own"},
+    {"name": "zzXEL_oxo_pilot_ortho", "code": "A4_PILOT", "version": "99.99.99", "tiles": 3, "owner": "oxo"},
+    {"name": "zzXEL_eu_sonny_ortho", "code": "A5_EU", "version": "99.99.99", "tiles": 2036, "owner": "own"},
+    {"name": "zzXEL_eu-west_ortho", "code": "EU-WEST", "version": "0.5.0", "tiles": 1500, "owner": "samsoir"}
+  ],
+  "installs": [
+    {"at": "2026-10-23T10:26:45Z", "code": "A4_PILOT", "package": "zzXEL_oxo_pilot_ortho", "tiles": ["+48+010", "+48+011", "+48+012"]}
+  ]
+}
