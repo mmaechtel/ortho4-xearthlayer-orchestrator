@@ -1,0 +1,122 @@
+[package]
+name = "as_apt"
+dir = "/home/maechtel/.local/share/xearthlayer/packages/zzXEL_as_apt_ortho"
+code = "A0_AS"
+version = "99.99.99"
+adopted = "2026-10-23T10:38:39Z"
+
+[tiles."+01+103"]
+observed = {creation_agent = "Ortho4XP", textures = {Arc19 = 104, BI17 = 372, BI18 = 173}, mask_zl = [17, 18, 19], dsf_bytes = 40677726}
+cfg_status = "rejected"
+
+[tiles."+01+104"]
+observed = {creation_agent = "Ortho4XP", textures = {Arc19 = 62, BI17 = 173, BI18 = 50}, mask_zl = [17, 18, 19], dsf_bytes = 21952509}
+cfg_status = "rejected"
+
+[tiles."+25+055"]
+observed = {creation_agent = "Ortho4XP", textures = {BI17 = 305, BI18 = 172}, mask_zl = [17, 18], dsf_bytes = 21134595}
+cfg_status = "ambiguous"
+
+[tiles."+27+086"]
+observed = {creation_agent = "Ortho4XP", textures = {BI17 = 644, BI18 = 48}, mask_zl = [17, 18], dsf_bytes = 72290673}
+cfg_status = "ambiguous"
+
+[tiles."+22+113"]
+observed = {creation_agent = "Ortho4XP", textures = {BI17 = 458, BI18 = 426, BI19 = 82}, mask_zl = [17, 18, 19], dsf_bytes = 43331453}
+cfg_status = "ambiguous"
+
+[tiles."+22+121"]
+observed = {creation_agent = "Ortho4XP", textures = {BI17 = 65, BI18 = 43}, mask_zl = [17, 18], dsf_bytes = 18535522}
+cfg_status = "agrees"
+cfg_source = "/mnt/xplane_data/Orthos/Ortho4XP/src/AS/APT/zOrtho4XP_+22+121/Ortho4XP_+22+121.cfg"
+[tiles."+22+121".cfg]
+apt_smoothing_pix = "8"
+road_level = "1"
+road_banking_limit = "1.0"
+lane_width = "4.0"
+max_levelled_segs = "200000"
+water_simplification = "0.0"
+min_area = "0.001"
+max_area = "200.0"
+clean_bad_geometries = "True"
+mesh_zl = "19"
+curvature_tol = "1.8"
+apt_curv_tol = "0.25"
+apt_curv_ext = "0.5"
+coast_curv_tol = "0.25"
+coast_curv_ext = "0.5"
+limit_tris = "5.0"
+min_angle = "10.0"
+sea_smoothing_mode = "zero"
+water_smoothing = "10"
+iterate = "0"
+mask_zl = "16"
+masks_width = "100"
+masking_mode = "sand"
+use_masks_for_inland = "True"
+imprint_masks_to_dds = "False"
+distance_masks_too = "True"
+masks_use_DEM_too = "False"
+cover_airports_with_highres = "True"
+cover_extent = "2.0"
+cover_zl = "18"
+water_tech = "XP12"
+ratio_bathy = "1.0"
+ratio_water = "0.75"
+overlay_lod = "25000.0"
+sea_texture_blur = "0.0"
+normal_map_strength = "1.0"
+terrain_casts_shadows = "True"
+use_decal_on_terrain = "True"
+fill_nodata = "True"
+default_website = "BI"
+default_zl = "17"
+zone_list = "[]"
+
+[tiles."+24+124"]
+observed = {creation_agent = "Ortho4XP", textures = {BI17 = 34, BI18 = 42}, mask_zl = [17, 18], dsf_bytes = 10882594}
+cfg_status = "agrees"
+cfg_source = "/mnt/xplane_data/Orthos/Ortho4XP/src/AS/APT/zOrtho4XP_+24+124/Ortho4XP_+24+124.cfg"
+[tiles."+24+124".cfg]
+mesh_zl = "19"
+curvature_tol = "2.0"
+apt_curv_tol = "0.5"
+apt_curv_ext = "0.5"
+coast_curv_tol = "1.0"
+coast_curv_ext = "0.5"
+limit_tris = "3.0"
+min_angle = "10.0"
+min_area = "0.001"
+max_area = "200.0"
+clean_bad_geometries = "True"
+apt_smoothing_pix = "8"
+road_level = "3"
+road_banking_limit = "0.5"
+lane_width = "4.0"
+max_levelled_segs = "200000"
+water_simplification = "0.0"
+water_smoothing = "10"
+water_tech = "XP12"
+ratio_bathy = "1.0"
+ratio_water = "0.5"
+sea_smoothing_mode = "zero"
+mask_zl = "16"
+masks_width = "25"
+masking_mode = "rocks"
+use_masks_for_inland = "True"
+imprint_masks_to_dds = "False"
+distance_masks_too = "True"
+masks_use_DEM_too = "False"
+cover_airports_with_highres = "ICAO"
+cover_extent = "6.0"
+cover_zl = "18"
+default_website = "BI"
+default_zl = "17"
+overlay_lod = "25000.0"
+sea_texture_blur = "0.0"
+normal_map_strength = "1.0"
+terrain_casts_shadows = "True"
+use_decal_on_terrain = "True"
+fill_nodata = "True"
+iterate = "0"
+zone_list = "[]"

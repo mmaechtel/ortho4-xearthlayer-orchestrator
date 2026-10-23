@@ -1,0 +1,266 @@
+[package]
+name = "nz_custom"
+dir = "/home/maechtel/.local/share/xearthlayer/packages/zzXEL_nz_custom_ortho"
+code = "A5_NZ"
+version = "99.99.99"
+adopted = "2026-10-23T10:41:09Z"
+
+[tiles."-35+172"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 24}, mask_zl = [16], dsf_bytes = 10701355}
+cfg_status = "rejected"
+
+[tiles."-35+173"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 36}, mask_zl = [16], dsf_bytes = 11262585}
+cfg_status = "rejected"
+
+[tiles."-36+173"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 123, BI17 = 9}, mask_zl = [16, 17], dsf_bytes = 26916899}
+cfg_status = "rejected"
+
+[tiles."-36+174"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 96, BI17 = 2}, mask_zl = [16, 17], dsf_bytes = 25275264}
+cfg_status = "rejected"
+
+[tiles."-36+175"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 2}, mask_zl = [16], dsf_bytes = 8068066}
+cfg_status = "none"
+
+[tiles."-37+173"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 11, BI17 = 2}, mask_zl = [16, 17], dsf_bytes = 8472478}
+cfg_status = "rejected"
+
+[tiles."-37+174"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 134, BI17 = 17}, mask_zl = [16, 17], dsf_bytes = 29739101}
+cfg_status = "rejected"
+
+[tiles."-37+175"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 82, BI17 = 13}, mask_zl = [16, 17], dsf_bytes = 23285175}
+cfg_status = "rejected"
+
+[tiles."-37+176"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 2}, mask_zl = [16], dsf_bytes = 8086204}
+cfg_status = "none"
+
+[tiles."-38+174"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 78, BI17 = 9}, mask_zl = [16, 17], dsf_bytes = 20667209}
+cfg_status = "rejected"
+
+[tiles."-38+175"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 181, BI17 = 20}, mask_zl = [16, 17], dsf_bytes = 28238961}
+cfg_status = "rejected"
+
+[tiles."-38+176"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 72, BI17 = 5}, mask_zl = [16, 17], dsf_bytes = 16662205}
+cfg_status = "rejected"
+
+[tiles."-38+177"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 56}, mask_zl = [16], dsf_bytes = 16671645}
+cfg_status = "rejected"
+
+[tiles."-38+178"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 45, BI17 = 3}, mask_zl = [16, 17], dsf_bytes = 14587264}
+cfg_status = "rejected"
+
+[tiles."-39+174"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 92, BI17 = 1}, mask_zl = [16, 17], dsf_bytes = 29578437}
+cfg_status = "rejected"
+
+[tiles."-39+175"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 177, BI17 = 8}, mask_zl = [16, 17], dsf_bytes = 37605806}
+cfg_status = "rejected"
+
+[tiles."-39+176"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 180, BI17 = 15}, mask_zl = [16, 17], dsf_bytes = 36525445}
+cfg_status = "rejected"
+
+[tiles."-39+177"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 190, BI17 = 3}, mask_zl = [16, 17], dsf_bytes = 50651265}
+cfg_status = "rejected"
+
+[tiles."-39+178"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 48}, mask_zl = [16], dsf_bytes = 15382822}
+cfg_status = "rejected"
+
+[tiles."-40+173"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 23}, mask_zl = [16], dsf_bytes = 8785536}
+cfg_status = "rejected"
+
+[tiles."-40+174"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 158, BI17 = 3}, mask_zl = [16, 17], dsf_bytes = 40739118}
+cfg_status = "rejected"
+
+[tiles."-40+175"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 192, BI17 = 6}, mask_zl = [16, 17], dsf_bytes = 47383024}
+cfg_status = "rejected"
+
+[tiles."-40+176"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 188, BI17 = 10}, mask_zl = [16, 17], dsf_bytes = 39479218}
+cfg_status = "rejected"
+
+[tiles."-40+177"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 48, BI17 = 2}, mask_zl = [16, 17], dsf_bytes = 13732347}
+cfg_status = "rejected"
+
+[tiles."-40+178"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 1}, mask_zl = [16], dsf_bytes = 7904959}
+cfg_status = "rejected"
+
+[tiles."-44+168"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 12}, mask_zl = [16], dsf_bytes = 8595122}
+cfg_status = "rejected"
+
+[tiles."-44+169"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 98, BI17 = 2}, mask_zl = [16, 17], dsf_bytes = 21337054}
+cfg_status = "rejected"
+
+[tiles."-45+167"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 70, BI17 = 2}, mask_zl = [16, 17], dsf_bytes = 22686290}
+cfg_status = "rejected"
+
+[tiles."-45+168"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 191, BI17 = 6}, mask_zl = [16, 17], dsf_bytes = 38717374}
+cfg_status = "rejected"
+
+[tiles."-45+169"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 221, BI17 = 9}, mask_zl = [16, 17], dsf_bytes = 33424870}
+cfg_status = "rejected"
+
+[tiles."-46+166"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 86}, mask_zl = [16], dsf_bytes = 26523484}
+cfg_status = "rejected"
+
+[tiles."-46+167"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 203, BI17 = 2}, mask_zl = [16, 17], dsf_bytes = 41010353}
+cfg_status = "rejected"
+
+[tiles."-46+168"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 204, BI17 = 5}, mask_zl = [16, 17], dsf_bytes = 26636750}
+cfg_status = "rejected"
+
+[tiles."-46+169"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 221, BI17 = 9}, mask_zl = [16, 17], dsf_bytes = 25587921}
+cfg_status = "rejected"
+
+[tiles."-47+166"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 34}, mask_zl = [16], dsf_bytes = 12816905}
+cfg_status = "rejected"
+
+[tiles."-47+167"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 105}, mask_zl = [16], dsf_bytes = 15286035}
+cfg_status = "rejected"
+
+[tiles."-47+168"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 150, BI17 = 12}, mask_zl = [16, 17], dsf_bytes = 15320487}
+cfg_status = "rejected"
+
+[tiles."-47+169"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 133, BI17 = 1}, mask_zl = [16, 17], dsf_bytes = 16092517}
+cfg_status = "rejected"
+
+[tiles."-48+167"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 36}, mask_zl = [16], dsf_bytes = 11626090}
+cfg_status = "rejected"
+
+[tiles."-48+168"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 11}, mask_zl = [16], dsf_bytes = 8949148}
+cfg_status = "rejected"
+
+[tiles."-41+172"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 70, BI17 = 2}, mask_zl = [16, 17], dsf_bytes = 19330385}
+cfg_status = "rejected"
+
+[tiles."-41+173"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 26}, mask_zl = [16], dsf_bytes = 13100491}
+cfg_status = "rejected"
+
+[tiles."-41+174"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 22, BI17 = 4}, mask_zl = [16, 17], dsf_bytes = 9378098}
+cfg_status = "rejected"
+
+[tiles."-41+175"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 174, BI17 = 15}, mask_zl = [16, 17], dsf_bytes = 30982975}
+cfg_status = "rejected"
+
+[tiles."-41+176"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 114, BI17 = 8}, mask_zl = [16, 17], dsf_bytes = 23061329}
+cfg_status = "rejected"
+
+[tiles."-42+171"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 45, BI17 = 2}, mask_zl = [16, 17], dsf_bytes = 13576068}
+cfg_status = "rejected"
+
+[tiles."-42+172"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 198, BI17 = 7}, mask_zl = [16, 17], dsf_bytes = 38892273}
+cfg_status = "rejected"
+
+[tiles."-42+173"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 178, BI17 = 10}, mask_zl = [16, 17], dsf_bytes = 41870988}
+cfg_status = "rejected"
+
+[tiles."-42+174"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 92, BI17 = 3}, mask_zl = [16, 17], dsf_bytes = 23965593}
+cfg_status = "rejected"
+
+[tiles."-42+175"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 91, BI17 = 6}, mask_zl = [16, 17], dsf_bytes = 21270028}
+cfg_status = "rejected"
+
+[tiles."-42+176"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 6}, mask_zl = [16], dsf_bytes = 8412161}
+cfg_status = "rejected"
+
+[tiles."-43+170"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 16, BI17 = 4}, mask_zl = [16, 17], dsf_bytes = 9359275}
+cfg_status = "rejected"
+
+[tiles."-43+171"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 162, BI17 = 4}, mask_zl = [16, 17], dsf_bytes = 29977784}
+cfg_status = "rejected"
+
+[tiles."-43+172"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 208, BI17 = 4}, mask_zl = [16, 17], dsf_bytes = 35178727}
+cfg_status = "rejected"
+
+[tiles."-43+173"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 129, BI17 = 2}, mask_zl = [16, 17], dsf_bytes = 29423266}
+cfg_status = "rejected"
+
+[tiles."-43+174"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 1}, mask_zl = [16], dsf_bytes = 7970339}
+cfg_status = "none"
+
+[tiles."-44+170"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 189, BI17 = 7}, mask_zl = [16, 17], dsf_bytes = 40568063}
+cfg_status = "rejected"
+
+[tiles."-44+171"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 204, BI17 = 12}, mask_zl = [16, 17], dsf_bytes = 27015146}
+cfg_status = "rejected"
+
+[tiles."-44+172"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 179, BI17 = 30}, mask_zl = [16, 17], dsf_bytes = 22745678}
+cfg_status = "rejected"
+
+[tiles."-44+173"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 12}, mask_zl = [16], dsf_bytes = 9633725}
+cfg_status = "rejected"
+
+[tiles."-45+170"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 203, BI17 = 5}, mask_zl = [16, 17], dsf_bytes = 25903819}
+cfg_status = "rejected"
+
+[tiles."-45+171"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 87, BI17 = 12}, mask_zl = [16, 17], dsf_bytes = 12168516}
+cfg_status = "rejected"
+
+[tiles."-46+170"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 165, BI17 = 8}, mask_zl = [16, 17], dsf_bytes = 24736454}
+cfg_status = "rejected"
+
+[tiles."-46+171"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 4}, mask_zl = [16], dsf_bytes = 8010697}
+cfg_status = "rejected"
+
+[tiles."-47+170"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 15}, mask_zl = [16], dsf_bytes = 8949642}
+cfg_status = "rejected"

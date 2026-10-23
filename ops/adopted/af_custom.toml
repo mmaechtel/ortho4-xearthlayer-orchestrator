@@ -1,0 +1,826 @@
+[package]
+name = "af_custom"
+dir = "/home/maechtel/.local/share/xearthlayer/packages/zzXEL_af_custom_ortho"
+code = "A5_AF"
+version = "99.99.99"
+adopted = "2026-10-23T10:39:31Z"
+
+[tiles."+30+000"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 168, BI18 = 4}, mask_zl = [], dsf_bytes = 2144861}
+cfg_status = "none"
+
+[tiles."+30+001"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 168, BI18 = 2}, mask_zl = [], dsf_bytes = 2474946}
+cfg_status = "none"
+
+[tiles."+30+002"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 186, BI18 = 12}, mask_zl = [], dsf_bytes = 1967581}
+cfg_status = "none"
+
+[tiles."+30+003"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 172}, mask_zl = [], dsf_bytes = 1437755}
+cfg_status = "none"
+
+[tiles."+30+004"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 168}, mask_zl = [], dsf_bytes = 1081822}
+cfg_status = "none"
+
+[tiles."+30+005"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 182, BI18 = 8}, mask_zl = [], dsf_bytes = 2649862}
+cfg_status = "none"
+
+[tiles."+30+006"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 168, BI18 = 10}, mask_zl = [], dsf_bytes = 3064759}
+cfg_status = "none"
+
+[tiles."+30+007"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 183, BI18 = 9}, mask_zl = [], dsf_bytes = 4840360}
+cfg_status = "none"
+
+[tiles."+30+008"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 168, BI18 = 44}, mask_zl = [], dsf_bytes = 5257296}
+cfg_status = "none"
+
+[tiles."+30+009"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 177, BI18 = 37}, mask_zl = [], dsf_bytes = 2709988}
+cfg_status = "none"
+
+[tiles."+31+000"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 170}, mask_zl = [], dsf_bytes = 1492556}
+cfg_status = "none"
+
+[tiles."+31+001"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 168, BI18 = 4}, mask_zl = [], dsf_bytes = 1933123}
+cfg_status = "none"
+
+[tiles."+31+002"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 182}, mask_zl = [], dsf_bytes = 2932874}
+cfg_status = "none"
+
+[tiles."+31+003"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 169, BI18 = 4}, mask_zl = [], dsf_bytes = 2093464}
+cfg_status = "none"
+
+[tiles."+31+004"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 174}, mask_zl = [], dsf_bytes = 1059607}
+cfg_status = "none"
+
+[tiles."+31+005"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 190, BI18 = 19}, mask_zl = [], dsf_bytes = 2154117}
+cfg_status = "none"
+
+[tiles."+31+006"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 171, BI18 = 12}, mask_zl = [], dsf_bytes = 3171879}
+cfg_status = "none"
+
+[tiles."+31+007"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 183, BI18 = 2}, mask_zl = [], dsf_bytes = 2878164}
+cfg_status = "none"
+
+[tiles."+31+008"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 169, BI18 = 53}, mask_zl = [], dsf_bytes = 2781586}
+cfg_status = "none"
+
+[tiles."+31+009"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 172, BI18 = 12}, mask_zl = [], dsf_bytes = 2590798}
+cfg_status = "none"
+
+[tiles."+32+000"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 180, BI18 = 4}, mask_zl = [], dsf_bytes = 1431306}
+cfg_status = "none"
+
+[tiles."+32+001"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 180}, mask_zl = [], dsf_bytes = 1206218}
+cfg_status = "none"
+
+[tiles."+32+002"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 196}, mask_zl = [], dsf_bytes = 1340166}
+cfg_status = "none"
+
+[tiles."+32+003"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 185, BI18 = 20}, mask_zl = [], dsf_bytes = 2439518}
+cfg_status = "none"
+
+[tiles."+32+004"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 181}, mask_zl = [], dsf_bytes = 1112380}
+cfg_status = "none"
+
+[tiles."+32+005"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 204}, mask_zl = [], dsf_bytes = 2522098}
+cfg_status = "none"
+
+[tiles."+32+006"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 180, BI18 = 16}, mask_zl = [], dsf_bytes = 2138377}
+cfg_status = "none"
+
+[tiles."+32+007"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 195, BI18 = 10}, mask_zl = [], dsf_bytes = 1823997}
+cfg_status = "none"
+
+[tiles."+32+008"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 180}, mask_zl = [], dsf_bytes = 2341925}
+cfg_status = "none"
+
+[tiles."+32+009"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 180, BI18 = 8}, mask_zl = [], dsf_bytes = 1658427}
+cfg_status = "rejected"
+
+[tiles."+33+000"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 169}, mask_zl = [], dsf_bytes = 1721427}
+cfg_status = "none"
+
+[tiles."+33+001"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 173, BI18 = 9}, mask_zl = [], dsf_bytes = 2287266}
+cfg_status = "none"
+
+[tiles."+33+002"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 187, BI18 = 12}, mask_zl = [], dsf_bytes = 1608456}
+cfg_status = "none"
+
+[tiles."+33+003"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 171}, mask_zl = [], dsf_bytes = 1236119}
+cfg_status = "none"
+
+[tiles."+33+004"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 168}, mask_zl = [], dsf_bytes = 1249413}
+cfg_status = "none"
+
+[tiles."+33+005"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 183}, mask_zl = [16], dsf_bytes = 1618063}
+cfg_status = "none"
+
+[tiles."+33+006"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 173, BI18 = 16}, mask_zl = [16], dsf_bytes = 1754988}
+cfg_status = "none"
+
+[tiles."+33+007"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 182}, mask_zl = [16], dsf_bytes = 1422157}
+cfg_status = "none"
+
+[tiles."+33+008"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 146, BI18 = 6}, mask_zl = [16], dsf_bytes = 1663035}
+cfg_status = "none"
+
+[tiles."+33+009"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 171, BI18 = 9}, mask_zl = [16], dsf_bytes = 1726471}
+cfg_status = "rejected"
+
+[tiles."+34+000"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 181, BI18 = 6}, mask_zl = [], dsf_bytes = 1685222}
+cfg_status = "none"
+
+[tiles."+34+001"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 183}, mask_zl = [], dsf_bytes = 1292875}
+cfg_status = "none"
+
+[tiles."+34+002"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 197, BI18 = 6}, mask_zl = [16], dsf_bytes = 1957427}
+cfg_status = "none"
+
+[tiles."+34+003"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 186, BI18 = 6}, mask_zl = [16], dsf_bytes = 2346870}
+cfg_status = "none"
+
+[tiles."+34+004"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 182}, mask_zl = [], dsf_bytes = 2507954}
+cfg_status = "none"
+
+[tiles."+34+005"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 205, BI18 = 9}, mask_zl = [16], dsf_bytes = 1662702}
+cfg_status = "none"
+
+[tiles."+34+006"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 179}, mask_zl = [16], dsf_bytes = 2098146}
+cfg_status = "none"
+
+[tiles."+34+007"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 201}, mask_zl = [16], dsf_bytes = 2775070}
+cfg_status = "none"
+
+[tiles."+34+008"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 213, BI18 = 15}, mask_zl = [16], dsf_bytes = 2623419}
+cfg_status = "none"
+
+[tiles."+34+009"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 211}, mask_zl = [16], dsf_bytes = 2411590}
+cfg_status = "rejected"
+
+[tiles."+35+000"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 208, BI18 = 24}, mask_zl = [16], dsf_bytes = 4071350}
+cfg_status = "none"
+
+[tiles."+35+001"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 207, BI18 = 8}, mask_zl = [], dsf_bytes = 4556258}
+cfg_status = "none"
+
+[tiles."+35+002"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 212, BI18 = 8}, mask_zl = [16], dsf_bytes = 2544815}
+cfg_status = "none"
+
+[tiles."+35+003"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 192}, mask_zl = [16], dsf_bytes = 2430553}
+cfg_status = "none"
+
+[tiles."+35+004"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 191, BI18 = 12}, mask_zl = [16], dsf_bytes = 2967108}
+cfg_status = "none"
+
+[tiles."+35+005"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 226}, mask_zl = [16], dsf_bytes = 4025223}
+cfg_status = "none"
+
+[tiles."+35+006"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 210, BI18 = 9}, mask_zl = [], dsf_bytes = 4427634}
+cfg_status = "none"
+
+[tiles."+35+007"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 214, BI18 = 20}, mask_zl = [16], dsf_bytes = 2633795}
+cfg_status = "none"
+
+[tiles."+35+008"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 228, BI18 = 12}, mask_zl = [], dsf_bytes = 3007522}
+cfg_status = "none"
+
+[tiles."+35+009"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 282}, mask_zl = [], dsf_bytes = 3185736}
+cfg_status = "none"
+
+[tiles."+36+000"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 68}, mask_zl = [16], dsf_bytes = 1680914}
+cfg_status = "none"
+
+[tiles."+36+001"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 134, BI18 = 12}, mask_zl = [16], dsf_bytes = 4248266}
+cfg_status = "none"
+
+[tiles."+36+002"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 180, BI18 = 20}, mask_zl = [16], dsf_bytes = 5565171}
+cfg_status = "none"
+
+[tiles."+36+003"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 227, BI18 = 21}, mask_zl = [16], dsf_bytes = 7144525}
+cfg_status = "rejected"
+
+[tiles."+36+004"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 209}, mask_zl = [16], dsf_bytes = 9226186}
+cfg_status = "none"
+
+[tiles."+36+005"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 200, BI18 = 32}, mask_zl = [16, 18], dsf_bytes = 6610675}
+cfg_status = "none"
+
+[tiles."+36+006"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 212, BI18 = 18}, mask_zl = [16], dsf_bytes = 6705277}
+cfg_status = "none"
+
+[tiles."+36+007"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 231, BI18 = 16}, mask_zl = [16, 18], dsf_bytes = 5047547}
+cfg_status = "none"
+
+[tiles."+36+008"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 231, BI18 = 8}, mask_zl = [16, 18], dsf_bytes = 4885459}
+cfg_status = "none"
+
+[tiles."+36+009"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 255, BI18 = 14}, mask_zl = [], dsf_bytes = 4099815}
+cfg_status = "none"
+
+[tiles."+37+006"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 8}, mask_zl = [16], dsf_bytes = 464523}
+cfg_status = "none"
+
+[tiles."+37+007"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 12}, mask_zl = [16], dsf_bytes = 479672}
+cfg_status = "none"
+
+[tiles."+37+008"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 13}, mask_zl = [16], dsf_bytes = 212599}
+cfg_status = "none"
+
+[tiles."+37+009"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 96, BI18 = 7}, mask_zl = [16, 18], dsf_bytes = 1428846}
+cfg_status = "none"
+
+[tiles."+30+010"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 182, BI18 = 10}, mask_zl = [], dsf_bytes = 1435371}
+cfg_status = "none"
+
+[tiles."+30+011"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 168}, mask_zl = [], dsf_bytes = 834978}
+cfg_status = "none"
+
+[tiles."+30+012"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 168, BI18 = 8}, mask_zl = [], dsf_bytes = 856936}
+cfg_status = "none"
+
+[tiles."+30+013"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 182}, mask_zl = [], dsf_bytes = 1559048}
+cfg_status = "none"
+
+[tiles."+30+014"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 170}, mask_zl = [], dsf_bytes = 1939386}
+cfg_status = "none"
+
+[tiles."+30+015"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 182}, mask_zl = [], dsf_bytes = 1471724}
+cfg_status = "none"
+
+[tiles."+30+016"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 168, BI18 = 4}, mask_zl = [], dsf_bytes = 1186232}
+cfg_status = "none"
+
+[tiles."+30+017"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 163}, mask_zl = [16], dsf_bytes = 1035992}
+cfg_status = "none"
+
+[tiles."+30+018"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 113, BI18 = 22}, mask_zl = [16, 18], dsf_bytes = 709781}
+cfg_status = "none"
+
+[tiles."+30+019"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 96, BI18 = 8}, mask_zl = [16, 18], dsf_bytes = 727444}
+cfg_status = "none"
+
+[tiles."+31+010"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 182, BI18 = 6}, mask_zl = [], dsf_bytes = 1575387}
+cfg_status = "none"
+
+[tiles."+31+011"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 168}, mask_zl = [], dsf_bytes = 1598117}
+cfg_status = "none"
+
+[tiles."+31+012"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 169, BI18 = 6}, mask_zl = [], dsf_bytes = 1580161}
+cfg_status = "none"
+
+[tiles."+31+013"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 182, BI18 = 16}, mask_zl = [], dsf_bytes = 2230331}
+cfg_status = "none"
+
+[tiles."+31+014"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 173, BI18 = 16}, mask_zl = [], dsf_bytes = 1548851}
+cfg_status = "none"
+
+[tiles."+31+015"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 135}, mask_zl = [16], dsf_bytes = 925311}
+cfg_status = "none"
+
+[tiles."+31+016"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 50, BI18 = 26}, mask_zl = [16, 18], dsf_bytes = 475706}
+cfg_status = "none"
+
+[tiles."+31+017"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 17}, mask_zl = [16], dsf_bytes = 151301}
+cfg_status = "none"
+
+[tiles."+31+019"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 13}, mask_zl = [16], dsf_bytes = 107520}
+cfg_status = "none"
+
+[tiles."+32+010"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 199, BI18 = 9}, mask_zl = [], dsf_bytes = 1994735}
+cfg_status = "rejected"
+
+[tiles."+32+011"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 180, BI18 = 34}, mask_zl = [16], dsf_bytes = 1158280}
+cfg_status = "rejected"
+
+[tiles."+32+012"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 158, BI18 = 9}, mask_zl = [16, 18], dsf_bytes = 1704842}
+cfg_status = "none"
+
+[tiles."+32+013"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 173, BI18 = 26}, mask_zl = [16, 18], dsf_bytes = 2712145}
+cfg_status = "rejected"
+
+[tiles."+32+014"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 112, BI18 = 6}, mask_zl = [16], dsf_bytes = 1227859}
+cfg_status = "none"
+
+[tiles."+32+015"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 34, BI18 = 12}, mask_zl = [16], dsf_bytes = 447299}
+cfg_status = "none"
+
+[tiles."+32+019"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 2}, mask_zl = [16], dsf_bytes = 61047}
+cfg_status = "none"
+
+[tiles."+33+010"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 186, BI18 = 14}, mask_zl = [16, 18], dsf_bytes = 2236460}
+cfg_status = "rejected"
+
+[tiles."+33+011"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 68}, mask_zl = [16], dsf_bytes = 775697}
+cfg_status = "rejected"
+
+[tiles."+34+010"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 125, BI18 = 12}, mask_zl = [16], dsf_bytes = 1035870}
+cfg_status = "rejected"
+
+[tiles."+35+010"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 233, BI18 = 11}, mask_zl = [16, 18], dsf_bytes = 1655540}
+cfg_status = "rejected"
+
+[tiles."+35+011"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 21}, mask_zl = [16], dsf_bytes = 270176}
+cfg_status = "none"
+
+[tiles."+35+012"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 3, BI17 = 4}, mask_zl = [16, 17], dsf_bytes = 8921575}
+cfg_status = "none"
+
+[tiles."+36+010"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 223, BI18 = 36}, mask_zl = [16, 18], dsf_bytes = 2922768}
+cfg_status = "rejected"
+
+[tiles."+36+011"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 10, BI17 = 4}, mask_zl = [16, 17], dsf_bytes = 9112872}
+cfg_status = "none"
+
+[tiles."+37+010"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 37}, mask_zl = [16], dsf_bytes = 499344}
+cfg_status = "none"
+
+[tiles."+37+011"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 4}, mask_zl = [16], dsf_bytes = 120075}
+cfg_status = "none"
+
+[tiles."+30+020"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 168, BI18 = 7}, mask_zl = [16, 18], dsf_bytes = 1033536}
+cfg_status = "none"
+
+[tiles."+30+021"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 182}, mask_zl = [], dsf_bytes = 944874}
+cfg_status = "none"
+
+[tiles."+30+022"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 168}, mask_zl = [], dsf_bytes = 727866}
+cfg_status = "none"
+
+[tiles."+30+023"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 182}, mask_zl = [], dsf_bytes = 849518}
+cfg_status = "none"
+
+[tiles."+30+024"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 168, BI18 = 8}, mask_zl = [], dsf_bytes = 805517}
+cfg_status = "none"
+
+[tiles."+30+025"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 168}, mask_zl = [], dsf_bytes = 813312}
+cfg_status = "none"
+
+[tiles."+30+026"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 188}, mask_zl = [], dsf_bytes = 1101350}
+cfg_status = "none"
+
+[tiles."+30+027"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 172, BI18 = 6}, mask_zl = [], dsf_bytes = 1261358}
+cfg_status = "none"
+
+[tiles."+30+028"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 173, BI18 = 16}, mask_zl = [16], dsf_bytes = 1656053}
+cfg_status = "none"
+
+[tiles."+30+029"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 189, BI18 = 25}, mask_zl = [16], dsf_bytes = 1881521}
+cfg_status = "none"
+
+[tiles."+31+020"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 163, BI18 = 4}, mask_zl = [16], dsf_bytes = 1167200}
+cfg_status = "none"
+
+[tiles."+31+021"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 182, BI18 = 20}, mask_zl = [], dsf_bytes = 859593}
+cfg_status = "none"
+
+[tiles."+31+022"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 169}, mask_zl = [], dsf_bytes = 917069}
+cfg_status = "none"
+
+[tiles."+31+023"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 185, BI18 = 16}, mask_zl = [], dsf_bytes = 842759}
+cfg_status = "none"
+
+[tiles."+31+024"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 174, BI18 = 12}, mask_zl = [16], dsf_bytes = 1016278}
+cfg_status = "none"
+
+[tiles."+31+025"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 119, BI18 = 47}, mask_zl = [16], dsf_bytes = 1021729}
+cfg_status = "none"
+
+[tiles."+31+026"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 107}, mask_zl = [16], dsf_bytes = 603137}
+cfg_status = "none"
+
+[tiles."+31+027"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 60, BI18 = 16}, mask_zl = [16], dsf_bytes = 669698}
+cfg_status = "none"
+
+[tiles."+31+028"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 16}, mask_zl = [16], dsf_bytes = 199098}
+cfg_status = "none"
+
+[tiles."+31+029"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 32, BI18 = 2}, mask_zl = [16, 18], dsf_bytes = 710258}
+cfg_status = "none"
+
+[tiles."+32+020"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 109, BI18 = 26}, mask_zl = [16, 18], dsf_bytes = 1334179}
+cfg_status = "none"
+
+[tiles."+32+021"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 170, BI18 = 32}, mask_zl = [16], dsf_bytes = 2614139}
+cfg_status = "none"
+
+[tiles."+32+022"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 148, BI18 = 12}, mask_zl = [16], dsf_bytes = 1871110}
+cfg_status = "none"
+
+[tiles."+32+023"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 77, BI18 = 22}, mask_zl = [16, 18], dsf_bytes = 660445}
+cfg_status = "none"
+
+[tiles."+32+024"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 10}, mask_zl = [16], dsf_bytes = 179061}
+cfg_status = "none"
+
+[tiles."+34+023"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 2}, mask_zl = [16], dsf_bytes = 63633}
+cfg_status = "none"
+
+[tiles."+34+026"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 3}, mask_zl = [16], dsf_bytes = 177288}
+cfg_status = "none"
+
+[tiles."+35+027"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 26, BI18 = 7}, mask_zl = [16, 18], dsf_bytes = 1279118}
+cfg_status = "none"
+
+[tiles."+30+030"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 210, BI18 = 65}, mask_zl = [], dsf_bytes = 3106030}
+cfg_status = "rejected"
+
+[tiles."+30+031"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 243, BI18 = 132}, mask_zl = [], dsf_bytes = 3852793}
+cfg_status = "rejected"
+
+[tiles."+30+032"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 204, BI18 = 77}, mask_zl = [16, 18], dsf_bytes = 3656590}
+cfg_status = "none"
+
+[tiles."+30+033"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 170, BI18 = 12}, mask_zl = [], dsf_bytes = 2743038}
+cfg_status = "none"
+
+[tiles."+30+034"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 191, BI18 = 38}, mask_zl = [], dsf_bytes = 3046846}
+cfg_status = "none"
+
+[tiles."+31+030"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 117, BI18 = 14}, mask_zl = [16], dsf_bytes = 1540431}
+cfg_status = "none"
+
+[tiles."+31+031"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 162}, mask_zl = [16], dsf_bytes = 1622528}
+cfg_status = "none"
+
+[tiles."+31+032"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 65, BI18 = 10}, mask_zl = [16, 18], dsf_bytes = 695166}
+cfg_status = "none"
+
+[tiles."+31+033"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 42, BI18 = 15}, mask_zl = [16], dsf_bytes = 541228}
+cfg_status = "none"
+
+[tiles."+31+034"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 191, BI18 = 138}, mask_zl = [16, 18], dsf_bytes = 2848275}
+cfg_status = "rejected"
+
+[tiles."+32+034"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 59, BI18 = 52}, mask_zl = [16, 18], dsf_bytes = 1301080}
+cfg_status = "none"
+
+[tiles."+34+034"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 3}, mask_zl = [16], dsf_bytes = 8074433}
+cfg_status = "none"
+
+[tiles."+30-001"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 168}, mask_zl = [], dsf_bytes = 2045632}
+cfg_status = "none"
+
+[tiles."+30-002"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 168}, mask_zl = [], dsf_bytes = 2424855}
+cfg_status = "none"
+
+[tiles."+30-003"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 183, BI18 = 6}, mask_zl = [], dsf_bytes = 1592762}
+cfg_status = "none"
+
+[tiles."+30-004"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 168, BI18 = 12}, mask_zl = [], dsf_bytes = 1415028}
+cfg_status = "none"
+
+[tiles."+30-005"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 168}, mask_zl = [], dsf_bytes = 2094646}
+cfg_status = "none"
+
+[tiles."+30-006"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 183, BI18 = 6}, mask_zl = [], dsf_bytes = 3203463}
+cfg_status = "none"
+
+[tiles."+30-007"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 182, BI18 = 18}, mask_zl = [], dsf_bytes = 5317076}
+cfg_status = "none"
+
+[tiles."+30-008"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 199}, mask_zl = [], dsf_bytes = 6253217}
+cfg_status = "none"
+
+[tiles."+30-009"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 196, BI18 = 9}, mask_zl = [], dsf_bytes = 8113153}
+cfg_status = "none"
+
+[tiles."+30-010"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 175, BI18 = 27}, mask_zl = [16], dsf_bytes = 4460929}
+cfg_status = "none"
+
+[tiles."+31-001"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 168, BI18 = 6}, mask_zl = [], dsf_bytes = 1053565}
+cfg_status = "none"
+
+[tiles."+31-002"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 168}, mask_zl = [], dsf_bytes = 2100718}
+cfg_status = "none"
+
+[tiles."+31-003"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 189, BI18 = 17}, mask_zl = [], dsf_bytes = 2051205}
+cfg_status = "none"
+
+[tiles."+31-004"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 175}, mask_zl = [], dsf_bytes = 1496100}
+cfg_status = "none"
+
+[tiles."+31-005"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 183, BI18 = 19}, mask_zl = [], dsf_bytes = 2792238}
+cfg_status = "none"
+
+[tiles."+31-006"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 197, BI18 = 8}, mask_zl = [], dsf_bytes = 6214948}
+cfg_status = "none"
+
+[tiles."+31-007"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 187, BI18 = 2}, mask_zl = [], dsf_bytes = 8377895}
+cfg_status = "none"
+
+[tiles."+31-008"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 210}, mask_zl = [], dsf_bytes = 6430778}
+cfg_status = "none"
+
+[tiles."+31-009"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 190, BI18 = 20}, mask_zl = [], dsf_bytes = 4310853}
+cfg_status = "none"
+
+[tiles."+31-010"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 139, BI18 = 6}, mask_zl = [16], dsf_bytes = 3322982}
+cfg_status = "none"
+
+[tiles."+32-001"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 184}, mask_zl = [], dsf_bytes = 2878643}
+cfg_status = "none"
+
+[tiles."+32-002"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 194, BI18 = 6}, mask_zl = [], dsf_bytes = 3119531}
+cfg_status = "none"
+
+[tiles."+32-003"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 200, BI18 = 2}, mask_zl = [], dsf_bytes = 2338758}
+cfg_status = "none"
+
+[tiles."+32-004"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 190}, mask_zl = [], dsf_bytes = 3358943}
+cfg_status = "none"
+
+[tiles."+32-005"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 199}, mask_zl = [], dsf_bytes = 4755015}
+cfg_status = "none"
+
+[tiles."+32-006"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 245}, mask_zl = [], dsf_bytes = 6784697}
+cfg_status = "none"
+
+[tiles."+32-007"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 232, BI18 = 13}, mask_zl = [], dsf_bytes = 4018144}
+cfg_status = "none"
+
+[tiles."+32-008"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 219, BI18 = 10}, mask_zl = [], dsf_bytes = 2286129}
+cfg_status = "none"
+
+[tiles."+32-009"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 194}, mask_zl = [16], dsf_bytes = 1807126}
+cfg_status = "none"
+
+[tiles."+32-010"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 49}, mask_zl = [16], dsf_bytes = 642236}
+cfg_status = "none"
+
+[tiles."+33-001"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 175, BI18 = 23}, mask_zl = [], dsf_bytes = 1478277}
+cfg_status = "none"
+
+[tiles."+33-002"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 178, BI18 = 4}, mask_zl = [], dsf_bytes = 1122697}
+cfg_status = "none"
+
+[tiles."+33-003"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 190}, mask_zl = [], dsf_bytes = 1493770}
+cfg_status = "none"
+
+[tiles."+33-004"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 176}, mask_zl = [], dsf_bytes = 3691463}
+cfg_status = "none"
+
+[tiles."+33-005"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 185, BI18 = 14}, mask_zl = [], dsf_bytes = 5356869}
+cfg_status = "none"
+
+[tiles."+33-006"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 249, BI18 = 23}, mask_zl = [], dsf_bytes = 5277615}
+cfg_status = "none"
+
+[tiles."+33-007"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 202}, mask_zl = [16], dsf_bytes = 5577790}
+cfg_status = "none"
+
+[tiles."+33-008"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 180, BI18 = 50}, mask_zl = [16], dsf_bytes = 2317517}
+cfg_status = "rejected"
+
+[tiles."+33-009"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 54}, mask_zl = [16], dsf_bytes = 725117}
+cfg_status = "none"
+
+[tiles."+34-001"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 186}, mask_zl = [], dsf_bytes = 2000794}
+cfg_status = "none"
+
+[tiles."+34-002"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 217, BI18 = 18}, mask_zl = [], dsf_bytes = 3489321}
+cfg_status = "none"
+
+[tiles."+34-003"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 233}, mask_zl = [], dsf_bytes = 4157347}
+cfg_status = "none"
+
+[tiles."+34-004"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 195, BI18 = 17}, mask_zl = [], dsf_bytes = 4045888}
+cfg_status = "none"
+
+[tiles."+34-005"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 213}, mask_zl = [], dsf_bytes = 7859924}
+cfg_status = "none"
+
+[tiles."+34-006"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 248, BI18 = 2}, mask_zl = [], dsf_bytes = 5379953}
+cfg_status = "none"
+
+[tiles."+34-007"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 145, BI18 = 45}, mask_zl = [16, 18], dsf_bytes = 1538637}
+cfg_status = "none"
+
+[tiles."+35-001"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 195, BI18 = 37}, mask_zl = [16, 18], dsf_bytes = 3663396}
+cfg_status = "none"
+
+[tiles."+35-002"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 87, BI18 = 8}, mask_zl = [16], dsf_bytes = 2414998}
+cfg_status = "none"
+
+[tiles."+35-003"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 45, BI17 = 4}, mask_zl = [16, 17], dsf_bytes = 12541822}
+cfg_status = "none"
+
+[tiles."+35-004"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 58, BI17 = 2}, mask_zl = [16, 17], dsf_bytes = 14793529}
+cfg_status = "none"
+
+[tiles."+35-005"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 50}, mask_zl = [16], dsf_bytes = 2099581}
+cfg_status = "none"
+
+[tiles."+35-006"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 150, BI17 = 8}, mask_zl = [16, 17], dsf_bytes = 30271873}
+cfg_status = "rejected"
+
+[tiles."+35-007"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 29}, mask_zl = [16], dsf_bytes = 407780}
+cfg_status = "none"
+
+[tiles."+30-016"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 2}, mask_zl = [16], dsf_bytes = 7991811}
+cfg_status = "none"
+
+[tiles."+30-017"]
+observed = {creation_agent = "Ortho4XP", textures = {BI16 = 1}, mask_zl = [16], dsf_bytes = 8078301}
+cfg_status = "none"
