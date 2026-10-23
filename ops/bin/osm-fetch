@@ -295,20 +295,28 @@ def state_timestamp(region):
     return parse_state(http_get(region.updates + "/state.txt").decode())
 
 
+def _booked(ledger, pbf_dir, name, timestamp):
+    """The dated file is on disk and the ledger holds it at that replication timestamp or later."""
+    return (Path(pbf_dir) / name).exists() and any(
+        e.file == name and e.timestamp >= timestamp for e in read_ledger(ledger))
+
+
 def fetch_region(region_id, pbf_dir, ledger, now, run):
     pbf_dir = Path(pbf_dir)
     region = next((r for r in regions(load_index(pbf_dir, now)) if r.id == region_id), None)
     if region is None:
         raise FetchError(f"no region {region_id!r} in Geofabrik's index (ids like great-britain, us/texas)")
     stem = file_stem(region_id)
-    expected = f"{stem}-{state_timestamp(region):%y%m%d}.osm.pbf"
-    if (pbf_dir / expected).exists() and any(e.file == expected for e in read_ledger(ledger)):
+    poly, part = pbf_dir / f"{stem}.poly", pbf_dir / f"{stem}.osm.pbf.part"
+    published = state_timestamp(region)
+    expected = f"{stem}-{published:%y%m%d}.osm.pbf"
+    if not (_booked(ledger, pbf_dir, expected, published) and poly.exists()):
+        poly_part = poly.with_name(poly.name + ".part")
+        poly_part.write_bytes(http_get(region.pbf.removesuffix("-latest.osm.pbf") + ".poly"))
+        os.replace(poly_part, poly)
+    if _booked(ledger, pbf_dir, expected, published):
         print(f"already have {expected}")
         return
-    poly, part = pbf_dir / f"{stem}.poly", pbf_dir / f"{stem}.osm.pbf.part"
-    poly_part = poly.with_name(poly.name + ".part")
-    poly_part.write_bytes(http_get(region.pbf.removesuffix("-latest.osm.pbf") + ".poly"))
-    os.replace(poly_part, poly)
     try:
         md5 = download_part(region.pbf, part)
         want = http_get(region.pbf + ".md5").decode().split()[0]
@@ -316,7 +324,7 @@ def fetch_region(region_id, pbf_dir, ledger, now, run):
             raise FetchError(f"{region.pbf}: md5 {md5} does not match Geofabrik's {want}; try again")
         replicated = header_timestamp(part, run)
         name = f"{stem}-{replicated:%y%m%d}.osm.pbf"
-        if (pbf_dir / name).exists() and any(e.file == name for e in read_ledger(ledger)):  # a file without a ledger line is replaced
+        if _booked(ledger, pbf_dir, name, replicated):  # a file without a ledger line is replaced
             print(f"already have {name}")
             return
         (pbf_dir / (name + ".md5")).write_text(f"{md5}  {name}\n")

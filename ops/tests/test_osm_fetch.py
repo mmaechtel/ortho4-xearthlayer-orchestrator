@@ -441,6 +441,19 @@ class Fetch(Net):
         self.assertIn("already have luxembourg-261022.osm.pbf", out)
         self.assertEqual(len(osm_fetch.read_ledger(self.ledger)), 1)
 
+    def test_a_republish_on_the_same_day_replaces_the_file_and_is_booked(self):
+        self.fetched("luxembourg", "luxembourg-261022.osm.pbf", "2026-10-22T08:00:00Z")  # earlier that day
+        self.fetch()
+        self.assertEqual((self.pbfs / "luxembourg-261022.osm.pbf").read_bytes(), PBF_BYTES)
+        newest = osm_fetch.newest(osm_fetch.read_ledger(self.ledger))["luxembourg"]
+        self.assertEqual(newest.timestamp, ts("2026-10-22T20:21:33Z"))
+
+    def test_a_missing_poly_is_restored_although_the_extract_is_present(self):
+        self.fetched("luxembourg", "luxembourg-261022.osm.pbf", "2026-10-22T20:21:33Z")
+        out = self.fetch()
+        self.assertIn("already have", out)
+        self.assertEqual((self.pbfs / "luxembourg.poly").read_text(), "lux\n1\nEND\nEND\n")
+
     def test_unknown_region_is_refused_before_any_download(self):
         with self.assertRaises(osm_fetch.FetchError) as cm:
             self.fetch("atlantis")
