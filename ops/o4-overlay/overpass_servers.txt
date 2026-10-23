@@ -5,8 +5,11 @@
 # Fork-local copy, installed over the image's file by OXO_O4_CONFIG_OVERLAY
 # (ops/worker-pod.yaml). KU (overpass.private.coffee) is left out: on
 # 2026-10-23 it timed out on every request, and each attempt cost Ortho4XP its
-# full 60 s timeout (~19 of 24 min of the first pilot tile). With two entries,
-# stock "random" never repeats the last server, so a failure fails over.
+# full 60 s timeout (~19 of 24 min of the first pilot tile). FR
+# (overpass.openstreetmap.fr) is left out too: on 2026-10-23 its data was
+# three months old (timestamp_osm_base 2026-07-25). Ortho4XP builds one layer
+# from several queries, so a DE 502 retried on FR mixed two snapshots into one
+# layer and build_poly_file died with KeyError on a missing id (pilot r2
+# +48+012, twice). One server means retries stay on one snapshot.
 
 DE = https://overpass-api.de/api/interpreter
-FR = https://overpass.openstreetmap.fr/api/interpreter
