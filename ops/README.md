@@ -15,7 +15,7 @@ Why it looks like this: `docs/plans/2026-10-23-own-package-production.md`.
 | `ops/bin/import-dem` | Flat `.hgt` → `Elevation_data` layout (btrfs reflinks). |
 | `ops/bin/oxo-package` | Delivered tiles → `~/.local/share/xearthlayer/packages/zzXEL_<name>_ortho/`. |
 | `ops/ledger/<package>/` | The books: one `<region_code>-r<rev>.toml` per submitted job, `installs.log`. Committed. |
-| `ops/bin/oxo-whence <tile>` | How a tile was built: builds newest first, commits, DEM, patches, deviations from samsoir, installs; last the adoption record. |
+| `ops/bin/oxo-whence <tile>` | How a tile was built: builds newest first, commits, DEM, patches, deviations from samsoir, installs; last the adoption record. A ledger entry's `[provenance.built]` (shown as "built with:") records what differed at build time from the submit-time provenance. |
 | `ops/bin/oxo-adopt <zzXEL dir>` | Records an own legacy package once as it is installed (`ops/adopted/<name>.toml`): provider/ZL/masks/creation agent per tile *observed* from the files, a legacy tile cfg only if it agrees with them. Committed. |
 | `ops/console/` | Read-only web console (band + tile map): `python3 ops/console/server.py`, then http://127.0.0.1:8090/. |
 | `/mnt/xplane_data/oxo/dem/` | Sonny/viewfinder DEMs, Ortho4XP layout, mounted read-only. |

@@ -105,8 +105,9 @@ ratio_water = "default: samsoir baseline (D4)"
 use_decal_on_terrain = "default: samsoir baseline (D4)"
 zoom = "default: samsoir baseline (D4)"
 
-# 2026-10-23 (#15): every remaining tile with build patches — all airports go into A00,
-# wherever they are. Keep-or-default per group as above: samsoir baseline (D4).
+# 2026-10-23 (#15): the remaining patched tiles of the EU legacy packages (plus DTMB).
+# All patched airports belong here, wherever they are; the non-EU ones follow in a later
+# round. Keep-or-default per group as above: samsoir baseline (D4).
 
 [[group]]
 id = "entc"     # ENTC

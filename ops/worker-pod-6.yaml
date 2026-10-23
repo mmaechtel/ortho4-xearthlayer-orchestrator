@@ -30,7 +30,7 @@ spec:
           value: "/var/oxo/content/X-Plane 12 Global Scenery"
         - name: OXO_O4_CONFIG_OVERLAY
           value: "/var/oxo/o4-overlay"
-        # skip_downloads (fork, #15): XEL streams the imagery, so Bing jpegs were
+        # skip_downloads (stock Ortho4XP app variable, #15): XEL streams the imagery, so Bing jpegs were
         # downloaded only to be wiped with scratch. LSZH built with it: DSF/ter/png
         # byte-identical to the build with download, 2:36 min instead of 8+.
         - name: OXO_O4_APP_OVERRIDES
