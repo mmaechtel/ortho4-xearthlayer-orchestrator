@@ -447,7 +447,7 @@ function toggleJob(id) {
 /* ---------- status bar: one sentence for the most urgent problem; clocks tick here ---------- */
 function tick() {
   if (!last) { // nothing loaded yet: only a failure is worth saying
-    if (failing) { $("status").dataset.level = "off"; $("summary").textContent = "Console-Server nicht erreichbar"; }
+    if (failing) { $("status").dataset.level = "off"; $("msg").textContent = "Console-Server nicht erreichbar"; }
     return;
   }
   const t = now(), m = cur, bar = $("status");
