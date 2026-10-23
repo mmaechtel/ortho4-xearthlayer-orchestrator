@@ -41,6 +41,7 @@ LEDGER = REPO / "ops/ledger"
 DEM = Path("/mnt/xplane_data/oxo/dem")
 PATCHES = REPO / "ops/patches"
 IMAGE = "localhost/oxo-worker:dev"
+REGION_CODE = re.compile(r"^[A-Z0-9-]{1,512}$")  # oxo-spec is_well_formed_region_code
 BARE_KEY = re.compile(r"^[A-Za-z0-9_-]+$")
 PACKAGE_ONLY = ("tiles", "metadata", "target")  # never taken from baseline or house
 
@@ -59,6 +60,11 @@ def merge(base, over):
     return out
 
 
+def _check_region_code(rc):
+    if not REGION_CODE.match(rc):
+        raise ComposeError(f"region_code {rc!r} is not valid: only A-Z, 0-9 and '-', 1 to 512 characters")
+
+
 def compose(baseline, house, package):
     groups = package.get("group") or []
     if not groups:
@@ -66,7 +72,8 @@ def compose(baseline, house, package):
     common = {k: v for k, v in merge(baseline, house).items() if k not in PACKAGE_ONLY}
     common = merge(common, {k: v for k, v in package.items() if k != "group"})
     code = common["metadata"]["region_code"]
-    seen, specs = {}, []
+    _check_region_code(code)
+    seen, specs, codes = {}, [], set()
     for i, g in enumerate(groups, 1):
         tiles = g.get("tiles") or []
         if not tiles:
@@ -82,6 +89,12 @@ def compose(baseline, house, package):
         spec["tiles"] = list(tiles)
         if len(groups) > 1:
             spec["metadata"]["region_code"] = f"{code}-{str(g.get('id', i)).upper()}"
+        rc = spec["metadata"]["region_code"]
+        _check_region_code(rc)
+        if rc in codes:
+            raise ComposeError(f"duplicate region_code {rc} (group {i}): group ids must be unique "
+                               "and must not equal another group's position")
+        codes.add(rc)
         specs.append(spec)
     return specs
 
@@ -116,6 +129,7 @@ class Env:
     now: str
     ops_commit: str
     ortho4xp_commit: str
+    image_id: str
     patches_tree: str
     dem_dir: Path
     patches_dir: Path
@@ -148,12 +162,16 @@ def record(spec, overrides, job_id, created, env):
     """Write the ledger entry for one submitted spec; an existing job keeps its record."""
     m = spec["metadata"]
     path = env.ledger_dir / m["name"] / f"{m['region_code']}-r{m['revision']}.toml"
-    if path.exists() and not created:
-        print(f"{m['region_code']}: job already existed, record kept: {path}")
-        return path
+    if not created:
+        # the server ignores metadata.name, so a renamed package still hits the same job
+        kept = sorted(env.ledger_dir.glob(f"*/{m['region_code']}-r{m['revision']}.toml"))
+        if kept:
+            print(f"{m['region_code']}: job already existed, record kept: {kept[0]}")
+            return kept[0]
     rec = {
         "provenance": {"submitted": env.now, "job_id": job_id, "ops_commit": env.ops_commit,
-                       "ortho4xp_commit": env.ortho4xp_commit, "patches_tree": env.patches_tree,
+                       "ortho4xp_commit": env.ortho4xp_commit, "image_id": env.image_id,
+                       "patches_tree": env.patches_tree,
                        "overrides": overrides},
         "tiles": {t: {"dem": _dem(env, t), "patches": _patches(env, t)} for t in spec["tiles"]},
         "spec": spec,
@@ -172,13 +190,14 @@ def gather_env():
     if dirty:
         raise ComposeError("uncommitted changes, commit first so the ledger names a real commit:\n" + dirty)
     try:
-        label = subprocess.run(["podman", "image", "inspect", IMAGE, "--format",
-                                '{{index .Labels "oxo.ortho4xp-commit"}}'],
-                               check=True, capture_output=True, text=True).stdout.strip()
-    except (OSError, subprocess.CalledProcessError):
-        raise ComposeError(f"cannot read the Ortho4XP commit from image {IMAGE} (make image)")
+        label, image_id = subprocess.run(
+            ["podman", "image", "inspect", IMAGE, "--format",
+             '{{index .Labels "oxo.ortho4xp-commit"}} {{.Id}}'],
+            check=True, capture_output=True, text=True).stdout.split()
+    except (OSError, ValueError, subprocess.CalledProcessError):
+        raise ComposeError(f"cannot read the Ortho4XP commit and id from image {IMAGE} (make image)")
     now = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-    return Env(now=now, ops_commit=_git("rev-parse", "HEAD"), ortho4xp_commit=label,
+    return Env(now=now, ops_commit=_git("rev-parse", "HEAD"), ortho4xp_commit=label, image_id=image_id,
                patches_tree=_git("rev-parse", "HEAD:ops/patches"),
                dem_dir=DEM, patches_dir=PATCHES, ledger_dir=LEDGER)
 

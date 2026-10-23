@@ -20,6 +20,7 @@ submitted = "{submitted}"
 job_id = "{job}"
 ops_commit = "0ccb5b2"
 ortho4xp_commit = "c363134"
+image_id = "sha256:abc123"
 patches_tree = "3a9e"
 
 [provenance.overrides]
@@ -68,7 +69,7 @@ class Whence(unittest.TestCase):
         rc, out = self.run_main("+48+011")
         self.assertEqual(rc, 0)
         self.assertLess(out.index("job-2"), out.index("job-1"))
-        for s in ("EU-PILOT r2", "ops 0ccb5b2", "ortho4xp c363134", "patches 3a9e", "dem 1s", "EDDM.patch.osm"):
+        for s in ("EU-PILOT r2", "ops 0ccb5b2", "ortho4xp c363134", "image sha256:abc123", "patches 3a9e", "dem 1s", "EDDM.patch.osm"):
             self.assertIn(s, out)
 
     def test_deviations_show_value_and_layer(self):
@@ -82,6 +83,13 @@ class Whence(unittest.TestCase):
         self.assertIn("A5_EU", newest)
         self.assertNotIn("A4_PILOT", newest)
         self.assertIn("A4_PILOT", older)
+
+    def test_installs_are_worded_as_after_the_submission(self):
+        _, out = self.run_main("+48+011")
+        self.assertIn("installed after this submission", out)
+        (self.ledger / "oxo_pilot" / "installs.log").unlink()
+        _, out = self.run_main("+48+010")
+        self.assertIn("no install after this submission", out)
 
     def test_tile_only_in_older_build(self):
         rc, out = self.run_main("+48+010")

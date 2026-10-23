@@ -4,7 +4,7 @@
     oxo-whence +48+011
 
 Every build of the tile, newest first: job, commits, DEM and patches, each deviation from
-samsoir's baseline with the layer it came from, and the installs that followed that build.
+samsoir's baseline with the layer it came from, and the installs logged after that submission.
 """
 import argparse
 import sys
@@ -47,16 +47,16 @@ def report(ledger, tile):
         p, spec, t = rec["provenance"], rec["spec"], rec["tiles"].get(tile, {})
         m = spec["metadata"]
         print(f"  build {p['submitted']}  job {p['job_id']}  {m['region_code']} r{m['revision']}  package {m['name']}")
-        print(f"    ops {p['ops_commit']}  ortho4xp {p['ortho4xp_commit']}  patches {p['patches_tree']}")
+        print(f"    ops {p['ops_commit']}  ortho4xp {p['ortho4xp_commit']}  image {p.get('image_id', '?')}  patches {p['patches_tree']}")
         print(f"    dem {t.get('dem', '?')}  patch files: {', '.join(t.get('patches', [])) or 'none'}")
         dev = ", ".join(f"{k}={value(spec, k)} ({layer})" for k, layer in p.get("overrides", {}).items())
         print(f"    deviations from samsoir: {dev or 'none'}")
         mine = [r for r in installs(ledger, m["name"], tile)
                 if r[0] >= p["submitted"] and (later is None or r[0] < later)]
         for when, code, pkg, _ in mine:
-            print(f"    installed {when}  {code}  {pkg}")
+            print(f"    installed after this submission {when}  {code}  {pkg}")
         if not mine:
-            print("    not installed from this build")
+            print("    no install after this submission")
         later = p["submitted"]
     return 0
 

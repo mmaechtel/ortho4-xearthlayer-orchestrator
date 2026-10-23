@@ -1,6 +1,12 @@
 import importlib.machinery
 import importlib.util
+import http.server
+import os
 import tempfile
+import threading
+import contextlib
+import io
+import sys
 import tomllib
 import unittest
 from pathlib import Path
@@ -113,6 +119,31 @@ class Layers(unittest.TestCase):
         with self.assertRaises(oxo_compose.ComposeError):
             compose(package=pkg)
 
+    def test_group_id_that_is_not_a_valid_region_code_part_is_refused(self):
+        pkg = PACKAGE.replace('id = "sand"', 'id = "bad_group"')
+        with self.assertRaisesRegex(oxo_compose.ComposeError, "EU-PILOT-BAD_GROUP"):
+            compose(package=pkg)
+
+    def test_duplicate_group_ids_are_refused(self):
+        pkg = PACKAGE.replace('[[group]]\ntiles', '[[group]]\nid = "sand"\ntiles', 1)
+        with self.assertRaisesRegex(oxo_compose.ComposeError, "EU-PILOT-SAND"):
+            compose(package=pkg)
+
+    def test_group_id_colliding_with_a_positional_index_is_refused(self):
+        pkg = PACKAGE.replace('id = "sand"', 'id = "1"')
+        with self.assertRaisesRegex(oxo_compose.ComposeError, "EU-PILOT-1"):
+            compose(package=pkg)
+
+    def test_overlong_region_code_is_refused(self):
+        pkg = PACKAGE.replace('id = "sand"', 'id = "' + "A" * 512 + '"')
+        with self.assertRaises(oxo_compose.ComposeError):
+            compose(package=pkg)
+
+    def test_bad_base_region_code_is_refused(self):
+        one = PACKAGE.split("[[group]]\nid")[0].replace("EU-PILOT", "eu_pilot")
+        with self.assertRaises(oxo_compose.ComposeError):
+            compose(package=one)
+
     def test_no_groups_is_refused(self):
         with self.assertRaises(oxo_compose.ComposeError):
             compose(package=PACKAGE.split("[[group]]")[0])
@@ -154,6 +185,45 @@ class Origins(unittest.TestCase):
         self.assertEqual(first["min_area"], "package")
 
 
+class SubmitRefusal(unittest.TestCase):
+    def submit_with(self, package):
+        hits = []
+
+        class Handler(http.server.BaseHTTPRequestHandler):
+            def do_POST(self):
+                hits.append(self.path)
+                self.send_response(500)
+                self.end_headers()
+
+            def log_message(self, *a):
+                pass
+
+        server = http.server.HTTPServer(("127.0.0.1", 0), Handler)
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+        with tempfile.TemporaryDirectory() as tmp:
+            pkg = Path(tmp) / "pkg.toml"
+            pkg.write_text(package)
+            argv = sys.argv
+            sys.argv = ["oxo-compose", str(pkg), "--submit", f"http://127.0.0.1:{server.server_port}"]
+            try:
+                with contextlib.redirect_stdout(io.StringIO()), self.assertRaises(SystemExit) as cm:
+                    oxo_compose.main()
+            finally:
+                sys.argv = argv
+                server.shutdown()
+        return hits, str(cm.exception)
+
+    def test_bad_group_id_makes_no_request(self):
+        hits, msg = self.submit_with(PACKAGE.replace('id = "sand"', 'id = "bad_group"'))
+        self.assertEqual(hits, [])
+        self.assertIn("BAD_GROUP", msg)
+
+    def test_duplicate_region_codes_make_no_request(self):
+        hits, msg = self.submit_with(PACKAGE.replace('id = "sand"', 'id = "1"'))
+        self.assertEqual(hits, [])
+        self.assertIn("duplicate region_code EU-PILOT-1", msg)
+
+
 class Ledger(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
@@ -167,7 +237,7 @@ class Ledger(unittest.TestCase):
         (self.patches / "+40+010" / "+48+011").mkdir(parents=True)
         (self.patches / "+40+010" / "+48+011" / "EDDM.patch.osm").write_text("x")
         self.env = oxo_compose.Env(
-            now="2026-10-24T10:00:00Z", ops_commit="0ccb5b2", ortho4xp_commit="c363134",
+            now="2026-10-24T10:00:00Z", ops_commit="0ccb5b2", ortho4xp_commit="c363134", image_id="sha256:abc123",
             patches_tree="3a9e", dem_dir=self.dem, patches_dir=self.patches, ledger_dir=self.ledger)
 
     def tearDown(self):
@@ -183,8 +253,8 @@ class Ledger(unittest.TestCase):
         rec = tomllib.loads(path.read_text())
         self.assertEqual(rec["spec"], spec)
         p = rec["provenance"]
-        self.assertEqual((p["job_id"], p["submitted"], p["ops_commit"], p["ortho4xp_commit"], p["patches_tree"]),
-                         ("job-1", "2026-10-24T10:00:00Z", "0ccb5b2", "c363134", "3a9e"))
+        self.assertEqual((p["job_id"], p["submitted"], p["ops_commit"], p["ortho4xp_commit"], p["image_id"], p["patches_tree"]),
+                         ("job-1", "2026-10-24T10:00:00Z", "0ccb5b2", "c363134", "sha256:abc123", "3a9e"))
         self.assertEqual(p["overrides"], {"provider": "house"})
 
     def test_record_classifies_dem_and_lists_patches_per_tile(self):
@@ -203,6 +273,17 @@ class Ledger(unittest.TestCase):
         path.write_text("# original\n")
         self.record(created=False)
         self.assertEqual(path.read_text(), "# original\n")
+
+    def test_a_renamed_package_does_not_get_a_second_record_for_an_existing_job(self):
+        _, first = self.record()
+        spec = compose()[0]
+        spec["metadata"]["name"] = "renamed"
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            path = oxo_compose.record(spec, {}, "job-1", False, self.env)
+        self.assertEqual(path, first)
+        self.assertFalse((self.ledger / "renamed").exists())
+        self.assertIn(str(first), buf.getvalue())
 
     def test_keys_that_are_not_bare_are_quoted(self):
         self.assertEqual(tomllib.loads(oxo_compose.to_toml({"t": {"+48+011": {"dem": "1s"}}})),
