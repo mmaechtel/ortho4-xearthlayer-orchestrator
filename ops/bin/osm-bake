@@ -32,9 +32,9 @@ from pathlib import Path
 # residential, service, track); Ortho4XP re-filters cached data on load
 # (O4_OSM_Utils.update_dicosm), so a narrower road_level still works.
 # tags-filter keeps referenced nodes/ways/members by default, and the tile
-# extract uses -s smart so multipolygon relations stay complete, as with
-# Overpass' ">>" (complete_ways would leave relation members out and Ortho4XP
-# then silently drops the relation).
+# extract uses -s smart -S types=any so every matching relation stays complete,
+# as with Overpass' ">>" (complete_ways would leave relation members out and
+# Ortho4XP then silently loses rings or the whole relation).
 LAYERS = {
     "airports": ["nwr/aeroway"],
     "big_roads": ["w/highway=motorway,trunk,primary,secondary", "w/railway=rail,narrow_gauge"],
@@ -66,7 +66,7 @@ def prefilter_cmd(pbf, dst):
 
 def extract_cmd(src, dst, lat, lon):
     bbox = f"{lon},{lat},{lon + 1},{lat + 1}"
-    return ["osmium", "extract", "-s", "smart", "-b", bbox, str(src), "-o", str(dst), "--overwrite"]
+    return ["osmium", "extract", "-s", "smart", "-S", "types=any", "-b", bbox, str(src), "-o", str(dst), "--overwrite"]
 
 
 def filter_cmd(src, dst, layer):

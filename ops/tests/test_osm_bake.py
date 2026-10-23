@@ -64,6 +64,8 @@ class Commands(unittest.TestCase):
         argv = osm_bake.extract_cmd(Path("pre.pbf"), Path("t.pbf"), 48, 11)
         self.assertEqual(argv[:2], ["osmium", "extract"])
         self.assertEqual(argv[argv.index("-s") + 1], "smart")
+        # untyped matching relations must be completed too (Overpass' ">>" does)
+        self.assertEqual(argv[argv.index("-S") + 1], "types=any")
         self.assertEqual(argv[argv.index("-b") + 1], "11,48,12,49")
         self.assertEqual(argv[argv.index("-o") + 1], "t.pbf")
         self.assertIn("pre.pbf", argv)
