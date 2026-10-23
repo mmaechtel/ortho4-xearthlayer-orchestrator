@@ -1,3 +1,4 @@
+import bz2
 import contextlib
 import hashlib
 import importlib.machinery
@@ -259,6 +260,137 @@ class TileProblems(Cache):
 
     def test_no_log_file_at_all(self):
         self.assertEqual(len(self.problems(["+49+006"])), 1)
+
+
+
+def coast(nodes, ways):
+    """A coastline layer as OSM XML: nodes {id: (lat, lon)}, ways [[node ids]]."""
+    xml = "<osm version='0.6'>"
+    xml += "".join(f"<node id='{i}' lat='{a}' lon='{o}'/>" for i, (a, o) in nodes.items())
+    for n, w in enumerate(ways):
+        xml += f"<way id='{n + 1}'>" + "".join(f"<nd ref='{r}'/>" for r in w) + "<tag k='natural' v='coastline'/></way>"
+    return bz2.compress((xml + "</osm>").encode())
+
+
+RING = {1: (43.2, 7.2), 2: (43.2, 7.8), 3: (43.8, 7.8), 4: (43.8, 7.2)}
+CROSS = {1: (42.9, 7.5), 2: (43.5, 7.5), 3: (44.1, 7.5)}
+FAR = {1: (42.9, 7.5), 2: (43.5, 7.5), 3: (43.7839463, 7.5331017)}
+
+
+class OpenCoastline(Cache):
+    def ends(self, nodes, ways):
+        p = self.cache / "c.osm.bz2"
+        p.write_bytes(coast(nodes, ways))
+        return osm_fetch.open_coastline_ends(p, 43, 7)
+
+    def test_a_closed_ring_inside_the_tile_is_fine(self):
+        self.assertEqual(self.ends(RING, [[1, 2, 3, 4, 1]]), [])
+
+    def test_a_way_crossing_the_tile_is_fine(self):
+        self.assertEqual(self.ends(CROSS, [[1, 2, 3]]), [])
+
+    def test_ways_joined_at_a_shared_node_with_outer_ends_outside_are_fine(self):
+        nodes = {1: (42.9, 7.5), 2: (43.5, 7.5), 3: (44.1, 7.6)}
+        self.assertEqual(self.ends(nodes, [[1, 2], [2, 3]]), [])
+
+    def test_a_way_ending_inside_is_reported_with_its_coordinates(self):
+        self.assertEqual(self.ends(FAR, [[1, 2, 3]]), [(43.7839463, 7.5331017)])
+
+    def test_both_loose_ends_inside_are_sorted(self):
+        nodes = {1: (43.6, 7.5), 2: (43.2, 7.5)}
+        self.assertEqual(self.ends(nodes, [[1, 2]]), [(43.2, 7.5), (43.6, 7.5)])
+
+    def test_an_end_within_1e_5_of_an_edge_is_fine(self):
+        nodes = {1: (42.9, 7.5), 2: (43.000005, 7.5)}
+        self.assertEqual(self.ends(nodes, [[1, 2]]), [])
+
+    def test_an_end_beyond_1e_5_of_the_edge_is_open(self):
+        nodes = {1: (42.9, 7.5), 2: (43.00002, 7.5)}
+        self.assertEqual(self.ends(nodes, [[1, 2]]), [(43.00002, 7.5)])
+
+    def test_an_end_without_coordinates_is_skipped(self):
+        self.assertEqual(self.ends({1: (42.9, 7.5)}, [[1, 9]]), [])
+
+    def test_an_empty_layer_is_fine(self):
+        self.assertEqual(self.ends({}, []), [])
+
+    def test_problems_reports_it_only_for_an_otherwise_ready_tile(self):
+        self.layers("+43+007")
+        self.log("+43+007", "2026-10-22T20:21:33Z", "italy.osm.pbf")
+        self.assertEqual(self.problems(["+43+007"]), [])
+        p = osm_fetch.osm_bake.layer_path(self.cache, 43, 7, "coastline")
+        p.write_bytes(coast(FAR, [[1, 2, 3]]))
+        os.utime(p, (BAKED - 60, BAKED - 60))
+        (tile, why), = self.problems(["+43+007"])
+        self.assertEqual(tile, "+43+007")
+        self.assertIn("coastline ends open inside the tile at [(43.7839463, 7.5331017)]", why)
+        self.assertIn("baked from italy.osm.pbf", why)
+        self.log("+43+008", "2025-01-01T00:00:00Z")  # a stale tile keeps its single stale reason
+        self.layers("+43+008")
+        self.assertIn("days old", self.problems(["+43+008"])[0][1])
+
+    def test_the_reason_lists_three_points_and_counts_the_rest(self):
+        nodes = {i: (43.1 + i / 10, 7.5) for i in range(1, 8)}
+        self.layers("+43+007")
+        self.log("+43+007", "2026-10-22T20:21:33Z")
+        p = osm_fetch.osm_bake.layer_path(self.cache, 43, 7, "coastline")
+        p.write_bytes(coast(nodes, [[1, 2], [3, 4], [5, 6], [7, 7]]))
+        os.utime(p, (BAKED - 60, BAKED - 60))
+        why = self.problems(["+43+007"])[0][1]
+        self.assertIn("and 3 more", why)
+
+    def test_preflight_does_not_suggest_the_pbf_that_was_baked(self):
+        self.layers("+49+006")
+        p = osm_fetch.osm_bake.layer_path(self.cache, 49, 6, "coastline")
+        p.write_bytes(coast({1: (49.5, 6.5), 2: (49.6, 6.5)}, [[1, 2]]))
+        os.utime(p, (BAKED - 60, BAKED - 60))
+        self.log("+49+006", "2026-10-22T20:21:33Z", "luxembourg-261022.osm.pbf")
+        self.fetched("luxembourg", "luxembourg-261022.osm.pbf", "2026-10-22T20:21:33Z")
+        self.fetched("germany", "germany-261023.osm.pbf", "2026-10-23T00:00:00Z")
+        out = "\n".join(osm_fetch.preflight(["+49+006"], self.cache, self.ledger, self.pbfs, NOW, lambda: regions()))
+        self.assertNotIn("luxembourg-261022", out.split("fix")[1])
+        self.assertIn("germany-261023.osm.pbf", out)
+
+    def cut(self, pbf, only=None):
+        """+49+006 baked from `pbf` with an open coastline end; returns the preflight output."""
+        self.layers("+49+006")
+        p = osm_fetch.osm_bake.layer_path(self.cache, 49, 6, "coastline")
+        p.write_bytes(coast({1: (49.5, 6.5), 2: (49.6, 6.5)}, [[1, 2]]))
+        os.utime(p, (BAKED - 60, BAKED - 60))
+        self.log("+49+006", "2026-10-22T20:21:33Z", pbf)
+        return lambda: "\n".join(osm_fetch.preflight(["+49+006"], self.cache, self.ledger, self.pbfs, NOW,
+                                                       lambda: [r for r in regions() if only in (None, r.id)]))
+
+    def test_a_cut_from_the_only_region_on_disk_is_left_to_hand_work(self):
+        run = self.cut("luxembourg-261022.osm.pbf", only="luxembourg")
+        self.fetched("luxembourg", "luxembourg-261022.osm.pbf", "2026-10-22T20:21:33Z")
+        out = run()
+        self.assertIn("no larger Geofabrik region contains +49+006: bake it by hand", out)
+        self.assertNotIn("osm-fetch luxembourg", out)
+        self.assertNotIn("--pbf", out)
+
+    def test_a_newer_extract_of_the_cutting_region_is_not_suggested_either(self):
+        run = self.cut("luxembourg-261020.osm.pbf")
+        self.fetched("luxembourg", "luxembourg-261022.osm.pbf", "2026-10-22T20:21:33Z")
+        out = run()
+        self.assertNotIn("luxembourg-261022.osm.pbf", out.split("fix")[-1])
+        self.assertNotIn("osm-fetch luxembourg", out)
+
+    def test_a_cut_from_germany_skips_the_smaller_luxembourg_too(self):
+        run = self.cut("germany-261023.osm.pbf")
+        self.fetched("luxembourg", "luxembourg-261022.osm.pbf", "2026-10-22T20:21:33Z")
+        self.fetched("germany", "germany-261023.osm.pbf", "2026-10-23T00:00:00Z")
+        out = run()
+        self.assertNotIn("luxembourg", out.split("fix")[-1])
+        self.assertNotIn("germany", out.split("fix")[-1])
+        self.assertIn("osm-fetch europe", out)
+
+    def test_a_hand_downloaded_latest_file_names_its_region_too(self):
+        run = self.cut("luxembourg-latest.osm.pbf")
+        self.fetched("luxembourg", "luxembourg-261022.osm.pbf", "2026-10-22T20:21:33Z")
+        out = run()
+        self.assertNotIn("luxembourg", out.split("fix")[-1])
+        self.assertIn("osm-fetch germany", out)
 
 
 class Advice(Cache):

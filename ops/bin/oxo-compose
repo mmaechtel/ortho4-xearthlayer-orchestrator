@@ -24,7 +24,8 @@ difference is undecided. Unknown legacy values follow samsoir, and the ledger sa
 
 OSM pre-build check (#16): --submit refuses while any tile of the specs lacks one of its five
 OSM layers in the cache, or has no recorded extract timestamp in osm-bake.log, or an extract
-older than 90 days; it lists each tile with the reason and the osm-fetch / osm-bake commands
+older than 90 days, or a coastline ending open inside its tile (Ortho4XP would mesh the sea as
+land: re-bake from a larger extract); it lists each tile with the reason and the osm-fetch / osm-bake commands
 that fix it (rules and code: ops/bin/osm-fetch). --force submits anyway; --osm-check runs just
 the check (exit 1 on failure).
 

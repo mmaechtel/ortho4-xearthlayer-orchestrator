@@ -17,8 +17,13 @@ europe redirect to a mirror without a date in the name).
 An extract is outdated after 90 days (MAX_AGE_DAYS, not an option); a tile with no recorded
 extract timestamp is outdated too. `preflight` is the pre-build check oxo-compose runs before
 --submit.
+
+A tile whose cached coastline ends open inside the tile (a loose end more than 1e-5 degrees from
+every tile edge, e.g. cut at a country border) is not buildable either: Ortho4XP then meshes the
+sea as land and still succeeds; only a bake from a larger extract helps.
 """
 import argparse
+import bz2
 import hashlib
 import http.client
 import importlib.machinery
@@ -30,6 +35,7 @@ import subprocess
 import sys
 import time
 import urllib.request
+import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -170,7 +176,7 @@ def parse_state(text):
 # --- the pre-build check ---
 
 def read_bake_log(cache):
-    """tile -> (extract timestamp, baked-at), each None when unknown; the newest line per tile wins."""
+    """tile -> (extract timestamp, baked-at, pbf name), each None when unknown; the newest line per tile wins."""
     def ts(cols, i):
         try:
             return parse_ts(cols[i])
@@ -183,20 +189,50 @@ def read_bake_log(cache):
         for line in log.read_text().splitlines():
             cols = line.split("\t")
             if len(cols) >= 2:
-                out[cols[0]] = (ts(cols, 1), ts(cols, 3))
+                out[cols[0]] = (ts(cols, 1), ts(cols, 3), cols[2] if len(cols) > 2 and cols[2] else None)
     return out
+
+
+def open_coastline_ends(path, lat, lon, eps=1e-5):
+    """Coastline ends that lie open strictly inside the tile, sorted (lat, lon): endpoints of
+    ways (joined at shared node ids) that no other way end meets, more than eps from every tile
+    edge. Ends outside the tile or on its edge continue beyond it (smart extract); ends without
+    coordinates and unreadable layers are skipped."""
+    nodes, ends = {}, {}
+    try:
+        with bz2.open(path) as f:
+            way = []
+            for ev, el in ET.iterparse(f, events=("start", "end")):
+                if ev == "start":
+                    if el.tag == "way":
+                        way = []
+                    continue
+                if el.tag == "node":
+                    nodes[el.get("id")] = (float(el.get("lat")), float(el.get("lon")))
+                elif el.tag == "nd":
+                    way.append(el.get("ref"))
+                elif el.tag == "way" and way:
+                    for r in (way[0], way[-1]):
+                        ends[r] = ends.get(r, 0) + 1
+                if el.tag in ("node", "way"):
+                    el.clear()
+    except (OSError, EOFError, ET.ParseError, TypeError, ValueError):
+        return []
+    inside = lambda a, o: (lat + eps < a < lat + 1 - eps) and (lon + eps < o < lon + 1 - eps)
+    return sorted(nodes[r] for r, n in ends.items() if n == 1 and r in nodes and inside(*nodes[r]))
 
 
 def problems(tiles, cache, now):
     """[(tile, reason)] for every tile that must not be built yet: a layer missing from the
     cache, no recorded extract timestamp, an extract older than MAX_AGE_DAYS, or a layer
-    written after the bake (a worker refilled it from Overpass: mixed origin)."""
+    written after the bake (a worker refilled it from Overpass: mixed origin), or a coastline
+    that ends open inside the tile (the extract was cut there)."""
     log, out = read_bake_log(cache), []
     for tile in dict.fromkeys(tiles):
         lat, lon = parse_tile(tile)
         paths = {l: osm_bake.layer_path(cache, lat, lon, l) for l in osm_bake.LAYERS}
         missing = [l for l, p in paths.items() if not p.exists()]
-        extract, baked = log.get(tile, (None, None))
+        extract, baked, pbf = log.get(tile, (None, None, None))
         if missing:
             out.append((tile, "layers missing: " + ", ".join(missing)))
         elif extract is None:
@@ -209,11 +245,17 @@ def problems(tiles, cache, now):
             newer = [l for l, p in paths.items() if baked is None or int(p.stat().st_mtime) > baked.timestamp()]
             if newer:
                 out.append((tile, "layers newer than the bake (refilled from Overpass?): " + ", ".join(newer)))
+            elif pts := open_coastline_ends(paths["coastline"], lat, lon):
+                more = f" and {len(pts) - 3} more" if len(pts) > 3 else ""
+                src = f"baked from {pbf}: " if pbf else ""
+                out.append((tile, f"coastline ends open inside the tile at {pts[:3]}{more}: {src}bake from a "
+                                  "larger extract (Ortho4XP would mesh the sea as land)"))
     return out
 
 
 def _source(tile_regions, newest_extracts, pbf_dir, now):
-    """('bake', extract) when a fresh extract on disk covers the tile, else ('fetch', smallest region)."""
+    """('bake', extract) when a fresh extract on disk covers the tile, else ('fetch', smallest region);
+    an extract file named `skip` (the one already baked from) does not count."""
     first = None
     for r in tile_regions:
         first = first or r
@@ -236,13 +278,18 @@ def preflight(tiles, cache, ledger, pbf_dir, now, load_regions):
         regs = load_regions()
     except (FetchError, OSError) as e:
         return lines + [f"cannot suggest a fix: {e}"]
-    have = newest(read_ledger(ledger))
+    have, log = newest(read_ledger(ledger)), read_bake_log(cache)
     fixes, fetches = [], {}
-    for tile, _ in bad:
+    for tile, why in bad:
         lat, lon = parse_tile(tile)
-        how, region, extract = _source(list(containing(regs, lat, lon)), have, pbf_dir, now)
+        cands, cut = list(containing(regs, lat, lon)), "coastline ends open" in why  # smallest first
+        if cut and (pbf := log.get(tile, (None,) * 3)[2]):  # the source region caused the cut: only larger ones help
+            stem = re.sub(r"(-\d{6}|-latest)?\.osm\.pbf$", "", pbf)
+            cands = cands[next((i for i, r in enumerate(cands) if file_stem(r.id) == stem), -1) + 1:]
+        how, region, extract = _source(cands, have, pbf_dir, now)
         if region is None:
-            lines.append(f"no Geofabrik region wholly contains {tile}: bake it by hand from a larger extract")
+            lines.append(f"no {'larger ' if cut else ''}Geofabrik region {'contains' if cut else 'wholly contains'} "
+                         f"{tile}: bake it by hand from a larger extract")
             continue
         if how == "fetch":
             fetches.setdefault(region.id, f"ops/bin/osm-fetch {region.id}")
