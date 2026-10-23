@@ -237,3 +237,150 @@ def preflight(tiles, cache, ledger, pbf_dir, now, load_regions):
         lines += ["fix (a re-bake always takes the whole tile):", *(f"  {c}" for c in fetches.values()),
                   *(f"  {c}" for c in fixes)]
     return lines
+
+
+# --- network ---
+
+def open_url(url):
+    try:
+        return urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": "osm-fetch"}), timeout=60)
+    except OSError as e:  # URLError and HTTPError are OSErrors
+        raise FetchError(f"{url}: {e}")
+
+
+def http_get(url):
+    with open_url(url) as r:
+        return r.read()
+
+
+def load_index(pbf_dir, now):
+    """Geofabrik's index-v1.json from the cache in pbf_dir, refreshed when older than a day."""
+    path = Path(pbf_dir) / "index-v1.json"
+    if path.exists() and now.timestamp() - path.stat().st_mtime <= INDEX_MAX_AGE:
+        return json.loads(path.read_text())
+    try:
+        data = http_get(INDEX_URL)
+    except FetchError as e:
+        if not path.exists():
+            raise
+        print(f"osm-fetch: {e}; using the stale cached index", file=sys.stderr)
+        return json.loads(path.read_text())
+    Path(pbf_dir).mkdir(parents=True, exist_ok=True)
+    part = path.with_name(path.name + ".part")
+    part.write_bytes(data)
+    os.replace(part, path)
+    return json.loads(data)
+
+
+def download_part(url, part):
+    """Stream url into the .part file; returns its md5."""
+    md5 = hashlib.md5()
+    with open_url(url) as r, open(part, "wb") as f:
+        while chunk := r.read(1 << 20):
+            md5.update(chunk)
+            f.write(chunk)
+    return md5.hexdigest()
+
+
+def header_timestamp(pbf, run):
+    r = run(["osmium", "fileinfo", "-F", "pbf", "-g", "header.option.osmosis_replication_timestamp", str(pbf)],
+            capture_output=True, text=True)
+    try:
+        return parse_ts(r.stdout.strip())
+    except ValueError:
+        raise FetchError(f"{pbf} has no osmosis_replication_timestamp in its header")
+
+
+def state_timestamp(region):
+    return parse_state(http_get(region.updates + "/state.txt").decode())
+
+
+def fetch_region(region_id, pbf_dir, ledger, now, run):
+    pbf_dir = Path(pbf_dir)
+    region = next((r for r in regions(load_index(pbf_dir, now)) if r.id == region_id), None)
+    if region is None:
+        raise FetchError(f"no region {region_id!r} in Geofabrik's index (ids like great-britain, us/texas)")
+    stem = file_stem(region_id)
+    expected = f"{stem}-{state_timestamp(region):%y%m%d}.osm.pbf"
+    if (pbf_dir / expected).exists() and any(e.file == expected for e in read_ledger(ledger)):
+        print(f"already have {expected}")
+        return
+    poly, part = pbf_dir / f"{stem}.poly", pbf_dir / f"{stem}.osm.pbf.part"
+    poly_part = poly.with_name(poly.name + ".part")
+    poly_part.write_bytes(http_get(region.pbf.removesuffix("-latest.osm.pbf") + ".poly"))
+    os.replace(poly_part, poly)
+    try:
+        md5 = download_part(region.pbf, part)
+        want = http_get(region.pbf + ".md5").decode().split()[0]
+        if md5 != want:
+            raise FetchError(f"{region.pbf}: md5 {md5} does not match Geofabrik's {want}; try again")
+        replicated = header_timestamp(part, run)
+        name = f"{stem}-{replicated:%y%m%d}.osm.pbf"
+        if (pbf_dir / name).exists():
+            print(f"already have {name}")
+            return
+        (pbf_dir / (name + ".md5")).write_text(f"{md5}  {name}\n")
+        os.replace(part, pbf_dir / name)
+    finally:
+        part.unlink(missing_ok=True)
+    append_ledger(ledger, region_id, name, replicated.strftime(TS_FORMAT), md5, now.strftime(TS_FORMAT))
+    print(pbf_dir / name)
+
+
+def check(pbf_dir, ledger, now):
+    """Newest ledger extract per region against Geofabrik's state.txt; 1 if any region failed."""
+    held = newest(read_ledger(ledger))
+    if not held:
+        print("no extracts recorded")
+        return 0
+    by_id = {r.id: r for r in regions(load_index(pbf_dir, now))}
+    failed = 0
+    for rid, e in sorted(held.items()):
+        local = e.timestamp.strftime(TS_FORMAT)
+        try:
+            if rid not in by_id:
+                raise FetchError("not in Geofabrik's index any more")
+            remote = state_timestamp(by_id[rid])
+        except FetchError as err:
+            print(f"{rid}  local {local}  error: {err}")
+            failed = 1
+            continue
+        verdict = "newer extract available" if remote > e.timestamp else "current"
+        print(f"{rid}  local {local}  geofabrik {remote.strftime(TS_FORMAT)}  {verdict}")
+    return failed
+
+
+def which_cmd(pbf_dir, tiles, now):
+    regs = regions(load_index(pbf_dir, now))
+    for tile in tiles:
+        r = which(regs, *parse_tile(tile))
+        print(f"{tile}  {r.id if r else 'none'}")
+
+
+# --- CLI ---
+
+def main(argv=None):
+    p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    p.add_argument("region", nargs="?", help="Geofabrik region id, e.g. great-britain or us/texas")
+    p.add_argument("--check", action="store_true", help="compare the ledger with Geofabrik's state.txt")
+    p.add_argument("--which", nargs="+", metavar="TILE", help="region wholly containing each tile, e.g. +53-003")
+    p.add_argument("--dir", type=Path, default=PBF_DIR, help=f"PBF directory (default {PBF_DIR})")
+    a = p.parse_args(argv)
+    if [bool(a.region), a.check, bool(a.which)].count(True) != 1:
+        p.error("give exactly one of: a region id, --check, --which TILE...")
+    now = datetime.now(timezone.utc)
+    try:
+        if a.check:
+            sys.exit(check(a.dir, LEDGER, now))
+        elif a.which:
+            which_cmd(a.dir, a.which, now)
+        else:
+            a.dir.mkdir(parents=True, exist_ok=True)
+            fetch_region(a.region, a.dir, LEDGER, now,
+                         lambda argv, **kw: subprocess.run(argv, check=True, **kw))
+    except (FetchError, ValueError, OSError, subprocess.CalledProcessError) as e:
+        sys.exit(f"osm-fetch: {e}")
+
+
+if __name__ == "__main__":
+    main()

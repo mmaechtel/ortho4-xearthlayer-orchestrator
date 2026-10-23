@@ -4,6 +4,7 @@ import importlib.machinery
 import importlib.util
 import io
 import json
+import os
 import tempfile
 import unittest
 from datetime import datetime, timedelta, timezone
@@ -296,3 +297,207 @@ class Advice(Cache):
         out = "\n".join(self.preflight(["+49+006"], broken))
         self.assertIn("+49+006: layers missing", out)
         self.assertIn("cannot suggest a fix: offline", out)
+
+
+STATE = "# seq\ntimestamp=2026-10-22T20\\:21\\:33Z\nsequenceNumber=4941\n"
+PBF_BYTES = b"pbf-bytes" * 1000
+
+
+class FakeWeb:
+    """Stands in for osm_fetch.open_url: url -> bytes, records the requests."""
+
+    def __init__(self, files):
+        self.files, self.requests = dict(files), []
+
+    def __call__(self, url):
+        self.requests.append(url)
+        if url not in self.files:
+            raise osm_fetch.FetchError(f"{url}: HTTP 404")
+        return io.BytesIO(self.files[url])
+
+
+def fake_run(stdout="2026-10-22T20:21:33Z\n"):
+    calls = []
+
+    def run(argv, **kw):
+        calls.append(list(argv))
+        return type("R", (), {"stdout": stdout})()
+    run.calls = calls
+    return run
+
+
+class Net(Cache):
+    def setUp(self):
+        super().setUp()
+        self.real_open = osm_fetch.open_url
+        self.web = FakeWeb({
+            osm_fetch.INDEX_URL: json.dumps(INDEX).encode(),
+            "https://download.geofabrik.de/europe/luxembourg-updates/state.txt": STATE.encode(),
+            "https://download.geofabrik.de/europe/germany-updates/state.txt": STATE.replace("10-22", "10-23").encode(),
+            "https://download.geofabrik.de/europe/luxembourg-latest.osm.pbf": PBF_BYTES,
+            "https://download.geofabrik.de/europe/luxembourg-latest.osm.pbf.md5":
+                f"{hashlib.md5(PBF_BYTES).hexdigest()}  luxembourg-latest.osm.pbf\n".encode(),
+            "https://download.geofabrik.de/europe/luxembourg.poly": b"lux\n1\nEND\nEND\n",
+        })
+        osm_fetch.open_url = self.web
+
+    def tearDown(self):
+        osm_fetch.open_url = self.real_open
+        super().tearDown()
+
+    def age_index(self):
+        old = NOW.timestamp() - 2 * 86400
+        os.utime(self.pbfs / "index-v1.json", (old, old))
+
+
+class Index(Net):
+    def test_index_is_downloaded_once_and_cached_for_a_day(self):
+        osm_fetch.load_index(self.pbfs, NOW)
+        osm_fetch.load_index(self.pbfs, NOW)
+        self.assertEqual(self.web.requests, [osm_fetch.INDEX_URL])
+        self.assertTrue((self.pbfs / "index-v1.json").exists())
+        self.assertFalse(list(self.pbfs.glob("*.part")))
+
+    def test_older_than_a_day_is_refreshed(self):
+        osm_fetch.load_index(self.pbfs, NOW)
+        self.age_index()
+        osm_fetch.load_index(self.pbfs, NOW)
+        self.assertEqual(len(self.web.requests), 2)
+
+    def test_a_stale_cache_is_used_when_geofabrik_cannot_be_reached(self):
+        osm_fetch.load_index(self.pbfs, NOW)
+        self.age_index()
+        del self.web.files[osm_fetch.INDEX_URL]
+        with contextlib.redirect_stderr(io.StringIO()) as err:
+            index = osm_fetch.load_index(self.pbfs, NOW)
+        self.assertEqual(len(index["features"]), len(INDEX["features"]))
+        self.assertIn("stale", err.getvalue())
+
+    def test_without_any_cache_a_failure_is_an_error(self):
+        del self.web.files[osm_fetch.INDEX_URL]
+        with self.assertRaises(osm_fetch.FetchError):
+            osm_fetch.load_index(self.pbfs, NOW)
+
+
+class Fetch(Net):
+    def fetch(self, region="luxembourg", run=None):
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            osm_fetch.fetch_region(region, self.pbfs, self.ledger, NOW, run or fake_run())
+        return out.getvalue()
+
+    def test_downloads_verifies_names_by_header_date_and_books_it(self):
+        out = self.fetch()
+        final = self.pbfs / "luxembourg-261022.osm.pbf"
+        self.assertEqual(final.read_bytes(), PBF_BYTES)
+        self.assertFalse(list(self.pbfs.glob("*.part")))
+        self.assertEqual((self.pbfs / "luxembourg.poly").read_text(), "lux\n1\nEND\nEND\n")
+        md5 = hashlib.md5(PBF_BYTES).hexdigest()
+        self.assertEqual((self.pbfs / "luxembourg-261022.osm.pbf.md5").read_text(), f"{md5}  luxembourg-261022.osm.pbf\n")
+        [e] = osm_fetch.read_ledger(self.ledger)
+        self.assertEqual((e.region, e.file, e.timestamp, e.md5, e.fetched),
+                         ("luxembourg", "luxembourg-261022.osm.pbf", ts("2026-10-22T20:21:33Z"), md5, "2026-10-23T12:00:00Z"))
+        self.assertIn(str(final), out)
+
+    def test_the_header_timestamp_is_read_with_osmium(self):
+        run = fake_run()
+        self.fetch(run=run)
+        [argv] = run.calls
+        self.assertEqual(argv[:2], ["osmium", "fileinfo"])
+        self.assertIn("header.option.osmosis_replication_timestamp", argv)
+        self.assertIn("pbf", argv)  # -F pbf: the .part suffix hides the format
+
+    def test_md5_mismatch_leaves_nothing_behind(self):
+        self.web.files["https://download.geofabrik.de/europe/luxembourg-latest.osm.pbf.md5"] = b"0" * 32 + b"  x\n"
+        with self.assertRaises(osm_fetch.FetchError) as cm:
+            self.fetch()
+        self.assertIn("md5", str(cm.exception))
+        self.assertEqual([p.name for p in self.pbfs.iterdir() if p.name != "index-v1.json"], ["luxembourg.poly"])
+        self.assertEqual(osm_fetch.read_ledger(self.ledger), [])
+
+    def test_a_header_without_timestamp_is_refused_and_cleaned_up(self):
+        with self.assertRaises(osm_fetch.FetchError):
+            self.fetch(run=fake_run(stdout="\n"))
+        self.assertFalse(list(self.pbfs.glob("luxembourg*.pbf*")))
+        self.assertEqual(osm_fetch.read_ledger(self.ledger), [])
+
+    def test_an_extract_already_on_disk_and_booked_is_not_downloaded_again(self):
+        self.fetched("luxembourg", "luxembourg-261022.osm.pbf", "2026-10-22T20:21:33Z")
+        out = self.fetch()
+        self.assertIn("already have luxembourg-261022.osm.pbf", out)
+        self.assertNotIn("https://download.geofabrik.de/europe/luxembourg-latest.osm.pbf", self.web.requests)
+
+    def test_unknown_region_is_refused_before_any_download(self):
+        with self.assertRaises(osm_fetch.FetchError) as cm:
+            self.fetch("atlantis")
+        self.assertIn("atlantis", str(cm.exception))
+        self.assertEqual(self.web.requests, [osm_fetch.INDEX_URL])
+
+
+class Check(Net):
+    def test_reports_local_and_geofabrik_timestamps_and_whether_newer_exists(self):
+        self.fetched("luxembourg", "luxembourg-261022.osm.pbf", "2026-10-22T20:21:33Z")
+        self.fetched("germany", "germany-261022.osm.pbf", "2026-10-22T20:21:33Z")
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            rc = osm_fetch.check(self.pbfs, self.ledger, NOW)
+        lines = out.getvalue().splitlines()
+        self.assertEqual(rc, 0)
+        lux = next(l for l in lines if l.startswith("luxembourg"))
+        ger = next(l for l in lines if l.startswith("germany"))
+        self.assertIn("local 2026-10-22T20:21:33Z", lux)
+        self.assertIn("geofabrik 2026-10-22T20:21:33Z", lux)
+        self.assertIn("current", lux)
+        self.assertIn("geofabrik 2026-10-23T20:21:33Z", ger)
+        self.assertIn("newer extract available", ger)
+        self.assertFalse([u for u in self.web.requests if u.endswith(".pbf")])  # metadata only
+
+    def test_one_unreachable_region_does_not_hide_the_others(self):
+        self.fetched("luxembourg", "luxembourg-261022.osm.pbf", "2026-10-22T20:21:33Z")
+        self.fetched("europe", "europe-261022.osm.pbf", "2026-10-22T20:21:33Z")  # state.txt 404 in the fake
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            rc = osm_fetch.check(self.pbfs, self.ledger, NOW)
+        self.assertEqual(rc, 1)
+        self.assertIn("europe", out.getvalue())
+        self.assertIn("error", out.getvalue())
+        self.assertIn("luxembourg", out.getvalue())
+
+    def test_empty_ledger_says_so(self):
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            osm_fetch.check(self.pbfs, self.ledger, NOW)
+        self.assertIn("no extracts recorded", out.getvalue())
+
+
+class Cli(Net):
+    def setUp(self):
+        super().setUp()
+        self.real_ledger, osm_fetch.LEDGER = osm_fetch.LEDGER, self.ledger
+
+    def tearDown(self):
+        osm_fetch.LEDGER = self.real_ledger
+        super().tearDown()
+
+    def run_main(self, *argv):
+        out, err = io.StringIO(), io.StringIO()
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+            try:
+                osm_fetch.main(["--dir", str(self.pbfs), *argv])
+                rc = 0
+            except SystemExit as e:
+                rc = e.code
+        return rc, out.getvalue(), err.getvalue()
+
+    def test_exactly_one_mode(self):
+        self.assertNotEqual(self.run_main()[0], 0)
+        self.assertNotEqual(self.run_main("luxembourg", "--check")[0], 0)
+
+    def test_which_prints_the_region_per_tile_or_none(self):
+        rc, out, _ = self.run_main("--which", "+49+006", "+48+007", "+00+000")
+        self.assertEqual(rc, 0)
+        self.assertEqual(out.splitlines(), ["+49+006  luxembourg", "+48+007  germany", "+00+000  none"])
+
+    def test_a_bad_tile_name_is_a_clean_error(self):
+        rc, _, _ = self.run_main("--which", "49-6")
+        self.assertIn("osm-fetch:", str(rc))
