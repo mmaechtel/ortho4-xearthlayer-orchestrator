@@ -293,13 +293,14 @@ def load_index(pbf_dir, now):
 
 
 def download_part(url, part):
-    """Stream url into the .part file; returns its md5."""
+    """Stream url into the .part file; returns its md5 and the URL that served it
+    (Geofabrik redirects big extracts to a mirror, which alone has the .md5)."""
     md5 = hashlib.md5()
     with open_url(url) as r, open(part, "wb") as f:
         while chunk := r.read(1 << 20):
             md5.update(chunk)
             f.write(chunk)
-    return md5.hexdigest()
+        return md5.hexdigest(), r.geturl()
 
 
 def header_timestamp(pbf, run):
@@ -346,8 +347,8 @@ def fetch_region(region_id, pbf_dir, ledger, now, run):
             publish_poly()
             print(f"already have {expected}")
             return
-        md5 = download_part(region.pbf, part)
-        want = http_get(region.pbf + ".md5").decode().split()[0]
+        md5, served = download_part(region.pbf, part)
+        want = http_get(served + ".md5").decode().split()[0]
         if md5 != want:
             raise FetchError(f"{region.pbf}: md5 {md5} does not match Geofabrik's {want}; try again")
         replicated = header_timestamp(part, run)

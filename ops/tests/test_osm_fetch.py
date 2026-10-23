@@ -332,14 +332,17 @@ PBF_BYTES = b"pbf-bytes" * 1000
 class FakeWeb:
     """Stands in for osm_fetch.open_url: url -> bytes, records the requests."""
 
-    def __init__(self, files):
-        self.files, self.requests = dict(files), []
+    def __init__(self, files, redirects=None):
+        self.files, self.redirects, self.requests = dict(files), dict(redirects or {}), []
 
     def __call__(self, url):
         self.requests.append(url)
-        if url not in self.files:
+        final = self.redirects.get(url, url)
+        if final not in self.files:
             raise osm_fetch.FetchError(f"{url}: HTTP 404")
-        return io.BytesIO(self.files[url])
+        body = io.BytesIO(self.files[final])
+        body.geturl = lambda: final
+        return body
 
 
 def fake_run(stdout="2026-10-22T20:21:33Z\n"):
@@ -448,6 +451,16 @@ class Fetch(Net):
         self.assertEqual(argv[:2], ["osmium", "fileinfo"])
         self.assertIn("header.option.osmosis_replication_timestamp", argv)
         self.assertIn("pbf", argv)  # -F pbf: the .part suffix hides the format
+
+    def test_md5_is_read_where_a_redirect_served_the_extract(self):
+        # Geofabrik redirects big extracts (europe) to a mirror; only the mirror has the .md5
+        lux = "https://download.geofabrik.de/europe/luxembourg-latest.osm.pbf"
+        mirror = "https://ftp5.gwdg.de/pub/misc/openstreetmap/download.geofabrik.de/europe/luxembourg-latest.osm.pbf"
+        self.web.files[mirror] = self.web.files.pop(lux)
+        self.web.files[mirror + ".md5"] = self.web.files.pop(lux + ".md5")
+        self.web.redirects[lux] = mirror
+        self.fetch()
+        self.assertEqual((self.pbfs / "luxembourg-261022.osm.pbf").read_bytes(), PBF_BYTES)
 
     def test_md5_mismatch_leaves_nothing_behind(self):
         self.web.files["https://download.geofabrik.de/europe/luxembourg-latest.osm.pbf.md5"] = b"0" * 32 + b"  x\n"
