@@ -95,6 +95,18 @@ class Whence(unittest.TestCase):
         for s in ("EU-PILOT r2", "ops 0ccb5b2", "ortho4xp c363134", "image sha256:abc123", "patches 3a9e", "dem 1s", "EDDM.patch.osm"):
             self.assertIn(s, out)
 
+    def test_build_time_corrections_are_shown(self):
+        # [provenance.built]: what actually held when the tile was built, where it
+        # differs from the submit-time record (image rebuilt, pod override added).
+        d = self.ledger / "oxo_pilot"
+        rec = (d / "EU-PILOT-r2.toml").read_text().replace(
+            "[provenance.overrides]",
+            '[provenance.built]\nimage_id = "sha256:def456"\nnote = "skip_downloads"\n\n[provenance.overrides]')
+        (d / "EU-PILOT-r2.toml").write_text(rec)
+        _, out = self.run_main("+48+011")
+        self.assertIn("built with: image sha256:def456; skip_downloads", out)
+        self.assertEqual(out.count("built with:"), 1)
+
     def test_deviations_show_value_and_layer(self):
         _, out = self.run_main("+48+011")
         self.assertIn("masking_mode=sand (group sand)", out)

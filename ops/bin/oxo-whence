@@ -60,6 +60,9 @@ def report(ledger, tile, adopted=ADOPTED):
         m = spec["metadata"]
         print(f"  build {p['submitted']}  job {p['job_id']}  {m['region_code']} r{m['revision']}  package {m['name']}")
         print(f"    ops {p['ops_commit']}  ortho4xp {p['ortho4xp_commit']}  image {p.get('image_id', '?')}  patches {p['patches_tree']}")
+        if built := p.get("built"):
+            parts = [f"image {built['image_id']}"] if "image_id" in built else []
+            print(f"    built with: {'; '.join(parts + [built['note']] if 'note' in built else parts)}")
         print(f"    dem {t.get('dem', '?')}  patch files: {', '.join(t.get('patches', [])) or 'none'}")
         dev = ", ".join(f"{k}={value(spec, k)} ({layer})" for k, layer in p.get("overrides", {}).items())
         print(f"    deviations from samsoir: {dev or 'none'}")

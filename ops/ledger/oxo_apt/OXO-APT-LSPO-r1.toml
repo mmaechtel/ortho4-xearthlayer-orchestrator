@@ -6,6 +6,10 @@ ortho4xp_commit = "c363134799e8130e1e897ff9064bc53d058f5ba9"
 image_id = "a52e2b14dfe89cdad4c98f0717846f9e830748b3c1e08010ee73c38ee6a51529"
 patches_tree = "f1214aeb8d3935ff758ba6d8d6821ab00414e79a"
 
+[provenance.built]
+image_id = "058dc630728d0855d5d3c7b8bcdfcdaf31c90ec8a5f829398a2cd96664e3b19b"
+note = "image rebuilt 13:53Z after submit; built on the new image (#15)"
+
 [provenance.overrides]
 provider = "house"
 include_overlays = "house"
