@@ -43,6 +43,26 @@ masking_mode = "{masking}"
 """.replace("'", '"')
 
 
+ADOPTED = """[package]
+name = "eu_apt"
+dir = "/x/zzXEL_eu_apt_ortho"
+code = "A0_EU"
+version = "99.99.99"
+adopted = "2026-10-23T12:00:00Z"
+
+[tiles."+48+011"]
+observed = {creation_agent = "osxp", textures = {BI16 = 207, BI18 = 476}, mask_zl = [16, 18], dsf_bytes = 37720292}
+cfg_status = "agrees"
+cfg_source = "/o/OrthoStudio/tiles/zOrthoStudio_+48+011/tile_settings.cfg"
+[tiles."+48+011".cfg]
+mesh_zl = "18"
+
+[tiles."+47+011"]
+observed = {creation_agent = "Ortho4XP", textures = {BI17 = 10}, mask_zl = [17], dsf_bytes = 1000}
+cfg_status = "ambiguous"
+"""
+
+
 class Whence(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
@@ -55,6 +75,9 @@ class Whence(unittest.TestCase):
         (d / "installs.log").write_text(
             "2026-10-25T08:00:00Z\tA4_PILOT\tzzXEL_oxo_pilot_ortho\t+48+010,+48+011\n"
             "2026-10-27T08:00:00Z\tA5_EU\tzzXEL_oxo_pilot_ortho\t+48+011\n")
+        self.adopted = self.ledger / "adopted"
+        self.adopted.mkdir()
+        (self.adopted / "eu_apt.toml").write_text(ADOPTED)
 
     def tearDown(self):
         self.tmp.cleanup()
@@ -62,7 +85,7 @@ class Whence(unittest.TestCase):
     def run_main(self, tile):
         out = io.StringIO()
         with contextlib.redirect_stdout(out):
-            rc = oxo_whence.main([tile, "--ledger-dir", str(self.ledger)])
+            rc = oxo_whence.main([tile, "--ledger-dir", str(self.ledger), "--adopted-dir", str(self.adopted)])
         return rc, out.getvalue()
 
     def test_builds_newest_first_with_provenance(self):
@@ -96,6 +119,20 @@ class Whence(unittest.TestCase):
         self.assertEqual(rc, 0)
         self.assertIn("job-1", out)
         self.assertNotIn("job-2", out)
+
+    def test_adoption_is_the_oldest_state(self):
+        _, out = self.run_main("+48+011")
+        self.assertLess(out.index("job-1"), out.index("adopted"))
+        for s in ("eu_apt (A0_EU 99.99.99)", "agent osxp", "BI16x207 BI18x476", "masks ZL16,18",
+                  "cfg agrees: /o/OrthoStudio/tiles/zOrthoStudio_+48+011/tile_settings.cfg"):
+            self.assertIn(s, out)
+
+    def test_tile_known_only_from_adoption(self):
+        rc, out = self.run_main("+47+011")
+        self.assertEqual(rc, 0)
+        self.assertIn("adopted 2026-10-23T12:00:00Z  package eu_apt", out)
+        self.assertIn("cfg ambiguous", out)
+        self.assertNotIn("no ledger record", out)
 
     def test_unknown_tile(self):
         rc, out = self.run_main("+01+001")

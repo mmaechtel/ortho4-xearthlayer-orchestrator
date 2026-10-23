@@ -1,0 +1,212 @@
+#!/usr/bin/env python3
+"""Record an installed own XEL package once, as it is: the as-is baseline (plan D8).
+
+    oxo-adopt ~/.local/share/xearthlayer/packages/zzXEL_eu_apt_ortho
+
+Writes ops/adopted/<name>.toml. Every value carries its origin:
+  observed  read from the installed files: provider and ZL per tile from the .ter names the
+            DSF references, mask ZL from their BORDER_TEX, sim/creation_agent from the DSF
+  cfg       a legacy tile config, taken only when its provider and base ZL agree with what is
+            observed (several agreeing configs with different values: ambiguous, none taken)
+  unknown   everything else; never inferred
+"""
+import argparse
+import datetime
+import json
+import math
+import re
+import struct
+import subprocess
+import sys
+import tomllib
+from pathlib import Path
+
+ADOPTED = Path(__file__).resolve().parents[1] / "adopted"
+ORTHOS = Path("/mnt/xplane_data/Orthos")
+PKG_DIR = re.compile(r"^zzXEL_(.+)_ortho$")
+TER = re.compile(r"terrain/\d+_\d+_([A-Za-z0-9]+?)(\d{2})(?:_|\.ter$)")
+BORDER = re.compile(r"^BORDER_TEX .*_ZL(\d+)\.png\s*$", re.M)
+BARE_KEY = re.compile(r"^[A-Za-z0-9_-]+$")
+
+
+class AdoptError(Exception):
+    pass
+
+
+def block(tile):
+    lat, lon = int(tile[:3]), int(tile[3:])
+    return f"{10 * math.floor(lat / 10):+03d}{10 * math.floor(lon / 10):+04d}"
+
+
+def read_dsf(path):
+    """sim/* properties and the TERT terrain names of a DSF (plain or 7z-packed)."""
+    data = path.read_bytes()
+    if data[:2] == b"7z":
+        data = subprocess.run(["7z", "e", "-so", str(path)], check=True, capture_output=True).stdout
+    if data[:8] != b"XPLNEDSF":
+        raise AdoptError(f"{path}: not a DSF")
+    props, ters = {}, []
+
+    def walk(i, end):
+        while i < end:
+            aid = data[i:i + 4][::-1].decode("ascii", "replace")
+            size = struct.unpack("<I", data[i + 4:i + 8])[0]
+            if size < 8:
+                raise AdoptError(f"{path}: corrupt atom {aid}")
+            if aid in ("HEAD", "DEFN"):
+                walk(i + 8, i + size)
+            elif aid in ("PROP", "TERT"):
+                items = [s.decode("utf-8", "replace") for s in data[i + 8:i + size].split(b"\0")][:-1]
+                if aid == "PROP":
+                    props.update(zip(items[0::2], items[1::2]))
+                else:
+                    ters.extend(items)
+            i += size
+
+    walk(12, len(data) - 16)
+    return props, ters
+
+
+def provzl(name):
+    m = TER.search(name)
+    return (m.group(1), int(m.group(2))) if m else None
+
+
+def observe(pkg, tile):
+    dsf = pkg / "Earth nav data" / block(tile) / f"{tile}.dsf"
+    props, ters = read_dsf(dsf)
+    textures, masks = {}, set()
+    for name in sorted({t for t in ters if provzl(t)}):
+        if "_sea_overlay" not in name:  # an overlay shares its base terrain's texture
+            p, z = provzl(name)
+            textures[f"{p}{z}"] = textures.get(f"{p}{z}", 0) + 1
+        ter = pkg / name
+        if ter.is_file():
+            masks.update(int(z) for z in BORDER.findall(ter.read_text(errors="replace")))
+    return {"creation_agent": props.get("sim/creation_agent", ""),
+            "textures": dict(sorted(textures.items())),
+            "mask_zl": sorted(masks),
+            "dsf_bytes": dsf.stat().st_size}
+
+
+def _cfg_values(text):
+    values = {}
+    for line in text.replace("\r", "").splitlines():
+        k, sep, v = line.partition("=")
+        if sep and k.strip() and v.strip():
+            values[k.strip()] = v.strip()
+    return values
+
+
+def candidates(orthos, tile):
+    """(source, values) for every legacy config of the tile: Ortho4XP and OrthoStudio trees."""
+    found = []
+    for f in sorted((orthos / "Ortho4XP" / "src").glob(f"**/zOrtho4XP_{tile}/Ortho4XP_{tile}.cfg")):
+        found.append((str(f), _cfg_values(f.read_text(errors="replace"))))
+    d = orthos / "OrthoStudio" / "tiles" / f"zOrthoStudio_{tile}"
+    if (d / "tile_settings.cfg").is_file():
+        values = _cfg_values((d / "tile_settings.cfg").read_text(errors="replace"))
+        if (d / "orthostudio.toml").is_file():
+            t = tomllib.loads((d / "orthostudio.toml").read_text()).get("tile", {})
+            if "provider" in t:
+                values["default_website"] = str(t["provider"])
+            if "zl" in t:
+                values["default_zl"] = str(t["zl"])
+        found.append((str(d / "tile_settings.cfg"), values))
+    return found
+
+
+def _agrees(values, observed):
+    seen = [provzl(f"terrain/0_0_{k}.ter") for k in observed["textures"]]
+    providers = {p for p, _ in seen}
+    zls = {z for _, z in seen}
+    return (bool(seen) and providers == {values.get("default_website")}
+            and values.get("default_zl", "").isdigit() and int(values["default_zl"]) == min(zls))
+
+
+def choose_cfg(cands, observed):
+    if not cands:
+        return "none", None, {}
+    agreeing = [(s, v) for s, v in cands if _agrees(v, observed)]
+    if not agreeing:
+        return "rejected", None, {}
+    distinct = {json.dumps(v, sort_keys=True) for _, v in agreeing}
+    if len(distinct) > 1:
+        return "ambiguous", None, {}
+    return "agrees", agreeing[0][0], agreeing[0][1]
+
+
+def _key(k):
+    return k if BARE_KEY.match(k) else json.dumps(k)
+
+
+def _value(v):
+    if isinstance(v, int):
+        return str(v)
+    if isinstance(v, str):
+        return json.dumps(v, ensure_ascii=False)
+    if isinstance(v, list):
+        return "[" + ", ".join(_value(x) for x in v) + "]"
+    if isinstance(v, dict):
+        return "{" + ", ".join(f"{_key(k)} = {_value(x)}" for k, x in v.items()) + "}"
+    raise AdoptError(f"cannot write {type(v).__name__} as TOML")
+
+
+def to_toml(rec):
+    out = ["[package]"] + [f"{k} = {_value(v)}" for k, v in rec["package"].items()]
+    for tile, t in rec["tiles"].items():
+        out += ["", f'[tiles."{tile}"]']
+        out += [f"{k} = {_value(v)}" for k, v in t.items() if k != "cfg"]
+        if t.get("cfg"):
+            out += [f'[tiles."{tile}".cfg]'] + [f"{_key(k)} = {_value(v)}" for k, v in t["cfg"].items()]
+    return "\n".join(out) + "\n"
+
+
+def adopt(pkg, orthos, adopted, now=None):
+    m = PKG_DIR.match(pkg.name)
+    meta = pkg / "xearthlayer_scenery_package.txt"
+    if not m or not meta.is_file():
+        raise AdoptError(f"{pkg}: not an installed XEL package (zzXEL_<name>_ortho with metadata)")
+    lines = meta.read_text().splitlines()
+    code, _, version = lines[2].partition(" ") if len(lines) > 2 else ("", "", "")
+    rec = {"package": {"name": m.group(1), "dir": str(pkg), "code": code.strip(),
+                       "version": version.strip(),
+                       "adopted": now or datetime.datetime.now(datetime.timezone.utc)
+                       .strftime("%Y-%m-%dT%H:%M:%SZ")},
+           "tiles": {}}
+    for dsf in sorted((pkg / "Earth nav data").glob("*/*.dsf")):
+        tile = dsf.stem
+        obs = observe(pkg, tile)
+        status, source, values = choose_cfg(candidates(orthos, tile), obs)
+        t = {"observed": obs, "cfg_status": status}
+        if source:
+            t["cfg_source"] = source
+            t["cfg"] = values
+        rec["tiles"][tile] = t
+    adopted.mkdir(parents=True, exist_ok=True)
+    out = adopted / f"{m.group(1)}.toml"
+    out.write_text(to_toml(rec))
+    return out
+
+
+def main():
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("package", type=Path, help="installed zzXEL_<name>_ortho directory")
+    ap.add_argument("--orthos", type=Path, default=ORTHOS, help="legacy tree holding Ortho4XP/ and OrthoStudio/")
+    ap.add_argument("--out", type=Path, default=ADOPTED)
+    a = ap.parse_args()
+    try:
+        out = adopt(a.package, a.orthos, a.out)
+    except AdoptError as e:
+        print(f"oxo-adopt: {e}", file=sys.stderr)
+        return 1
+    rec = tomllib.loads(out.read_text())
+    counts = {}
+    for t in rec["tiles"].values():
+        counts[t["cfg_status"]] = counts.get(t["cfg_status"], 0) + 1
+    print(f"{out}: {len(rec['tiles'])} tiles, cfg " + ", ".join(f"{k} {v}" for k, v in sorted(counts.items())))
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

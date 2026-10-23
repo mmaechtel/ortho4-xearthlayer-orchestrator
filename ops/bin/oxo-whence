@@ -5,6 +5,7 @@
 
 Every build of the tile, newest first: job, commits, DEM and patches, each deviation from
 samsoir's baseline with the layer it came from, and the installs logged after that submission.
+Last, the oldest state: the tile as adopted from a legacy package (ops/adopted, oxo-adopt).
 """
 import argparse
 import sys
@@ -12,6 +13,7 @@ import tomllib
 from pathlib import Path
 
 LEDGER = Path(__file__).resolve().parents[1] / "ledger"
+ADOPTED = Path(__file__).resolve().parents[1] / "adopted"
 
 
 def builds(ledger, tile):
@@ -36,9 +38,19 @@ def value(spec, key):
     return p[key] if key in p else p.get("raw", {}).get(key)
 
 
-def report(ledger, tile):
+def adoptions(adopted, tile):
+    found = []
+    for f in sorted(adopted.glob("*.toml")):
+        rec = tomllib.loads(f.read_text())
+        if tile in rec.get("tiles", {}):
+            found.append((rec["package"], rec["tiles"][tile]))
+    return found
+
+
+def report(ledger, tile, adopted=ADOPTED):
     recs = builds(ledger, tile)
-    if not recs:
+    adopts = adoptions(adopted, tile)
+    if not recs and not adopts:
         print(f"{tile}: no ledger record")
         return 1
     print(tile)
@@ -58,6 +70,16 @@ def report(ledger, tile):
         if not mine:
             print("    no install after this submission")
         later = p["submitted"]
+    for pkg, t in adopts:
+        o = t["observed"]
+        print(f"  adopted {pkg['adopted']}  package {pkg['name']} ({pkg['code']} {pkg['version']})")
+        textures = " ".join(f"{k}x{v}" for k, v in o["textures"].items())
+        masks = ",".join(str(z) for z in o["mask_zl"]) or "none"
+        print(f"    observed: agent {o['creation_agent'] or '?'}  textures {textures}  masks ZL{masks}")
+        if t.get("cfg_source"):
+            print(f"    cfg {t['cfg_status']}: {t['cfg_source']}")
+        else:
+            print(f"    cfg {t['cfg_status']}")
     return 0
 
 
@@ -65,8 +87,9 @@ def main(argv=None):
     a = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     a.add_argument("tile", help="e.g. +48+011")
     a.add_argument("--ledger-dir", type=Path, default=LEDGER, help=argparse.SUPPRESS)
+    a.add_argument("--adopted-dir", type=Path, default=ADOPTED, help=argparse.SUPPRESS)
     args = a.parse_args(argv)
-    return report(args.ledger_dir, args.tile)
+    return report(args.ledger_dir, args.tile, args.adopted_dir)
 
 
 if __name__ == "__main__":
