@@ -42,9 +42,11 @@ function sync(parent, nodes) {
 }
 
 /* ---------- model: one entry per task, the newest per (package, tile, type) is current;
-   an older task still pending/claimed stays current too, because a worker will build it ---------- */
+   an older task still pending/claimed stays current too, because a worker will build it;
+   a task the operator cancelled, or whose package was installed and later removed, is never current,
+   so it leaves band and map (the job strip keeps it) ---------- */
 function model(s) {
-  const gen = ms(s.generated_at), installed = new Map(), byTask = new Map();
+  const gen = ms(s.generated_at), installed = new Map(), byTask = new Map(), present = new Set(s.packages.map(p => p.name));
   // package|tile -> installs, newest first; a task counts as packaged only by an install after its job
   for (const i of s.installs) for (const tile of i.tiles) { const k = i.package + "|" + tile; (installed.get(k) || installed.set(k, []).get(k)).push(i); }
   for (const w of s.workers) if (w.current) byTask.set(w.current.task_id, w);
@@ -52,11 +54,13 @@ function model(s) {
   const seen = new Set(), tasks = new Map(), tiles = new Map();
   for (const job of jobs) for (const t of job.tasks) {
     const k = job.package + "|" + t.tile + "|" + t.task_type, live = t.state === "pending" || t.state === "claimed";
-    const current = live || !seen.has(k);
-    seen.add(k);
-    const code = t.state === "succeeded" ? (installed.get(pkgName(job) + "|" + t.tile) || []).find(i => ms(i.at) >= ms(job.created_at))?.code : undefined;
+    const inst = t.state === "succeeded" ? (installed.get(pkgName(job) + "|" + t.tile) || []).find(i => ms(i.at) >= ms(job.created_at)) : undefined;
+    const removed = !!inst && !present.has(inst.package), code = removed ? undefined : inst?.code;
+    const dropped = t.state === "abandoned" && cancelled(t); // an older revision may show again
+    const current = !dropped && !removed && (live || !seen.has(k));
+    if (!dropped) seen.add(k); // a removed package hides its older revisions too
     const hb = ms(t.last_heartbeat_at);
-    const x = { t, job, s: code ? "packaged" : t.state, code, current, w: byTask.get(t.id),
+    const x = { t, job, s: code ? "packaged" : t.state, code, removed, current, w: byTask.get(t.id),
       stale: t.state === "claimed" && !(gen - hb <= STALE_MS) };
     tasks.set(t.id, x);
     if (!current || !tileBounds(t.tile)) continue;
@@ -245,7 +249,8 @@ function renderJobs(m, prev) {
     r.children[3].textContent = `${n.succeeded + n.packaged}/${j.total}`;
     r.children[4].textContent = j.state; r.children[4].dataset.st = j.state;
     r.classList.toggle("old", !hasCurrent(j));
-    r.title = `${jobLabel(j)} · Paket ${pkgName(j)} · angelegt ${hhmm(ms(j.created_at))}` + (hasCurrent(j) ? "" : " · durch neuere Revision ersetzt");
+    r.title = `${jobLabel(j)} · Paket ${pkgName(j)} · angelegt ${hhmm(ms(j.created_at))}` + (hasCurrent(j) ? "" : j.tasks.every(cancelled) ? " · vom Betreiber abgebrochen"
+      : j.tasks.every(t => m.tasks.get(t.id).removed) ? " · Paket entfernt" : " · durch neuere Revision ersetzt");
     return r;
   });
   for (const [id, r] of jrows) if (!nodes.includes(r)) jrows.delete(id);

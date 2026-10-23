@@ -337,7 +337,8 @@ class Packages(Fixture):
 
 
 class Caching(Fixture):
-    def test_state_cached_2s_packages_60s(self):
+    def test_state_and_packages_cached_2s(self):
+        # packages refresh with installs, else a fresh install looks like a removed package
         now = [1000.0]
         calls = []
         c = self.console(run=fake_run(calls), clock=lambda: now[0])
@@ -348,10 +349,8 @@ class Caching(Fixture):
         self.assertEqual(len(calls), n)
         self.pkg("zzXEL_new_ortho", "B_NEW  1.0.0", 1)
         now[0] += 1.0
-        self.assertEqual(len(c.state()["packages"]), 3)
-        self.assertGreater(len(calls), n)
-        now[0] += 60
         self.assertEqual(len(c.state()["packages"]), 4)
+        self.assertGreater(len(calls), n)
 
 
 class Helpers(unittest.TestCase):

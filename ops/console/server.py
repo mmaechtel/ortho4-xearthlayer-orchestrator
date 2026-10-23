@@ -23,7 +23,7 @@ HERE = pathlib.Path(__file__).resolve().parent
 LEDGER_DIR = HERE.parent / "ledger"
 PACKAGES_DIR = pathlib.Path.home() / ".local/share/xearthlayer/packages"
 STATIC_DIR = HERE / "static"
-STATE_TTL, PACKAGES_TTL = 2.0, 60.0
+STATE_TTL = 2.0
 STATES = ("pending", "claimed", "succeeded", "abandoned")
 LOG_LINES = 20000  # must reach back to the claim line; one ZL16 ortho task logs ~790 lines
 
@@ -86,21 +86,19 @@ class Console:
     def __init__(self, run=run, ledger_dir=LEDGER_DIR, packages_dir=PACKAGES_DIR, clock=time.time):
         self.run, self.ledger_dir, self.packages_dir, self.clock = run, ledger_dir, packages_dir, clock
         self.lock = threading.Lock()
-        self.cached = self.cached_at = self.pkgs = self.pkgs_at = None
+        self.cached = self.cached_at = None
 
     def state(self):
         with self.lock:
             now = self.clock()
             if self.cached is None or now - self.cached_at >= STATE_TTL:
-                if self.pkgs is None or now - self.pkgs_at >= PACKAGES_TTL:
-                    self.pkgs, self.pkgs_at = self.packages(), now
                 database, jobs = self.jobs()
                 self.cached, self.cached_at = {
                     "generated_at": iso_unix(now),
                     "database": database,
                     "jobs": jobs,
                     "workers": self.workers(),
-                    "packages": self.pkgs,
+                    "packages": self.packages(),  # ~20 ms; must stay in step with installs
                     "installs": self.installs(),
                 }, now
             return self.cached

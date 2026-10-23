@@ -31,7 +31,8 @@ says so in one sentence and the last picture stays visible, greyed out.
   package priority, plus a list of all installed packages). Rejected tiles
   go to the AUSSCHUSS gutter (abandoned). One chip per task. Only the newest task per
   package and tile is shown (plus any older one still pending or claimed, since a
-  worker will build it); older revisions stay in the job strip, dimmed.
+  worker will build it); older revisions, tasks cancelled by the operator and tasks
+  whose package was installed and later removed stay in the job strip only, dimmed.
   When a task changes state, its chip glides to the new column.
 - **Job strip**: one row per job with a state bar.
 - **Map** (Leaflet 1.9.4, OpenStreetMap tiles, dimmed in dark mode): every tile as a 1°×1° rectangle in
