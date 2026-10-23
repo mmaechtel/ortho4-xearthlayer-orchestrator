@@ -41,6 +41,13 @@ says so in one sentence and the last picture stays visible, greyed out.
   worker's label sits on its tile. If the basemap is unavailable, a lat/lon
   grid is drawn instead. Without Leaflet (offline) the map becomes a compact
   tile grid.
+- **Ortho4XP errors**: lines starting with `ERROR` in a task's log span are flagged
+  on its chip, in the map tooltip and (when nothing more urgent exists) in the
+  status bar. They come from `podman logs` (journald), so they survive a
+  container restart but not a pod re-creation, and only while the task still lies
+  within the last 20000 log lines the console reads (`LOG_LINES`), so an old error
+  can drop out of view after a few dozen later tasks on the same worker; the durable guard is the
+  pre-build OSM check (`oxo-compose --osm-check`).
 - **Shared selection**: hover or click a chip, a map tile or a job, and the
   same tiles light up everywhere. A job click fits the map to that job. Esc
   clears the selection.

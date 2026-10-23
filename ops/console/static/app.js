@@ -52,6 +52,8 @@ function model(s) {
   // package|tile -> installs, newest first; a task counts as packaged only by an install after its job
   for (const i of s.installs) for (const tile of i.tiles) { const k = i.package + "|" + tile; (installed.get(k) || installed.set(k, []).get(k)).push(i); }
   for (const w of s.workers) if (w.current) byTask.set(w.current.task_id, w);
+  const errs = new Map(); // task id -> Ortho4XP ERROR lines from the worker logs
+  for (const w of s.workers) for (const e of w.errors || []) (errs.get(e.task_id) || errs.set(e.task_id, []).get(e.task_id)).push(e.line);
   const jobs = [...s.jobs].sort((a, b) => ms(b.created_at) - ms(a.created_at));
   const seen = new Set(), tasks = new Map(), tiles = new Map();
   for (const job of jobs) for (const t of job.tasks) {
@@ -63,7 +65,7 @@ function model(s) {
     if (!dropped) seen.add(k); // a removed package hides its older revisions too
     const hb = ms(t.last_heartbeat_at);
     const x = { t, job, s: code ? "packaged" : t.state, code, removed, current, w: byTask.get(t.id),
-      stale: t.state === "claimed" && !(gen - hb <= STALE_MS) };
+      err: errs.get(t.id)?.join("\n"), stale: t.state === "claimed" && !(gen - hb <= STALE_MS) };
     tasks.set(t.id, x);
     if (!current || !tileBounds(t.tile)) continue;
     const e = tiles.get(t.tile);
@@ -92,7 +94,9 @@ function chip(x) {
   c.children[1].textContent = live && n > 1 ? `${n}/${job.max_attempts}` : "";
   c.children[2].textContent = s === "abandoned" ? t.last_failure || "" : "";
   c.classList.toggle("stale", x.stale && !!x.w);
-  c.title = [`${t.tile} · ${jobLabel(job)} · ${s}${x.code ? " in " + x.code : ""} · Versuche ${t.attempts}/${job.max_attempts}`,
+  c.classList.toggle("o4err", !!x.err);
+  if (x.err && s !== "abandoned") c.children[2].textContent = "⚠ Ortho4XP";
+  c.title = [x.err && "⚠ Ortho4XP-Fehler: " + x.err, `${t.tile} · ${jobLabel(job)} · ${s}${x.code ? " in " + x.code : ""} · Versuche ${t.attempts}/${job.max_attempts}`,
     failText(t), t.replaces && "ersetzt " + t.replaces,
     t.patches?.length && "Patches: " + t.patches.join(", ")].filter(Boolean).join("\n");
   return c;
@@ -297,6 +301,7 @@ function tip(tile) {
     sw.style.setProperty("--sc", `var(--${x.s})`);
     r.append(sw, `${jobLabel(x.job)} · ${x.s}${x.code ? " " + x.code : ""} · ${x.t.attempts}/${x.job.max_attempts}`);
     box.append(r);
+    if (x.err) box.append(el("div", "o4err", "⚠ Ortho4XP-Fehler: " + x.err));
   }
   return box;
 }
@@ -492,9 +497,11 @@ function tick() {
     const stale = [...m.tasks.values()].find(x => x.stale && x.w);
     const down = m.s.workers.find(w => w.state !== "running");
     const bad = m.jobs.map(j => [j, j.tasks.filter(t => { const x = m.tasks.get(t.id); return x.current && x.s === "abandoned" && !cancelled(t); })]).find(([, ts]) => ts.length);
+    const o4 = [...m.tasks.values()].find(x => x.err && x.current);
     if (stale) { level = "warn"; text = `${wname(stale.w.name)}: Heartbeat ${stale.t.last_heartbeat_at ? "seit " + ago((t - ms(stale.t.last_heartbeat_at)) / 1000) : "fehlt"} · ${stale.t.tile}`; }
     else if (down) { level = "warn"; text = `${wname(down.name)}: Container ${down.state}`; }
     else if (bad) { level = "bad"; text = `${jobLabel(bad[0])}: ${bad[1].length} Tiles abandoned · ${bad[1][0].last_failure || "?"}`; }
+    else if (o4) { level = "warn"; text = `Ortho4XP-Fehler bei ${o4.t.tile}: ${o4.err.split("\n")[0]}`; }
   }
   if (level) bar.dataset.level = level; else delete bar.dataset.level;
   $("msg").textContent = text;

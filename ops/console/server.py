@@ -41,6 +41,7 @@ TASKS_SQL = (f"SELECT id, job_id, tile, task_type, state, attempts, claimed_by, 
              "FROM tasks ORDER BY tile")
 
 ANSI = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")
+ERROR = re.compile(r"ERROR\b")  # Ortho4XP's own; the worker's tracing lines start with a timestamp
 CLAIMED = re.compile(r"oxo_worker::run: claimed task (\S+) (\S+) (\S+) attempt (\d+)")
 # every end of a claim the worker logs; a LeaseGone on report is silent (accepted limit)
 FINISHED = re.compile(r"oxo_worker::run: (?:(?:completed|failed) task ([^\s:]+)"
@@ -166,12 +167,12 @@ class Console:
                 continue
             w = {"name": name, "state": c.get("State"),
                  "started_at": iso_unix(c["StartedAt"]) if c.get("StartedAt") else None,
-                 "current": None, "log_tail": []}
+                 "current": None, "log_tail": [], "errors": []}
             try:
                 logs = self.run(["podman", "logs", "--timestamps", "--tail", str(LOG_LINES), name], merge=True)
             except RuntimeError:
                 logs = ""
-            w["current"], w["log_tail"] = parse_logs(logs)
+            w["current"], w["log_tail"], w["errors"] = parse_logs(logs)
             out.append(w)
         return out
 
@@ -191,7 +192,8 @@ class Console:
 
 
 def parse_logs(text):
-    """-> (current task or None, last 40 non-empty lines as {at, line})."""
+    """-> (current task or None, last 40 non-empty lines as {at, line},
+    Ortho4XP 'ERROR...' lines inside any claimed task's span, in log order)."""
     entries = []
     for raw in text.splitlines():
         stamp, _, line = ANSI.sub("", raw).partition(" ")
@@ -200,8 +202,11 @@ def parse_logs(text):
         except ValueError:
             continue
         entries.append((at, line.rstrip()))
-    current = None
+    current, errors = None, []
     for at, line in entries:
+        if current and ERROR.match(line):
+            errors.append({**{k: current[k] for k in ("task_id", "task_type", "tile", "attempt")},
+                           "at": at, "line": line})
         if m := CLAIMED.search(line):
             current = {"task_id": m[1], "task_type": m[2], "tile": m[3], "attempt": int(m[4]),
                        "since": at, "step": None, "step_since": None}
@@ -213,7 +218,7 @@ def parse_logs(text):
         current = {k: current[k] for k in ("task_id", "tile", "task_type", "attempt",
                                            "since", "step", "step_since")}
     tail = [{"at": at, "line": line} for at, line in entries if line.strip()][-40:]
-    return current, tail
+    return current, tail, errors
 
 
 PLACEHOLDER = (b"<!doctype html><title>OXO console</title>"

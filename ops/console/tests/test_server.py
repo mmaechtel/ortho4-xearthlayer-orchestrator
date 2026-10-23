@@ -280,6 +280,40 @@ class Workers(Fixture):
                        f"the lease will expire task={TASK_APT} verb=\"complete\"\n")
         self.assertIsNone(self.worker(logs=logs)[0]["current"])
 
+    ERR = "ERROR in OSM coastline data. Coastline abruptly stops at [(43.7839463, 7.5331017)]"
+
+    def err_logs(self):
+        return (
+            "2026-10-23T13:00:00.0+02:00 ERROR before any claim\n"
+            "2026-10-23T13:01:00.0+02:00 INFO oxo_worker::run: claimed task t-a ortho +43+007 attempt 1\n"
+            f"2026-10-23T13:02:00.0+02:00 \x1b[31m{self.ERR}\x1b[0m\n"
+            "2026-10-23T13:02:30.0+02:00 INFO oxo_worker::run: completed task t-a\n"
+            "2026-10-23T13:02:40.0+02:00 ERROR after finish, no claim\n"
+            "2026-10-23T13:03:00.0+02:00 INFO oxo_worker::run: claimed task t-b ortho +43+008 attempt 2\n"
+            "2026-10-23T13:04:00.0+02:00 Step 1 : Building vector data for tile +43+008 : \n"
+            "2026-10-23T13:05:00.0+02:00 2026-10-23T11:05:00Z ERROR oxo_worker::run: own tracing line\n"
+            "2026-10-23T13:05:00.5+02:00 ERROR Crash!\n"
+            "2026-10-23T13:05:01.0+02:00 NOT an ERROR line\n"
+        )
+
+    def test_error_line_is_attributed_to_its_task_in_log_order(self):
+        errors = self.worker(logs=self.err_logs())[0]["errors"]
+        self.assertEqual(errors[0], {"task_id": "t-a", "task_type": "ortho", "tile": "+43+007",
+                                     "attempt": 1, "at": "2026-10-23T11:02:00Z", "line": self.ERR})
+
+    def test_lines_outside_a_claim_are_ignored(self):
+        errors = self.worker(logs=self.err_logs())[0]["errors"]
+        self.assertNotIn("ERROR before any claim", [e["line"] for e in errors])
+        self.assertNotIn("ERROR after finish, no claim", [e["line"] for e in errors])
+
+    def test_error_of_the_current_task_is_collected_too(self):
+        logs = self.err_logs()
+        errors = self.worker(logs=logs)[0]["errors"]
+        self.assertEqual([e["task_id"] for e in errors], ["t-a", "t-b"])
+
+    def test_task_without_errors_has_none(self):
+        self.assertEqual(self.worker()[0]["errors"], [])
+
     def test_current_without_step_yet(self):
         logs = "2026-10-23T13:10:12.000000000+02:00 INFO oxo_worker::run: claimed task x ortho +1+002 attempt 1\n"
         cur = self.worker(logs=logs)[0]["current"]

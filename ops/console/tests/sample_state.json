@@ -98,6 +98,10 @@
         "step": "Step 1 : Building vector data for tile +48+011",
         "step_since": "2026-10-23T11:10:13Z"
       },
+      "errors": [
+        {"task_id": "99335416-c161-437d-9007-cb1a2aecfb8d", "task_type": "ortho", "tile": "+48+011",
+         "attempt": 2, "at": "2026-10-23T11:12:00Z", "line": "ERROR in OSM coastline data. Coastline abruptly stops at [(43.78, 7.53)]"}
+      ],
       "log_tail": [
         {"at": "2026-10-23T11:20:35Z", "line": "   Number of edges at this point: 124650"},
         {"at": "2026-10-23T11:20:35Z", "line": "-> Dealing with inland water"},

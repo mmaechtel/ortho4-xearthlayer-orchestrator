@@ -72,6 +72,7 @@ div.grp + div.grp { margin-top: 10px; }
 .tok[data-s="abandoned"] { --sc: var(--abandoned); }
 .tok .att { font: 600 10px var(--sans); color: var(--warn); }
 .tok .att:empty, .tok .why:empty { display: none; }
+.tok.o4err:not([data-s="abandoned"]) .why { font: 600 10px var(--sans); color: var(--warn); }
 .tok.stale { outline: 2px dashed var(--warn); outline-offset: 2px; }
 .tok.hl, .tok[aria-pressed="true"] { box-shadow: 0 0 0 2px var(--text); }
 .dense .gbody { gap: 2px; }
