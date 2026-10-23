@@ -20,6 +20,7 @@ extract timestamp is outdated too. `preflight` is the pre-build check oxo-compos
 """
 import argparse
 import hashlib
+import http.client
 import importlib.machinery
 import importlib.util
 import json
@@ -160,7 +161,10 @@ def parse_state(text):
     m = re.search(r"^timestamp=(\S+)$", text, re.M)
     if not m:
         raise FetchError("state.txt has no timestamp line")
-    return parse_ts(m.group(1).replace("\\", ""))
+    try:
+        return parse_ts(m.group(1).replace("\\", ""))
+    except ValueError:
+        raise FetchError(f"state.txt timestamp {m.group(1)!r} is not YYYY-MM-DDTHH:MM:SSZ")
 
 
 # --- the pre-build check ---
@@ -250,8 +254,11 @@ def open_url(url):
 
 
 def http_get(url):
-    with open_url(url) as r:
-        return r.read()
+    try:
+        with open_url(url) as r:
+            return r.read()
+    except http.client.HTTPException as e:  # e.g. IncompleteRead
+        raise FetchError(f"{url}: {e}")
 
 
 def load_index(pbf_dir, now):
@@ -261,16 +268,17 @@ def load_index(pbf_dir, now):
         return json.loads(path.read_text())
     try:
         data = http_get(INDEX_URL)
-    except FetchError as e:
+        index = json.loads(data)  # parsed before it may replace a good cache
+    except (FetchError, ValueError) as e:
         if not path.exists():
-            raise
+            raise FetchError(str(e))
         print(f"osm-fetch: {e}; using the stale cached index", file=sys.stderr)
         return json.loads(path.read_text())
     Path(pbf_dir).mkdir(parents=True, exist_ok=True)
     part = path.with_name(path.name + ".part")
     part.write_bytes(data)
     os.replace(part, path)
-    return json.loads(data)
+    return index
 
 
 def download_part(url, part):
@@ -293,7 +301,7 @@ def header_timestamp(pbf, run):
 
 
 def state_timestamp(region):
-    return parse_state(http_get(region.updates + "/state.txt").decode())
+    return parse_state(http_get(region.updates + "/state.txt").decode(errors="replace"))
 
 
 def _booked(ledger, pbf_dir, name, timestamp):

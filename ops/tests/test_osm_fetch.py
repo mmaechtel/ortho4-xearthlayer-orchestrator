@@ -379,6 +379,22 @@ class Index(Net):
         self.assertEqual(len(index["features"]), len(INDEX["features"]))
         self.assertIn("stale", err.getvalue())
 
+    def test_a_malformed_refresh_keeps_the_last_good_cache(self):
+        osm_fetch.load_index(self.pbfs, NOW)
+        good = (self.pbfs / "index-v1.json").read_text()
+        self.age_index()
+        self.web.files[osm_fetch.INDEX_URL] = b'{"features": [tru'
+        with contextlib.redirect_stderr(io.StringIO()):
+            index = osm_fetch.load_index(self.pbfs, NOW)
+        self.assertEqual(len(index["features"]), len(INDEX["features"]))
+        self.assertEqual((self.pbfs / "index-v1.json").read_text(), good)
+
+    def test_a_malformed_index_without_cache_is_an_error(self):
+        self.web.files[osm_fetch.INDEX_URL] = b"<html>captive portal</html>"
+        with self.assertRaises(osm_fetch.FetchError):
+            osm_fetch.load_index(self.pbfs, NOW)
+        self.assertFalse((self.pbfs / "index-v1.json").exists())
+
     def test_without_any_cache_a_failure_is_an_error(self):
         del self.web.files[osm_fetch.INDEX_URL]
         with self.assertRaises(osm_fetch.FetchError):
@@ -495,6 +511,17 @@ class Check(Net):
         self.assertEqual(rc, 1)
         self.assertIn("europe", out.getvalue())
         self.assertIn("error", out.getvalue())
+        self.assertIn("luxembourg", out.getvalue())
+
+    def test_an_unparsable_state_timestamp_is_a_per_region_failure(self):
+        self.fetched("luxembourg", "luxembourg-261022.osm.pbf", "2026-10-22T20:21:33Z")
+        self.fetched("germany", "germany-261022.osm.pbf", "2026-10-22T20:21:33Z")
+        self.web.files["https://download.geofabrik.de/europe/germany-updates/state.txt"] = b"timestamp=2026-10-22T20:21:42.5Z\n"
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            rc = osm_fetch.check(self.pbfs, self.ledger, NOW)
+        self.assertEqual(rc, 1)
+        self.assertIn("germany", out.getvalue())
         self.assertIn("luxembourg", out.getvalue())
 
     def test_empty_ledger_says_so(self):
