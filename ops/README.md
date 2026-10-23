@@ -31,6 +31,8 @@ Tests for the scripts: `python3 -m unittest discover -s ops/tests`.
 ```sh
 # Podman (Debian 13)
 pkexec /usr/bin/apt-get install -y podman
+# Pillow for oxo-package (merges masks that neighbouring tiles share)
+pkexec /usr/bin/apt-get install -y python3-pil
 
 # DEMs (already done 2026-10-23; rerunnable, copies only what is missing)
 ops/bin/import-dem "/mnt/xplane_data/docker/Ortho4XP/Global Elevation Data by MM" /mnt/xplane_data/oxo/dem

@@ -622,5 +622,39 @@ class VerifyStage(NightBase):
         self.assertTrue((self.pkg / "terrain" / f"{self.LAND}_sea_overlay.ter").is_file())
         self.assertEqual(len(self.night_rows()), 1, "no ledger row for a failed install")
 
+
+class SharedMasks(Base):
+    """A mask PNG of a texture straddling a 1° line exists in both tiles, each
+    filled only around its own tile; the package gets the brightest copy per pixel."""
+
+    NAME = "21936_34224_ZL16.png"
+
+    def mask_tile(self, tile, rows):
+        from PIL import Image
+        d = make_tile(self.root, tile, png=False)
+        img = Image.new("L", (4, len(rows)))
+        img.putdata([v for v in rows for _ in range(4)])
+        img.save(d / "textures" / self.NAME)
+        return d
+
+    def test_shared_mask_is_the_brightest_copy_per_pixel(self):
+        from PIL import Image
+        # north tile filled on top with a falloff spilling south, south tile below
+        self.mask_tile("+51+008", [255, 255, 120, 40, 0, 0])
+        self.mask_tile("+50+008", [0, 0, 60, 0, 255, 255])
+        rc, _, err = self.run_main()
+        self.assertEqual(rc, 0, err)
+        img = Image.open(self.pkg / "textures" / self.NAME)
+        self.assertEqual([img.getpixel((0, r)) for r in range(6)], [255, 255, 120, 40, 255, 255])
+
+    def test_masks_of_different_size_abort(self):
+        from PIL import Image
+        self.mask_tile("+51+008", [255, 0])
+        self.mask_tile("+50+008", [0, 0, 255])
+        rc, _, err = self.run_main()
+        self.assertEqual(rc, 2)
+        self.assertIn(f"cannot merge shared mask {self.NAME}", err)
+
+
 if __name__ == "__main__":
     unittest.main()

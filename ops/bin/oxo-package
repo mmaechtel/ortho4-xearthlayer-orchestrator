@@ -34,6 +34,11 @@ Before the staged package replaces the installed one it is checked: every DSF,
 .ter and .png mask of the delivered tiles is there, every .ter carries exactly
 the planned LIT lines (pointing at its own texture) and is otherwise unchanged,
 no overlay .ter is lit. Any problem aborts and leaves the installed package as is.
+
+A mask <y>_<x>_ZL<zl>.png of a texture straddling a 1° line is built by each
+neighbouring tile for its own part only (OXO builds see no neighbour mesh), so
+the copies are merged, brightest per pixel. Needs python3-pil when tiles
+share masks.
 """
 import argparse
 import datetime
@@ -236,6 +241,32 @@ def report_night(plans):
     log(f"night: {with_recipe}/{len(plans)} tiles with recipe")
 
 
+def merge_masks(name, srcs):
+    """One mask from the copies [(tile, path)] that neighbouring tiles built of a
+    texture straddling a 1° line, as the brightest copy per pixel. Each tile fills
+    only its own part (OXO builds see no neighbour mesh), and every step of
+    Ortho4XP's mask build is monotone in the water pre-mask, so each copy is a lower
+    bound of the mask built with the neighbour present; the maximum is the closest
+    one and keeps a coast's falloff across the line."""
+    from PIL import Image, ImageChops
+    imgs = [Image.open(p) for _, p in srcs]
+    if len({(i.mode, i.size) for i in imgs}) > 1:
+        raise Fatal(f"cannot merge shared mask {name} of tiles {', '.join(t for t, _ in srcs)}")
+    out = imgs[0]
+    for img in imgs[1:]:
+        out = ImageChops.lighter(out, img)
+    return out
+
+
+def tile_masks(good):
+    """{mask name: [(tile, path)]} over the delivered tiles."""
+    masks = {}
+    for tile, d, _ in good:
+        for png in sorted((d / "textures").glob("*.png")):
+            masks.setdefault(png.name, []).append((tile, png))
+    return masks
+
+
 def verify_stage(stage, good, lit):
     """What is wrong with the staged package, measured against the delivered tiles
     and the night plan `lit` {ter name: lines}; an empty list when nothing is."""
@@ -243,11 +274,17 @@ def verify_stage(stage, good, lit):
     for tile, d, dsf in good:
         if not (stage / "Earth nav data" / block_of(tile) / dsf.name).is_file():
             problems.append(f"{tile}: {dsf.name} missing")
-        for png in (d / "textures").glob("*.png"):
-            if not (stage / "textures" / png.name).is_file():
-                problems.append(f"{tile}: {png.name} missing")
         for ter in (d / "terrain").glob("*.ter"):
             sources.setdefault(ter.name, []).append(ter)
+    for name, srcs in sorted(tile_masks(good).items()):
+        staged = stage / "textures" / name
+        if not staged.is_file():
+            problems.append(f"{srcs[0][0]}: {name} missing")
+        elif len(srcs) > 1:
+            from PIL import Image, ImageChops
+            if ImageChops.difference(Image.open(staged), merge_masks(name, srcs)).getbbox():
+                problems.append(f"{name}: shared mask is not the merge of tiles "
+                                f"{', '.join(t for t, _ in srcs)}")
     unlit = lambda text: [l for l in text.splitlines() if not l.split() or l.split()[0] not in LIT_KEYS]
     for name, srcs in sorted(sources.items()):
         staged = stage / "terrain" / name
@@ -377,10 +414,17 @@ def run(args):
         sync_file(dsf, dest_nav)
         for ter in (d / "terrain").glob("*.ter"):
             sync_file(ter, stage / "terrain")
-        for png in (d / "textures").glob("*.png"):
-            sync_file(png, stage / "textures")
         if n % 50 == 0 or n == total:
             log(f"  staged {n}/{total} (last: {tile})")
+
+    shared = 0
+    for mask, srcs in tile_masks(good).items():
+        if len(srcs) == 1:
+            sync_file(srcs[0][1], stage / "textures")
+        else:
+            merge_masks(mask, srcs).save(stage / "textures" / mask)
+            shared += 1
+    log(f"masks staged, {shared} shared by neighbouring tiles merged")
 
     # A .ter shared by neighbouring tiles is staged once per tile; it stays lit if
     # any tile lights it (the lines agree), and its own LIT lines are replaced.
