@@ -14,8 +14,8 @@ Why it looks like this: `docs/plans/2026-10-23-own-package-production.md`.
 | `ops/worker-pod.yaml` | Worker pod with this host's paths; `worker-pod-2..6.yaml` are its copies for workers 2–6. |
 | `ops/bin/import-dem` | Flat `.hgt` → `Elevation_data` layout (btrfs reflinks). |
 | `ops/bin/osm-bake` | Geofabrik `.osm.pbf` → per-tile OSM layers in the OSM cache (needs `osmium-tool`), see below. |
-| `ops/bin/osm-fetch` | Geofabrik extracts: download + MD5 check + ledger line (`ops/ledger/osm-extracts.tsv`), `--check` for newer ones, `--which TILE...` for the region covering a tile; also the pre-build check behind `oxo-compose --submit`, see below. |
-| `ops/bin/oxo-package` | Delivered tiles → `~/.local/share/xearthlayer/packages/zzXEL_<name>_ortho/`. Night lighting (#17): each tile's land `.ter` get the `TEXTURE_LIT`/`LUMINANCE` lines of the installed package that holds the tile's `night/<block>/<tile>.oxn` (same `<y>_<x>` and ZL; no counterpart → the tile's value if unanimous); the recipe stays in that package so XEL colours the LEDs by its region. `--dry-run` prints the plan. |
+| `ops/bin/osm-fetch` | Geofabrik extracts: download + MD5 check (beside the mirror that served it) + ledger line; a failed download stays as `<region>.osm.pbf.part` for a look (`ops/ledger/osm-extracts.tsv`), `--check` for newer ones, `--which TILE...` for the region covering a tile; also the pre-build check behind `oxo-compose --submit`, see below. |
+| `ops/bin/oxo-package` | Delivered tiles → `~/.local/share/xearthlayer/packages/zzXEL_<name>_ortho/`. Night lighting (#17): each tile's land `.ter` get the `TEXTURE_LIT`/`LUMINANCE` lines of the installed package that holds the tile's `night/<block>/<tile>.oxn` (same `<y>_<x>` and ZL; no counterpart → the tile's value if unanimous); the recipe stays in that package so XEL colours the LEDs by its region (plan D9). Masks that neighbouring tiles share are merged, brightest per pixel (D10). The staged package is checked before it replaces the installed one. `--dry-run` prints the night plan. |
 | `ops/ledger/<package>/` | The books: one `<region_code>-r<rev>.toml` per submitted job, `installs.log`, `night.tsv` (per install and tile: night source package, its code line, lit `.ter`, LUMINANCE, warnings). Committed. |
 | `ops/bin/oxo-whence <tile>` | How a tile was built: builds newest first, commits, DEM, patches, deviations from samsoir, installs; last the adoption record. A ledger entry's `[provenance.built]` (shown as "built with:") records what differed at build time from the submit-time provenance. |
 | `ops/bin/oxo-adopt <zzXEL dir>` | Records an own legacy package once as it is installed (`ops/adopted/<name>.toml`): provider/ZL/masks/creation agent per tile *observed* from the files, a legacy tile cfg only if it agrees with them. Committed. |
@@ -101,7 +101,8 @@ podman kube down ops/worker-pod.yaml   # and ops/worker-pod-N.yaml
 Instead of waiting on Overpass, bake the five layers per tile from a Geofabrik extract (needs `osmium-tool`; download `<region>.osm.pbf` and `<region>.poly` yourself):
 
 ```sh
-# every tile wholly inside the extract's .poly (border tiles need a larger extract)
+# every tile wholly inside the extract's .poly (border tiles need a larger extract, e.g. europe:
+# country extracts cut coastlines at borders, and Ortho4XP then meshes the sea as land)
 ops/bin/osm-bake --pbf great-britain-261022.osm.pbf --poly great-britain.poly --out /mnt/xplane_data/oxo/osm-cache
 # one tile (without --poly it is baked as asked); --force overwrites existing layers
 ops/bin/osm-bake --pbf ... --out ... --tile 53 -3
