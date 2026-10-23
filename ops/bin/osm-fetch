@@ -330,14 +330,22 @@ def fetch_region(region_id, pbf_dir, ledger, now, run):
     poly, part = pbf_dir / f"{stem}.poly", pbf_dir / f"{stem}.osm.pbf.part"
     published = state_timestamp(region)
     expected = f"{stem}-{published:%y%m%d}.osm.pbf"
-    if not (_booked(ledger, pbf_dir, expected, published) and poly.exists()):
-        poly_part = poly.with_name(poly.name + ".part")
-        poly_part.write_bytes(http_get(region.pbf.removesuffix("-latest.osm.pbf") + ".poly"))
-        os.replace(poly_part, poly)
-    if _booked(ledger, pbf_dir, expected, published):
-        print(f"already have {expected}")
-        return
+    # the poly is fetched first (an unreachable one stops before a large download) but staged:
+    # it replaces <stem>.poly only together with a booked extract, so a failed refresh never
+    # pairs the old, still fresh extract with a newer boundary it does not fill
+    poly_part = poly.with_name(poly.name + ".part")
+
+    def publish_poly():
+        if poly_part.exists():
+            os.replace(poly_part, poly)
+
     try:
+        if not (_booked(ledger, pbf_dir, expected, published) and poly.exists()):
+            poly_part.write_bytes(http_get(region.pbf.removesuffix("-latest.osm.pbf") + ".poly"))
+        if _booked(ledger, pbf_dir, expected, published):
+            publish_poly()
+            print(f"already have {expected}")
+            return
         md5 = download_part(region.pbf, part)
         want = http_get(region.pbf + ".md5").decode().split()[0]
         if md5 != want:
@@ -345,13 +353,16 @@ def fetch_region(region_id, pbf_dir, ledger, now, run):
         replicated = header_timestamp(part, run)
         name = f"{stem}-{replicated:%y%m%d}.osm.pbf"
         if _booked(ledger, pbf_dir, name, replicated):  # a file without a ledger line is replaced
+            publish_poly()
             print(f"already have {name}")
             return
         (pbf_dir / (name + ".md5")).write_text(f"{md5}  {name}\n")
         os.replace(part, pbf_dir / name)
+        append_ledger(ledger, region_id, name, replicated.strftime(TS_FORMAT), md5, now.strftime(TS_FORMAT))
+        publish_poly()
     finally:
         part.unlink(missing_ok=True)
-    append_ledger(ledger, region_id, name, replicated.strftime(TS_FORMAT), md5, now.strftime(TS_FORMAT))
+        poly_part.unlink(missing_ok=True)
     print(pbf_dir / name)
 
 

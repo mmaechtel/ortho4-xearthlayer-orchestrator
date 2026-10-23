@@ -454,13 +454,25 @@ class Fetch(Net):
         with self.assertRaises(osm_fetch.FetchError) as cm:
             self.fetch()
         self.assertIn("md5", str(cm.exception))
-        self.assertEqual([p.name for p in self.pbfs.iterdir() if p.name != "index-v1.json"], ["luxembourg.poly"])
+        self.assertEqual([p.name for p in self.pbfs.iterdir() if p.name != "index-v1.json"], [])
         self.assertEqual(osm_fetch.read_ledger(self.ledger), [])
+
+    def test_a_failed_refresh_keeps_the_poly_of_the_booked_extract(self):
+        # the new boundary is published only together with the verified extract it belongs to;
+        # otherwise the old, still fresh extract would be baked against a polygon it does not fill
+        self.fetched("luxembourg", "luxembourg-261001.osm.pbf", "2026-10-01T00:00:00Z")
+        (self.pbfs / "luxembourg.poly").write_text("old boundary\n")
+        self.web.files["https://download.geofabrik.de/europe/luxembourg-latest.osm.pbf.md5"] = b"0" * 32 + b"  x\n"
+        with self.assertRaises(osm_fetch.FetchError):
+            self.fetch()
+        self.assertEqual((self.pbfs / "luxembourg.poly").read_text(), "old boundary\n")
+        self.assertFalse(list(self.pbfs.glob("*.part")))
 
     def test_a_header_without_timestamp_is_refused_and_cleaned_up(self):
         with self.assertRaises(osm_fetch.FetchError):
             self.fetch(run=fake_run(stdout="\n"))
         self.assertFalse(list(self.pbfs.glob("luxembourg*.pbf*")))
+        self.assertFalse(list(self.pbfs.glob("luxembourg.poly*")))
         self.assertEqual(osm_fetch.read_ledger(self.ledger), [])
 
     def test_an_extract_already_on_disk_and_booked_is_not_downloaded_again(self):
