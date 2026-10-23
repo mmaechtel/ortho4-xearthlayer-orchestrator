@@ -17,6 +17,7 @@ osm_fetch = importlib.util.module_from_spec(spec)
 loader.exec_module(osm_fetch)
 
 NOW = datetime(2026, 10, 23, 12, 0, 0, tzinfo=timezone.utc)
+BAKED = datetime(2026, 10, 23, 10, 0, 0, tzinfo=timezone.utc).timestamp()  # Cache.log's baked-at
 
 
 def box(w, s, e, n):
@@ -168,6 +169,7 @@ class Cache(unittest.TestCase):
                 p = osm_fetch.osm_bake.layer_path(self.cache, lat, lon, layer)
                 p.parent.mkdir(parents=True, exist_ok=True)
                 p.write_bytes(b"x")
+                os.utime(p, (BAKED - 60, BAKED - 60))  # written before the bake was logged
 
     def log(self, tile, extract, name="x.osm.pbf"):
         with open(self.cache / "osm-bake.log", "a") as f:
@@ -236,6 +238,24 @@ class TileProblems(Cache):
         self.layers("+49+006")
         self.log("+50+006", "2026-10-22T20:21:33Z")
         self.assertEqual(len(self.problems(["+49+006"])), 1)
+
+    def test_a_layer_newer_than_the_bake_makes_the_tile_outdated(self):
+        # a worker refilled a lost layer from Overpass after the bake: mixed origin
+        self.layers("+49+006")
+        self.log("+49+006", "2026-10-22T20:21:33Z")
+        water = osm_fetch.osm_bake.layer_path(self.cache, 49, 6, "water")
+        os.utime(water, (BAKED + 1, BAKED + 1))
+        [(_, why)] = self.problems(["+49+006"])
+        self.assertIn("water", why)
+        self.assertIn("newer than the bake", why)
+
+    def test_a_layer_written_within_the_bake_second_is_fine(self):
+        # baked-at has whole seconds; the publish lands in the same second as the log line
+        self.layers("+49+006")
+        self.log("+49+006", "2026-10-22T20:21:33Z")
+        water = osm_fetch.osm_bake.layer_path(self.cache, 49, 6, "water")
+        os.utime(water, (BAKED + 0.9, BAKED + 0.9))
+        self.assertEqual(self.problems(["+49+006"]), [])
 
     def test_no_log_file_at_all(self):
         self.assertEqual(len(self.problems(["+49+006"])), 1)

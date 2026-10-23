@@ -8,6 +8,7 @@ import contextlib
 import io
 import sys
 import tomllib
+from datetime import datetime, timezone
 import unittest
 from pathlib import Path
 
@@ -356,6 +357,9 @@ class SubmitRefusal(unittest.TestCase):
         self.assertIn("duplicate region_code EU-PILOT-1", msg)
 
 
+BAKED = datetime(2026, 10, 23, 10, 0, 0, tzinfo=timezone.utc).timestamp()  # OsmGate.fill's baked-at
+
+
 class OsmGate(unittest.TestCase):
     """The pre-build OSM check (#16): refuses --submit before any request unless --force."""
 
@@ -413,6 +417,7 @@ class OsmGate(unittest.TestCase):
             p = oxo_compose.osm_fetch.osm_bake.layer_path(self.cache, lat, lon, layer)
             p.parent.mkdir(parents=True, exist_ok=True)
             p.write_bytes(b"x")
+            os.utime(p, (BAKED - 60, BAKED - 60))  # written before the bake was logged
         with open(self.cache / "osm-bake.log", "a") as f:
             f.write(f"{tile}\t{extract}\tx.osm.pbf\t2026-10-23T10:00:00Z\n")
 
@@ -432,6 +437,11 @@ class OsmGate(unittest.TestCase):
     def test_force_skips_the_check(self):
         _, msg = self.run_main("--submit", self.url(), "--force")
         self.assertNotIn("layers missing", msg)
+
+    def test_a_malformed_tile_name_is_a_clean_refusal(self):
+        _, msg = self.run_main("--osm-check", package=PACKAGE.replace('"+48+012"', '"48+12"'))
+        self.assertIn("oxo-compose:", msg)
+        self.assertIn("48+12", msg)
 
     def test_osm_check_reports_without_submitting(self):
         _, msg = self.run_main("--osm-check")

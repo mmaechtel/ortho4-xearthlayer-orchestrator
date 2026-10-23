@@ -170,34 +170,45 @@ def parse_state(text):
 # --- the pre-build check ---
 
 def read_bake_log(cache):
-    """tile -> extract timestamp (None when unknown), the newest line per tile winning."""
+    """tile -> (extract timestamp, baked-at), each None when unknown; the newest line per tile wins."""
+    def ts(cols, i):
+        try:
+            return parse_ts(cols[i])
+        except (IndexError, ValueError):
+            return None
+
     log = Path(cache) / "osm-bake.log"
     out = {}
     if log.exists():
         for line in log.read_text().splitlines():
             cols = line.split("\t")
             if len(cols) >= 2:
-                try:
-                    out[cols[0]] = parse_ts(cols[1])
-                except ValueError:
-                    out[cols[0]] = None
+                out[cols[0]] = (ts(cols, 1), ts(cols, 3))
     return out
 
 
 def problems(tiles, cache, now):
     """[(tile, reason)] for every tile that must not be built yet: a layer missing from the
-    cache, no recorded extract timestamp, or an extract older than MAX_AGE_DAYS."""
+    cache, no recorded extract timestamp, an extract older than MAX_AGE_DAYS, or a layer
+    written after the bake (a worker refilled it from Overpass: mixed origin)."""
     log, out = read_bake_log(cache), []
     for tile in dict.fromkeys(tiles):
         lat, lon = parse_tile(tile)
-        missing = [l for l in osm_bake.LAYERS if not osm_bake.layer_path(cache, lat, lon, l).exists()]
+        paths = {l: osm_bake.layer_path(cache, lat, lon, l) for l in osm_bake.LAYERS}
+        missing = [l for l, p in paths.items() if not p.exists()]
+        extract, baked = log.get(tile, (None, None))
         if missing:
             out.append((tile, "layers missing: " + ", ".join(missing)))
-        elif log.get(tile) is None:
+        elif extract is None:
             out.append((tile, "no recorded extract timestamp (outdated)"))
-        elif not is_fresh(log[tile], now):
-            out.append((tile, f"extract {log[tile].strftime(TS_FORMAT)} is {(now - log[tile]).days} days old "
+        elif not is_fresh(extract, now):
+            out.append((tile, f"extract {extract.strftime(TS_FORMAT)} is {(now - extract).days} days old "
                               f"(limit {MAX_AGE_DAYS})"))
+        else:
+            # whole seconds: baked-at is logged without fraction, right after the publish
+            newer = [l for l, p in paths.items() if baked is None or int(p.stat().st_mtime) > baked.timestamp()]
+            if newer:
+                out.append((tile, "layers newer than the bake (refilled from Overpass?): " + ", ".join(newer)))
     return out
 
 

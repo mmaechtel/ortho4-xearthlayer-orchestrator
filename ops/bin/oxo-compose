@@ -430,7 +430,7 @@ def main():
             print(f"OSM data ready for {sum(len(s['tiles']) for s in specs)} tiles")
         if not (a.out or a.submit or a.legacy or a.osm_check):
             print("\n# ---\n".join(to_toml(s) for s in specs), end="")
-    except (OSError, tomllib.TOMLDecodeError, ComposeError, KeyError, subprocess.CalledProcessError) as e:
+    except (OSError, ValueError, ComposeError, KeyError, subprocess.CalledProcessError) as e:  # ValueError covers TOMLDecodeError and bad tile names
         sys.exit(f"oxo-compose: {e}")
 
 
