@@ -18,7 +18,7 @@ Why it looks like this: `docs/plans/2026-10-23-own-package-production.md`.
 | `ops/bin/oxo-whence <tile>` | How a tile was built: builds newest first, commits, DEM, patches, deviations from samsoir, installs. |
 | `/mnt/xplane_data/oxo/dem/` | Sonny/viewfinder DEMs, Ortho4XP layout, mounted read-only. |
 | `/mnt/xplane_data/oxo/artifacts/<package>/` | Delivered `zOrtho4XP_<tile>/` dirs (spec `target.root`). |
-| `/mnt/xplane_data/oxo/content/` | Empty on purpose (no overlays). |
+| `~/X-Plane-12/Global Scenery/` | Mounted read-only as the pod's `content`: every ortho DSF takes its DEM and bathymetry rasters from the matching Global Scenery DSF. |
 
 Tests for the scripts: `python3 -m unittest discover -s ops/tests`.
 
@@ -30,7 +30,7 @@ pkexec /usr/bin/apt-get install -y podman
 
 # DEMs (already done 2026-10-23; rerunnable, copies only what is missing)
 ops/bin/import-dem "/mnt/xplane_data/docker/Ortho4XP/Global Elevation Data by MM" /mnt/xplane_data/oxo/dem
-mkdir -p /mnt/xplane_data/oxo/artifacts /mnt/xplane_data/oxo/content
+mkdir -p /mnt/xplane_data/oxo/artifacts
 
 # Persistent PostgreSQL (not `make pg-up`, which is disposable)
 podman volume create oxo-pg
