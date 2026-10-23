@@ -7,7 +7,7 @@
 [metadata]
 name = "oxo_apt"           # -> zzXEL_oxo_apt_ortho
 region_code = "OXO-APT"    # each group becomes OXO-APT-<ID>
-revision = 1
+revision = 2
 
 [target]
 root = "/mnt/xplane_data/oxo/artifacts/oxo_apt"
