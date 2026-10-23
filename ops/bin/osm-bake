@@ -13,7 +13,8 @@ single --tile without --poly is baked as asked (the operator vouches for it).
 Each layer is written to a hidden .part file and renamed into place; a layer
 without matches becomes an empty <osm/> document, never a missing file.
 Existing layers are skipped unless --force. Provenance: one line per baked
-tile is appended to CACHE/osm-bake.log (tile, extract timestamp, pbf, baked at).
+tile is appended to CACHE/osm-bake.log (tile, extract timestamp, pbf, baked at), only for tiles whose five layers
+all came from this extract (a partial fill without --force logs nothing).
 """
 import argparse
 import bz2
@@ -226,7 +227,8 @@ def run_main(a, run):
         run(prefilter_cmd(a.pbf, pre))
         for lat, lon in pending:
             n = bake_tile(a.out, lat, lon, pre, work, a.force, run)
-            if n:  # a worker may have filled the tile since `pending` was computed
+            if n == len(LAYERS):  # a log line vouches for the whole tile: not for a partial fill
+                # (kept old layers) nor when a worker filled layers since `pending` was computed
                 now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
                 with open(a.out / "osm-bake.log", "a") as log:
                     log.write(f"{tile_name(lat, lon)}\t{extract}\t{a.pbf.name}\t{now}\n")

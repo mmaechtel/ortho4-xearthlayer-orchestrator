@@ -283,6 +283,15 @@ class Main(unittest.TestCase):
         osm_bake.run_main(self.args("--tile", "53", "-3"), WorkerFills())
         self.assertFalse((self.out / "osm-bake.log").exists())
 
+    def test_partial_fill_without_force_writes_no_log_line(self):
+        # old layers stay, only the missing one is new: the tile has no single extract stamp
+        p = osm_bake.layer_path(self.out, 53, -3, "airports")
+        p.parent.mkdir(parents=True)
+        p.write_bytes(b"old")
+        osm_bake.run_main(self.args("--tile", "53", "-3"), FakeOsmium())
+        self.assertEqual(p.read_bytes(), b"old")
+        self.assertFalse((self.out / "osm-bake.log").exists())
+
     def test_nothing_to_do_runs_nothing(self):
         osm_bake.run_main(self.args("--tile", "53", "-3"), FakeOsmium())
         run2 = FakeOsmium()
