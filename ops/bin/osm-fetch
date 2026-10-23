@@ -316,7 +316,7 @@ def fetch_region(region_id, pbf_dir, ledger, now, run):
             raise FetchError(f"{region.pbf}: md5 {md5} does not match Geofabrik's {want}; try again")
         replicated = header_timestamp(part, run)
         name = f"{stem}-{replicated:%y%m%d}.osm.pbf"
-        if (pbf_dir / name).exists():
+        if (pbf_dir / name).exists() and any(e.file == name for e in read_ledger(ledger)):  # a file without a ledger line is replaced
             print(f"already have {name}")
             return
         (pbf_dir / (name + ".md5")).write_text(f"{md5}  {name}\n")

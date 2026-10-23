@@ -427,6 +427,20 @@ class Fetch(Net):
         self.assertIn("already have luxembourg-261022.osm.pbf", out)
         self.assertNotIn("https://download.geofabrik.de/europe/luxembourg-latest.osm.pbf", self.web.requests)
 
+    def test_a_dated_file_without_ledger_line_is_replaced_and_booked(self):
+        (self.pbfs / "luxembourg-261022.osm.pbf").write_bytes(b"half")  # e.g. interrupted before the ledger line
+        self.fetch()
+        self.assertEqual((self.pbfs / "luxembourg-261022.osm.pbf").read_bytes(), PBF_BYTES)
+        self.assertEqual(len(osm_fetch.read_ledger(self.ledger)), 1)
+
+    def test_a_booked_file_with_another_state_date_is_kept_and_not_booked_twice(self):
+        self.fetched("luxembourg", "luxembourg-261022.osm.pbf", "2026-10-22T20:21:33Z")
+        self.web.files["https://download.geofabrik.de/europe/luxembourg-updates/state.txt"] = \
+            STATE.replace("10-22", "10-23").encode()  # state.txt says 261023, the header will say 261022
+        out = self.fetch()
+        self.assertIn("already have luxembourg-261022.osm.pbf", out)
+        self.assertEqual(len(osm_fetch.read_ledger(self.ledger)), 1)
+
     def test_unknown_region_is_refused_before_any_download(self):
         with self.assertRaises(osm_fetch.FetchError) as cm:
             self.fetch("atlantis")
