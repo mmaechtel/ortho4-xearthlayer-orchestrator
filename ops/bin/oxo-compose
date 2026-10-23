@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Compose OXO region specs from three layers and optionally submit them.
 
-    oxo-compose ops/packages/<name>.toml [--out DIR] [--submit URL]
+    oxo-compose ops/packages/<name>.toml [--out DIR] [--submit URL] [--force] [--osm-check]
 
 Layers, later wins:
   1. baseline  docs/examples/example-region.toml — samsoir's production tuning, read
@@ -22,6 +22,12 @@ group's [group.legacy] table as "keep: <reason>" (the group then overrides the k
 legacy value) or "default: <reason>". --legacy shows the table; --submit refuses while any
 difference is undecided. Unknown legacy values follow samsoir, and the ledger says so.
 
+OSM pre-build check (#16): --submit refuses while any tile of the specs lacks one of its five
+OSM layers in the cache, or has no recorded extract timestamp in osm-bake.log, or an extract
+older than 90 days; it lists each tile with the reason and the osm-fetch / osm-bake commands
+that fix it (rules and code: ops/bin/osm-fetch). --force submits anyway; --osm-check runs just
+the check (exit 1 on failure).
+
 --group ID composes and submits only that group.
 
 --submit also keeps the books (ops/ledger/<name>/<region_code>-r<rev>.toml: the exact spec,
@@ -32,6 +38,8 @@ Query with ops/bin/oxo-whence <tile>.
 import argparse
 import copy
 import datetime
+import importlib.machinery
+import importlib.util
 import json
 import re
 import subprocess
@@ -43,11 +51,24 @@ from dataclasses import dataclass
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
+
+
+def _load_sibling(name):
+    path = Path(__file__).resolve().with_name(name)
+    loader = importlib.machinery.SourceFileLoader(name.replace("-", "_"), str(path))
+    mod = importlib.util.module_from_spec(importlib.util.spec_from_loader(loader.name, loader))
+    loader.exec_module(mod)
+    return mod
+
+
+osm_fetch = _load_sibling("osm-fetch")  # the pre-build OSM check lives there
 BASELINE = REPO / "docs/examples/example-region.toml"
 HOUSE = REPO / "ops/profiles/house.toml"
 LEDGER = REPO / "ops/ledger"
 ADOPTED = REPO / "ops/adopted"
 DEM = Path("/mnt/xplane_data/oxo/dem")
+OSM_CACHE = osm_fetch.OSM_CACHE
+OSM_PBF_DIR = osm_fetch.PBF_DIR
 PATCHES = REPO / "ops/patches"
 IMAGE = "localhost/oxo-worker:dev"
 REGION_CODE = re.compile(r"^[A-Z0-9-]{1,512}$")  # oxo-spec is_well_formed_region_code
@@ -351,6 +372,21 @@ def submit(specs, overrides, url, env, states=None):
     print("commit ops/ledger/ now: git add ops/ledger && git commit")
 
 
+def osm_report(specs, now=None):
+    """Lines naming every tile of the specs whose OSM data is missing or outdated, with the
+    commands that fix it; empty when all is ready (ops/bin/osm-fetch has the rules)."""
+    now = now or datetime.datetime.now(datetime.timezone.utc)
+    tiles = [t for s in specs for t in s["tiles"]]
+    return osm_fetch.preflight(tiles, OSM_CACHE, osm_fetch.LEDGER, OSM_PBF_DIR, now,
+                               lambda: osm_fetch.regions(osm_fetch.load_index(OSM_PBF_DIR, now)))
+
+
+def osm_gate(specs):
+    lines = osm_report(specs)
+    if lines:
+        raise ComposeError("OSM data not ready (--force submits anyway):\n  " + "\n  ".join(lines))
+
+
 def load(path):
     with open(path, "rb") as f:
         return tomllib.load(f)
@@ -363,6 +399,8 @@ def main():
     p.add_argument("--submit", metavar="URL", help="POST each spec to oxo-controld, e.g. http://127.0.0.1:8080")
     p.add_argument("--group", metavar="ID", help="only this group (its id, else its 1-based position)")
     p.add_argument("--legacy", action="store_true", help="show the keep-or-default state per group")
+    p.add_argument("--osm-check", action="store_true", help="check the OSM cache for every tile, submit nothing")
+    p.add_argument("--force", action="store_true", help="submit although the OSM check fails")
     a = p.parse_args()
     try:
         layers = load(BASELINE), load(HOUSE), load(a.package)
@@ -382,8 +420,13 @@ def main():
             if open_:
                 raise ComposeError("undecided legacy values (see --legacy), decide them in [group.legacy]:\n  "
                                    + "\n  ".join(open_))
+            if not a.force:
+                osm_gate(specs)
             submit(specs, overrides, a.submit, gather_env(), states)
-        if not (a.out or a.submit or a.legacy):
+        if a.osm_check:
+            osm_gate(specs)
+            print(f"OSM data ready for {sum(len(s['tiles']) for s in specs)} tiles")
+        if not (a.out or a.submit or a.legacy or a.osm_check):
             print("\n# ---\n".join(to_toml(s) for s in specs), end="")
     except (OSError, tomllib.TOMLDecodeError, ComposeError, KeyError, subprocess.CalledProcessError) as e:
         sys.exit(f"oxo-compose: {e}")

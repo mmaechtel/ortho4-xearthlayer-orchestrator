@@ -356,6 +356,99 @@ class SubmitRefusal(unittest.TestCase):
         self.assertIn("duplicate region_code EU-PILOT-1", msg)
 
 
+class OsmGate(unittest.TestCase):
+    """The pre-build OSM check (#16): refuses --submit before any request unless --force."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.cache = Path(self.tmp.name) / "cache"
+        self.cache.mkdir()
+        self.saved = (oxo_compose.OSM_CACHE, oxo_compose.osm_fetch.load_index)
+        oxo_compose.OSM_CACHE = self.cache
+        oxo_compose.osm_fetch.load_index = lambda d, now: {"features": []}  # never the network
+        self.hits = []
+        hits = self.hits
+
+        class Handler(http.server.BaseHTTPRequestHandler):
+            def do_POST(self):
+                hits.append(self.path)
+                self.send_response(500)
+                self.end_headers()
+
+            def log_message(self, *a):
+                pass
+
+        self.server = http.server.HTTPServer(("127.0.0.1", 0), Handler)
+        threading.Thread(target=self.server.serve_forever, daemon=True).start()
+
+    def tearDown(self):
+        oxo_compose.OSM_CACHE, oxo_compose.osm_fetch.load_index = self.saved
+        self.server.shutdown()
+        self.server.server_close()
+        self.tmp.cleanup()
+
+    def run_main(self, *flags, package=PACKAGE.replace('+48+', '+10+')):
+        pkg = Path(self.tmp.name) / "pkg.toml"
+        pkg.write_text(package)
+        argv = sys.argv
+        sys.argv = ["oxo-compose", str(pkg), *flags]
+        out = io.StringIO()
+        try:
+            with contextlib.redirect_stdout(out):
+                try:
+                    oxo_compose.main()
+                    msg = ""
+                except SystemExit as e:
+                    msg = str(e)
+        finally:
+            sys.argv = argv
+        return out.getvalue(), msg
+
+    def url(self):
+        return f"http://127.0.0.1:{self.server.server_port}"
+
+    def fill(self, tile, extract="2026-10-22T20:21:33Z"):
+        lat, lon = int(tile[:3]), int(tile[3:])
+        for layer in oxo_compose.osm_fetch.osm_bake.LAYERS:
+            p = oxo_compose.osm_fetch.osm_bake.layer_path(self.cache, lat, lon, layer)
+            p.parent.mkdir(parents=True, exist_ok=True)
+            p.write_bytes(b"x")
+        with open(self.cache / "osm-bake.log", "a") as f:
+            f.write(f"{tile}\t{extract}\tx.osm.pbf\t2026-10-23T10:00:00Z\n")
+
+    def test_submit_is_refused_without_osm_data_and_makes_no_request(self):
+        _, msg = self.run_main("--submit", self.url())
+        self.assertEqual(self.hits, [])
+        for tile in ("+10+010", "+10+011", "+10+012"):
+            self.assertIn(f"{tile}: layers missing", msg)
+        self.assertIn("--force", msg)
+
+    def test_only_the_selected_group_counts(self):
+        self.fill("+10+012")
+        _, msg = self.run_main("--submit", self.url(), "--group", "sand")
+        self.assertNotIn("OSM", msg)  # gate passed; whatever stops it later is not OSM
+        self.assertNotIn("layers missing", msg)
+
+    def test_force_skips_the_check(self):
+        _, msg = self.run_main("--submit", self.url(), "--force")
+        self.assertNotIn("layers missing", msg)
+
+    def test_osm_check_reports_without_submitting(self):
+        _, msg = self.run_main("--osm-check")
+        self.assertIn("+10+010: layers missing", msg)
+        self.assertEqual(self.hits, [])
+
+    def test_osm_check_passes_quietly_when_everything_is_ready(self):
+        for t in ("+10+010", "+10+011", "+10+012"):
+            self.fill(t)
+        # a fixed 'now' is not injectable here, so use an extract that cannot age out
+        text = (self.cache / "osm-bake.log").read_text().replace("2026-10-22T20:21:33Z", "2099-01-01T00:00:00Z")
+        (self.cache / "osm-bake.log").write_text(text)
+        out, msg = self.run_main("--osm-check")
+        self.assertEqual(msg, "")
+        self.assertIn("3 tiles", out)
+
+
 class Ledger(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()

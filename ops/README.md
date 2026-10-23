@@ -14,6 +14,7 @@ Why it looks like this: `docs/plans/2026-10-23-own-package-production.md`.
 | `ops/worker-pod.yaml` | Worker pod with this host's paths; `worker-pod-2..6.yaml` are its copies for workers 2–6. |
 | `ops/bin/import-dem` | Flat `.hgt` → `Elevation_data` layout (btrfs reflinks). |
 | `ops/bin/osm-bake` | Geofabrik `.osm.pbf` → per-tile OSM layers in the OSM cache (needs `osmium-tool`), see below. |
+| `ops/bin/osm-fetch` | Geofabrik extracts: download + MD5 check + ledger line (`ops/ledger/osm-extracts.tsv`), `--check` for newer ones, `--which TILE...` for the region covering a tile; also the pre-build check behind `oxo-compose --submit`, see below. |
 | `ops/bin/oxo-package` | Delivered tiles → `~/.local/share/xearthlayer/packages/zzXEL_<name>_ortho/`. |
 | `ops/ledger/<package>/` | The books: one `<region_code>-r<rev>.toml` per submitted job, `installs.log`. Committed. |
 | `ops/bin/oxo-whence <tile>` | How a tile was built: builds newest first, commits, DEM, patches, deviations from samsoir, installs; last the adoption record. A ledger entry's `[provenance.built]` (shown as "built with:") records what differed at build time from the submit-time provenance. |
@@ -105,6 +106,23 @@ ops/bin/osm-bake --pbf ... --out ... --tile 53 -3
 ```
 
 Existing layers are skipped. `osm-cache/osm-bake.log` gets one line per baked tile: tile, extract timestamp (from the PBF header), PBF name, bake time.
+
+## Fetching extracts and the pre-build OSM check
+
+```sh
+ops/bin/osm-fetch great-britain       # or us/texas: .osm.pbf + .poly into /mnt/xplane_data/oxo/osm-pbf, MD5-verified
+ops/bin/osm-fetch --check             # per ledger region: local vs. Geofabrik timestamp, newer extract or not (no download)
+ops/bin/osm-fetch --which +53-003 +49+006   # smallest Geofabrik region wholly containing each tile
+```
+
+The file is named `<region>-<YYMMDD>.osm.pbf` after the PBF header's `osmosis_replication_timestamp`. `ops/ledger/osm-extracts.tsv` (committed, no header) gets one tab-separated line per fetch: region id, file, replication timestamp, md5, fetched at (UTC). Freshness comes from `<region>-updates/state.txt`, not from the `-latest` redirect. Geofabrik's `index-v1.json` is cached next to the PBFs for a day. "Smallest" is by polygon area in square degrees, so the answer can be a region other than the one you have fetched (`united-kingdom` before `great-britain`); the check below prefers an extract already in the ledger.
+
+Before anything is posted, `oxo-compose … --submit` checks every tile of the specs being submitted and refuses (`--osm-check` runs only the check, exit 1 on failure; `--force` submits anyway):
+
+- all five layers exist in `/mnt/xplane_data/oxo/osm-cache`, and
+- `osm-bake.log` has an entry for the tile (newest line wins) whose extract timestamp is at most 90 days old. No entry or an `unknown` timestamp counts as outdated — that is every tile copied from the old disk and everything workers fetched from Overpass.
+
+Each failing tile is listed with its reason, followed by the fix: `osm-fetch <region>` when no fresh extract on disk covers it, then `osm-bake --pbf … --tile LAT LON --force`. A re-bake always takes the whole tile (all five layers together), so one tile never mixes Overpass and Geofabrik layers. Offline, the reasons still come out, without the commands.
 
 ## Settings: three layers
 
