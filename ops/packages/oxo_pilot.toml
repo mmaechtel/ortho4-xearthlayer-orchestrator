@@ -5,7 +5,7 @@
 [metadata]
 name = "oxo_pilot"         # -> zzXEL_oxo_pilot_ortho
 region_code = "EU-PILOT"   # job identity with revision; bump revision to rebuild
-revision = 2
+revision = 3
 
 [target]
 root = "/mnt/xplane_data/oxo/artifacts/oxo_pilot"
