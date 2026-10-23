@@ -46,7 +46,11 @@ make image
 ```sh
 # 1. Control plane. 0.0.0.0 so pods reach it via host.containers.internal;
 #    the API has no auth — keep the port off untrusted networks.
-cargo run --release -p oxo-controld -- \
+#    As a user unit, so it outlives the terminal (logs: journalctl --user -u oxo-controld;
+#    stop: systemctl --user stop oxo-controld).
+cargo build --release -p oxo-controld
+systemd-run --user --unit oxo-controld --property=Restart=on-failure \
+  "$PWD/target/release/oxo-controld" \
   --database-url postgres://postgres:oxo@127.0.0.1:55433/postgres --bind 0.0.0.0:8080
 
 # 2. Package file: copy ops/packages/oxo_pilot.toml, set metadata (own
