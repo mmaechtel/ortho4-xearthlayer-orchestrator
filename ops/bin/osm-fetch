@@ -1,0 +1,163 @@
+#!/usr/bin/env python3
+"""Fetch Geofabrik OSM extracts, keep the books on them, and check tiles against them.
+
+    osm-fetch <region-id>          download <region>-latest.osm.pbf (+ .poly), verify its MD5,
+                                   append it to the ledger; e.g. great-britain, us/texas
+    osm-fetch --check              newest ledger extract per region vs. Geofabrik's state.txt
+    osm-fetch --which TILE...      smallest Geofabrik region wholly containing each 1x1 tile
+
+Files land in /mnt/xplane_data/oxo/osm-pbf (--dir) as <region>-<YYMMDD>.osm.pbf, the date being
+the PBF header's osmosis_replication_timestamp. The ledger ops/ledger/osm-extracts.tsv has one
+tab-separated line per fetch, no header: region id, file, replication timestamp, md5, fetched at
+(UTC). Region metadata and geometry come from Geofabrik's index-v1.json, cached in --dir for a day.
+
+Freshness is read from <region>-updates/state.txt, never from the -latest redirect (germany and
+europe redirect to a mirror without a date in the name).
+
+An extract is outdated after 90 days (MAX_AGE_DAYS, not an option); a tile with no recorded
+extract timestamp is outdated too. `preflight` is the pre-build check oxo-compose runs before
+--submit.
+"""
+import argparse
+import hashlib
+import importlib.machinery
+import importlib.util
+import json
+import os
+import re
+import subprocess
+import sys
+import time
+import urllib.request
+from dataclasses import dataclass
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
+
+REPO = Path(__file__).resolve().parents[2]
+LEDGER = REPO / "ops/ledger/osm-extracts.tsv"
+PBF_DIR = Path("/mnt/xplane_data/oxo/osm-pbf")
+OSM_CACHE = Path("/mnt/xplane_data/oxo/osm-cache")
+INDEX_URL = "https://download.geofabrik.de/index-v1.json"
+MAX_AGE_DAYS = 90
+INDEX_MAX_AGE = 24 * 3600
+TS_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
+
+
+def _load_bake():
+    path = Path(__file__).resolve().with_name("osm-bake")
+    loader = importlib.machinery.SourceFileLoader("osm_bake", str(path))
+    mod = importlib.util.module_from_spec(importlib.util.spec_from_loader("osm_bake", loader))
+    loader.exec_module(mod)
+    return mod
+
+
+osm_bake = _load_bake()  # the tile-inside-polygon logic and the cache layout live there
+
+
+class FetchError(Exception):
+    pass
+
+
+def parse_tile(name):
+    m = re.fullmatch(r"([+-]\d{2})([+-]\d{3})", name)
+    if not m:
+        raise ValueError(f"not a tile name like +53-003: {name!r}")
+    return int(m.group(1)), int(m.group(2))
+
+
+def file_stem(region_id):
+    return region_id.replace("/", "-")
+
+
+# --- Geofabrik index: regions and their geometry ---
+
+@dataclass
+class Region:
+    id: str
+    pbf: str
+    updates: str
+    rings: list  # osm_bake ring format: [(is_hole, [(lon, lat), ...]), ...]
+    bbox: tuple  # west, south, east, north
+    area: float  # square degrees: good enough to order nested regions
+
+
+def _shoelace(pts):
+    return abs(sum(a[0] * b[1] - b[0] * a[1] for a, b in zip(pts, pts[1:] + pts[:1]))) / 2
+
+
+def regions(index):
+    out = []
+    for f in index["features"]:
+        urls = f["properties"].get("urls", {})
+        if "pbf" not in urls:
+            continue
+        rings, area = [], 0.0
+        for polygon in f["geometry"]["coordinates"]:
+            for n, ring in enumerate(polygon):
+                pts = [(p[0], p[1]) for p in ring[:-1]]  # GeoJSON closes the ring
+                rings.append((n > 0, pts))
+                area += -_shoelace(pts) if n else _shoelace(pts)
+        outer = [p for hole, pts in rings if not hole for p in pts]
+        bbox = (min(p[0] for p in outer), min(p[1] for p in outer),
+                max(p[0] for p in outer), max(p[1] for p in outer))
+        out.append(Region(f["properties"]["id"], urls["pbf"], urls.get("updates", ""), rings, bbox, area))
+    return out
+
+
+def containing(regs, lat, lon):
+    """Regions wholly containing the tile, smallest first."""
+    for r in sorted(regs, key=lambda r: r.area):
+        w, s, e, n = r.bbox
+        if w <= lon and lon + 1 <= e and s <= lat and lat + 1 <= n and osm_bake.tile_inside(r.rings, lat, lon):
+            yield r
+
+
+def which(regs, lat, lon):
+    return next(containing(regs, lat, lon), None)
+
+
+# --- the books: ops/ledger/osm-extracts.tsv ---
+
+@dataclass
+class Extract:
+    region: str
+    file: str
+    timestamp: datetime
+    md5: str
+    fetched: str
+
+
+def parse_ts(text):
+    return datetime.strptime(text, TS_FORMAT).replace(tzinfo=timezone.utc)
+
+
+def is_fresh(timestamp, now):
+    return now - timestamp <= timedelta(days=MAX_AGE_DAYS)
+
+
+def read_ledger(path):
+    if not Path(path).exists():
+        return []
+    rows = [line.split("\t") for line in Path(path).read_text().splitlines() if line.strip()]
+    return [Extract(r[0], r[1], parse_ts(r[2]), r[3], r[4]) for r in rows]
+
+
+def append_ledger(path, region, file, timestamp, md5, fetched):
+    with open(path, "a") as f:
+        f.write(f"{region}\t{file}\t{timestamp}\t{md5}\t{fetched}\n")
+
+
+def newest(entries):
+    """The extract with the latest replication timestamp, per region."""
+    out = {}
+    for e in entries:
+        if e.region not in out or e.timestamp >= out[e.region].timestamp:
+            out[e.region] = e
+    return out
+
+
+def parse_state(text):
+    m = re.search(r"^timestamp=(\S+)$", text, re.M)
+    if not m:
+        raise FetchError("state.txt has no timestamp line")
+    return parse_ts(m.group(1).replace("\\", ""))
