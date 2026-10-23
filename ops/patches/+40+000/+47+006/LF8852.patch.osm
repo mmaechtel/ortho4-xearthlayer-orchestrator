@@ -1,0 +1,25 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<osm version='0.6' generator='JOSM'>
+  <node id='-29199' action='modify' visible='true' lat='47.95883556458' lon='6.54240130842' />
+  <node id='-29200' action='modify' visible='true' lat='47.95878527153' lon='6.54211699426' />
+  <node id='-29201' action='modify' visible='true' lat='47.95859667212' lon='6.54170661628' />
+  <node id='-29202' action='modify' visible='true' lat='47.95837574052' lon='6.54140084445' />
+  <node id='-29203' action='modify' visible='true' lat='47.95825898766' lon='6.54136865795' />
+  <node id='-29204' action='modify' visible='true' lat='47.95823563706' lon='6.54154568374' />
+  <node id='-29205' action='modify' visible='true' lat='47.95828233826' lon='6.54246031702' />
+  <node id='-29206' action='modify' visible='true' lat='47.95830030024' lon='6.54271512687' />
+  <node id='-29207' action='modify' visible='true' lat='47.95862541112' lon='6.54257296979' />
+  <way id='-1442' action='modify' visible='true'>
+    <nd ref='-29199' />
+    <nd ref='-29200' />
+    <nd ref='-29201' />
+    <nd ref='-29202' />
+    <nd ref='-29203' />
+    <nd ref='-29204' />
+    <nd ref='-29205' />
+    <nd ref='-29206' />
+    <nd ref='-29207' />
+    <nd ref='-29199' />
+    <tag k='altitude' v='634.5936' />
+  </way>
+</osm>

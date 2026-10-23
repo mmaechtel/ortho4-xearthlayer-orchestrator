@@ -1,0 +1,30 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<osm version='0.6' generator='JOSM'>
+  <node id='-33260' action='modify' visible='true' lat='44.10618483778' lon='6.9409017757' />
+  <node id='-33261' action='modify' visible='true' lat='44.10822511506' lon='6.93724094235' />
+  <node id='-33262' action='modify' visible='true' lat='44.10791091879' lon='6.9369013008' />
+  <node id='-33263' action='modify' visible='true' lat='44.10587063066' lon='6.94056213416' />
+  <node id='-33282' action='modify' visible='true' lat='44.1061760987' lon='6.94211235498' />
+  <node id='-33283' action='modify' visible='true' lat='44.10658791315' lon='6.94132081692' />
+  <node id='-33284' action='modify' visible='true' lat='44.10582483574' lon='6.94051936831' />
+  <node id='-33285' action='modify' visible='true' lat='44.10539917292' lon='6.94126564408' />
+  <way id='-2588' action='modify' visible='true'>
+    <nd ref='-33260' />
+    <nd ref='-33261' />
+    <nd ref='-33262' />
+    <nd ref='-33263' />
+    <nd ref='-33260' />
+    <tag k='altitude_high' v='1765' />
+    <tag k='altitude_low' v='1740' />
+    <tag k='profile' v='atanh' />
+  </way>
+  <way id='-2646' action='modify' visible='true'>
+    <nd ref='-33282' />
+    <nd ref='-33283' />
+    <nd ref='-33284' />
+    <nd ref='-33285' />
+    <nd ref='-33282' />
+    <tag k='altitude_high' v='1765.5' />
+    <tag k='altitude_low' v='1765' />
+  </way>
+</osm>

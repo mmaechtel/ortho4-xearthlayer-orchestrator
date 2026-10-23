@@ -1,0 +1,126 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<osm version='0.6' generator='JOSM'>
+  <node id='-34613' action='modify' visible='true' lat='44.42297124391' lon='5.64401902032'>
+    <tag k='profile' v='atanh' />
+    <tag k='steepness' v='0.25' />
+  </node>
+  <node id='-34614' action='modify' visible='true' lat='44.42094909492' lon='5.64236640446'>
+    <tag k='profile' v='atanh' />
+    <tag k='steepness' v='0.25' />
+  </node>
+  <node id='-34615' action='modify' visible='true' lat='44.42082125167' lon='5.64267560529'>
+    <tag k='profile' v='atanh' />
+    <tag k='steepness' v='0.25' />
+  </node>
+  <node id='-34616' action='modify' visible='true' lat='44.42284915193' lon='5.64435772545'>
+    <tag k='profile' v='atanh' />
+    <tag k='steepness' v='0.25' />
+  </node>
+  <node id='-34621' action='modify' visible='true' lat='44.42294231075' lon='5.64443930849'>
+    <tag k='profile' v='atanh' />
+    <tag k='steepness' v='0.25' />
+  </node>
+  <node id='-34622' action='modify' visible='true' lat='44.42301893524' lon='5.64452379808'>
+    <tag k='profile' v='atanh' />
+    <tag k='steepness' v='0.25' />
+  </node>
+  <node id='-34623' action='modify' visible='true' lat='44.42314153421' lon='5.64454525575'>
+    <tag k='profile' v='atanh' />
+    <tag k='steepness' v='0.25' />
+  </node>
+  <node id='-34624' action='modify' visible='true' lat='44.4232018758' lon='5.64447820053'>
+    <tag k='profile' v='atanh' />
+    <tag k='steepness' v='0.25' />
+  </node>
+  <node id='-34625' action='modify' visible='true' lat='44.42325647052' lon='5.64421936736'>
+    <tag k='profile' v='atanh' />
+    <tag k='steepness' v='0.25' />
+  </node>
+  <node id='-34626' action='modify' visible='true' lat='44.42337140659' lon='5.64394309983'>
+    <tag k='profile' v='atanh' />
+    <tag k='steepness' v='0.25' />
+  </node>
+  <node id='-34627' action='modify' visible='true' lat='44.42333692579' lon='5.64368158445'>
+    <tag k='profile' v='atanh' />
+    <tag k='steepness' v='0.25' />
+  </node>
+  <node id='-34628' action='modify' visible='true' lat='44.42317793073' lon='5.64360514149'>
+    <tag k='profile' v='atanh' />
+    <tag k='steepness' v='0.25' />
+  </node>
+  <node id='-34629' action='modify' visible='true' lat='44.42310226426' lon='5.64373791084'>
+    <tag k='profile' v='atanh' />
+    <tag k='steepness' v='0.25' />
+  </node>
+  <node id='-34630' action='modify' visible='true' lat='44.42307736134' lon='5.64395651087'>
+    <tag k='profile' v='atanh' />
+    <tag k='steepness' v='0.25' />
+  </node>
+  <node id='-34631' action='modify' visible='true' lat='44.42309172841' lon='5.64405709371'>
+    <tag k='profile' v='atanh' />
+    <tag k='steepness' v='0.25' />
+  </node>
+  <node id='-34642' action='modify' visible='true' lat='44.42307448793' lon='5.64455732569'>
+    <tag k='profile' v='atanh' />
+    <tag k='steepness' v='0.25' />
+  </node>
+  <node id='-34655' action='modify' visible='true' lat='44.42330148717' lon='5.64405843481'>
+    <tag k='profile' v='atanh' />
+    <tag k='steepness' v='0.25' />
+  </node>
+  <node id='-34685' action='modify' visible='true' lat='44.42336757539' lon='5.64379960164'>
+    <tag k='profile' v='atanh' />
+    <tag k='steepness' v='0.25' />
+  </node>
+  <node id='-34698' action='modify' visible='true' lat='44.42326700633' lon='5.64361989364'>
+    <tag k='profile' v='atanh' />
+    <tag k='steepness' v='0.25' />
+  </node>
+  <node id='-34720' action='modify' visible='true' lat='44.42312142034' lon='5.64365610346'>
+    <tag k='profile' v='atanh' />
+    <tag k='steepness' v='0.25' />
+  </node>
+  <node id='-34732' action='modify' visible='true' lat='44.42307448793' lon='5.64384788141'>
+    <tag k='profile' v='atanh' />
+    <tag k='steepness' v='0.25' />
+  </node>
+  <node id='-34770' action='modify' visible='true' lat='44.42337619559' lon='5.64387336239'>
+    <tag k='profile' v='atanh' />
+    <tag k='steepness' v='0.25' />
+  </node>
+  <way id='-2826' action='modify' visible='true'>
+    <nd ref='-34613' />
+    <nd ref='-34614' />
+    <nd ref='-34615' />
+    <nd ref='-34616' />
+    <nd ref='-34613' />
+    <tag k='altitude_high' v='841.248' />
+    <tag k='altitude_low' v='808.3296' />
+    <tag k='cell_size' v='2' />
+    <tag k='profile' v='atanh' />
+  </way>
+  <way id='-2855' action='modify' visible='true'>
+    <nd ref='-34621' />
+    <nd ref='-34622' />
+    <nd ref='-34642' />
+    <nd ref='-34623' />
+    <nd ref='-34624' />
+    <nd ref='-34625' />
+    <nd ref='-34655' />
+    <nd ref='-34626' />
+    <nd ref='-34770' />
+    <nd ref='-34685' />
+    <nd ref='-34627' />
+    <nd ref='-34698' />
+    <nd ref='-34628' />
+    <nd ref='-34720' />
+    <nd ref='-34629' />
+    <nd ref='-34732' />
+    <nd ref='-34630' />
+    <nd ref='-34631' />
+    <nd ref='-34621' />
+    <tag k='altitude' v='841.8' />
+    <tag k='profile' v='atanh' />
+    <tag k='steepness' v='0.25' />
+  </way>
+</osm>

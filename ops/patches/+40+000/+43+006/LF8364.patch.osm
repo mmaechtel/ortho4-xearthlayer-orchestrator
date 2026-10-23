@@ -1,0 +1,16 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<osm version='0.6' generator='JOSM'>
+  <node id='-31185' action='modify' visible='true' lat='43.53657163538' lon='6.31881772935' />
+  <node id='-31186' action='modify' visible='true' lat='43.53753995214' lon='6.31917178094' />
+  <node id='-31187' action='modify' visible='true' lat='43.5374271771' lon='6.31976186693' />
+  <node id='-31188' action='modify' visible='true' lat='43.5364510808' lon='6.31944000185' />
+  <way id='-1731' action='modify' visible='true'>
+    <nd ref='-31185' />
+    <nd ref='-31186' />
+    <nd ref='-31187' />
+    <nd ref='-31188' />
+    <nd ref='-31185' />
+    <tag k='altitude_high' v='372' />
+    <tag k='altitude_low' v='371.15' />
+  </way>
+</osm>

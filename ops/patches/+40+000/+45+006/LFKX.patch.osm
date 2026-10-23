@@ -1,0 +1,30 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<osm version='0.6' generator='JOSM'>
+  <node id='-31884' action='modify' visible='true' lat='45.40608357543' lon='6.57869416817' />
+  <node id='-31885' action='modify' visible='true' lat='45.40942990809' lon='6.57645305019' />
+  <node id='-31886' action='modify' visible='true' lat='45.40936497838' lon='6.57625634485' />
+  <node id='-31887' action='modify' visible='true' lat='45.40601864187' lon='6.57849746283' />
+  <node id='-31908' action='modify' visible='true' lat='45.40595268353' lon='6.57830963022' />
+  <node id='-31909' action='modify' visible='true' lat='45.40608376671' lon='6.57869835652' />
+  <node id='-31910' action='modify' visible='true' lat='45.40590826482' lon='6.57880937436' />
+  <node id='-31911' action='modify' visible='true' lat='45.4057833014' lon='6.57841763058' />
+  <node id='-31922' action='modify' visible='true' lat='45.40601639139' lon='6.57849144157' />
+  <way id='-2284' action='modify' visible='true'>
+    <nd ref='-31884' />
+    <nd ref='-31885' />
+    <nd ref='-31886' />
+    <nd ref='-31887' />
+    <nd ref='-31884' />
+    <tag k='altitude_high' v='1717.27' />
+    <tag k='altitude_low' v='1687' />
+  </way>
+  <way id='-2338' action='modify' visible='true'>
+    <nd ref='-31908' />
+    <nd ref='-31922' />
+    <nd ref='-31909' />
+    <nd ref='-31910' />
+    <nd ref='-31911' />
+    <nd ref='-31908' />
+    <tag k='altitude' v='1717.27' />
+  </way>
+</osm>

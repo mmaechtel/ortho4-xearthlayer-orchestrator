@@ -1,0 +1,41 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<osm version='0.6' generator='JOSM'>
+  <node id='-30663' action='modify' visible='true' lat='45.46367367396' lon='4.60779429136' />
+  <node id='-30664' action='modify' visible='true' lat='45.46503945078' lon='4.60686527246' />
+  <node id='-30665' action='modify' visible='true' lat='45.46495436261' lon='4.60660781443' />
+  <node id='-30666' action='modify' visible='true' lat='45.46357618554' lon='4.60743042721' />
+  <node id='-30673' action='modify' visible='true' lat='45.46356946284' lon='4.60742957622' />
+  <node id='-30674' action='modify' visible='true' lat='45.46346940637' lon='4.60742152959' />
+  <node id='-30675' action='modify' visible='true' lat='45.46332831585' lon='4.60748724371' />
+  <node id='-30676' action='modify' visible='true' lat='45.46325118622' lon='4.60778362781' />
+  <node id='-30680' action='modify' visible='true' lat='45.46367328154' lon='4.60779444046' />
+  <node id='-30709' action='modify' visible='true' lat='45.46358698058' lon='4.60799686477' />
+  <node id='-30769' action='modify' visible='true' lat='45.46332737431' lon='4.60800491139' />
+  <node id='-30780' action='modify' visible='true' lat='45.46363118878' lon='4.60789762303' />
+  <node id='-30801' action='modify' visible='true' lat='45.46347787084' lon='4.60805319116' />
+  <node id='-30809' action='modify' visible='true' lat='45.46323519498' lon='4.60764013097' />
+  <way id='-1911' action='modify' visible='true'>
+    <nd ref='-30663' />
+    <nd ref='-30664' />
+    <nd ref='-30665' />
+    <nd ref='-30666' />
+    <nd ref='-30663' />
+    <tag k='altitude_high' v='759' />
+    <tag k='altitude_low' v='748' />
+    <tag k='profile' v='atanh' />
+  </way>
+  <way id='-1914' action='modify' visible='true'>
+    <nd ref='-30673' />
+    <nd ref='-30674' />
+    <nd ref='-30675' />
+    <nd ref='-30809' />
+    <nd ref='-30676' />
+    <nd ref='-30769' />
+    <nd ref='-30801' />
+    <nd ref='-30709' />
+    <nd ref='-30780' />
+    <nd ref='-30680' />
+    <nd ref='-30673' />
+    <tag k='altitude' v='759' />
+  </way>
+</osm>

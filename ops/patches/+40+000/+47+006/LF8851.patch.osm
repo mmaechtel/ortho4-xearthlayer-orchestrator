@@ -1,0 +1,23 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<osm version='0.6' generator='JOSM'>
+  <node id='-28993' action='modify' visible='true' lat='47.89552121408' lon='6.75187144361'>
+    <tag k='description' v='bottom of runway' />
+  </node>
+  <node id='-29000' action='modify' visible='true' lat='47.89572622898' lon='6.75718154691'>
+    <tag k='description' v='top of runway' />
+  </node>
+  <node id='-29001' action='modify' visible='true' lat='47.89582497' lon='6.75716884303' />
+  <node id='-29002' action='modify' visible='true' lat='47.8956556178' lon='6.75184704842' />
+  <node id='-29003' action='modify' visible='true' lat='47.89539684955' lon='6.75186536599' />
+  <node id='-29004' action='modify' visible='true' lat='47.8955662026' lon='6.75718716061' />
+  <way id='-1265' action='modify' visible='true'>
+    <nd ref='-29001' />
+    <nd ref='-29002' />
+    <nd ref='-29003' />
+    <nd ref='-29004' />
+    <nd ref='-29001' />
+    <tag k='altitude_high' v='580.95' />
+    <tag k='altitude_low' v='566.32' />
+    <tag k='profile' v='atanh' />
+  </way>
+</osm>

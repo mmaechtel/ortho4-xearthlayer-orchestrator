@@ -1,0 +1,55 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<osm version='0.6' generator='JOSM'>
+  <node id='-26466' action='modify' visible='true' lat='44.3659459297' lon='5.78729208806' />
+  <node id='-26467' action='modify' visible='true' lat='44.36413215863' lon='5.78528483923' />
+  <node id='-26468' action='modify' visible='true' lat='44.36397991846' lon='5.78555400094' />
+  <node id='-26469' action='modify' visible='true' lat='44.36579369424' lon='5.78756124977' />
+  <node id='-26474' action='modify' visible='true' lat='44.36627401381' lon='5.78749894962' />
+  <node id='-26475' action='modify' visible='true' lat='44.36615608932' lon='5.7872870551' />
+  <node id='-26476' action='modify' visible='true' lat='44.36580039696' lon='5.78781410918' />
+  <node id='-26477' action='modify' visible='true' lat='44.36637372213' lon='5.78826337919' />
+  <node id='-26478' action='modify' visible='true' lat='44.3664830176' lon='5.78784763679' />
+  <node id='-26493' action='modify' visible='true' lat='44.36642645243' lon='5.78776582941' />
+  <node id='-26503' action='modify' visible='true' lat='44.3662030674' lon='5.78736215696' />
+  <node id='-26517' action='modify' visible='true' lat='44.3663555062' lon='5.78768133983' />
+  <node id='-26526' action='modify' visible='true' lat='44.36651657318' lon='5.78793480858' />
+  <node id='-26539' action='modify' visible='true' lat='44.36651273826' lon='5.78800722823' />
+  <node id='-26545' action='modify' visible='true' lat='44.36648876999' lon='5.7881775485' />
+  <node id='-26554' action='modify' visible='true' lat='44.36643220482' lon='5.78824192151' />
+  <node id='-26580' action='modify' visible='true' lat='44.36626634393' lon='5.78746676311' />
+  <node id='-26590' action='modify' visible='true' lat='44.36629702344' lon='5.78759416804' />
+  <node id='-26627' action='modify' visible='true' lat='44.36607363888' lon='5.78807562321' />
+  <node id='-26635' action='modify' visible='true' lat='44.36622895422' lon='5.78822582692' />
+  <node id='-26673' action='modify' visible='true' lat='44.36650027476' lon='5.78788652882' />
+  <way id='-797' action='modify' visible='true'>
+    <nd ref='-26466' />
+    <nd ref='-26467' />
+    <nd ref='-26468' />
+    <nd ref='-26469' />
+    <nd ref='-26466' />
+    <tag k='altitude_high' v='722' />
+    <tag k='altitude_low' v='710' />
+    <tag k='profile' v='atanh' />
+  </way>
+  <way id='-851' action='modify' visible='true'>
+    <nd ref='-26474' />
+    <nd ref='-26580' />
+    <nd ref='-26503' />
+    <nd ref='-26475' />
+    <nd ref='-26476' />
+    <nd ref='-26627' />
+    <nd ref='-26635' />
+    <nd ref='-26477' />
+    <nd ref='-26554' />
+    <nd ref='-26545' />
+    <nd ref='-26539' />
+    <nd ref='-26526' />
+    <nd ref='-26673' />
+    <nd ref='-26478' />
+    <nd ref='-26493' />
+    <nd ref='-26517' />
+    <nd ref='-26590' />
+    <nd ref='-26474' />
+    <tag k='altitude' v='722' />
+  </way>
+</osm>
