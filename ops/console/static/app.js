@@ -508,12 +508,12 @@ function summary(m) {
   $("summary").textContent = `${active} aktive Jobs · ${n("pending")} in der Queue · ${busy}/${m.s.workers.length} Worker beschäftigt`;
 }
 
-/* ---------- clipped lists: queue and job strip show their first CLIP entries ---------- */
-const CLIP = 10, expanded = { q: false, jobs: false };
+/* ---------- clipped lists: the chip columns and the job strip show their first CLIP entries ---------- */
+const CLIP = 10, expanded = { q: false, d: false, p: false, jobs: false };
 try { Object.assign(expanded, JSON.parse(localStorage.getItem("oxo-console-expanded"))); } catch { /* defaults: clipped */ }
 function clip() {
   for (const c of chips.values()) c.hidden = false; // chips move between columns
-  const lists = { q: [...$("q").querySelectorAll(".tok")], jobs: [...$("jobs").children] };
+  const lists = { q: [...$("q").querySelectorAll(".tok")], d: [...$("d").querySelectorAll(".tok")], p: [...$("p").querySelectorAll(".tok")], jobs: [...$("jobs").children] };
   for (const [k, items] of Object.entries(lists)) {
     const over = items.length - CLIP, b = $("m" + k);
     items.forEach((x, i) => { x.hidden = !expanded[k] && i >= CLIP; });
@@ -521,8 +521,10 @@ function clip() {
     b.textContent = expanded[k] ? "weniger ▴" : `+${over} weitere ▾`;
     b.setAttribute("aria-expanded", String(expanded[k]));
   }
-  for (const g of $("q").children) g.hidden = !g.querySelector(".tok:not([hidden])");
-  $("q").parentNode.classList.toggle("dense", lists.q.length >= 40 && expanded.q);
+  for (const k of ["q", "d", "p"]) { // chip columns: hide emptied groups, dots only when expanded
+    for (const g of $(k).children) g.hidden = !g.querySelector(".tok:not([hidden])");
+    $(k).parentNode.classList.toggle("dense", lists[k].length >= 40 && expanded[k]);
+  }
 }
 
 /* ---------- poll ---------- */

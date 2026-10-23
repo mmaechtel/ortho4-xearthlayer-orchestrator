@@ -28,7 +28,6 @@ STATES = ("pending", "claimed", "succeeded", "abandoned")
 LOG_LINES = 20000  # must reach back to the claim line; one ZL16 ortho task logs ~790 lines
 
 PSQL = ["podman", "exec", "oxo-pg", "psql", "-U", "postgres", "-At", "--csv", "-c"]
-JOBS_WHERE = "SELECT id FROM jobs ORDER BY created_at DESC LIMIT 50"
 
 
 def ts(col):
@@ -36,10 +35,10 @@ def ts(col):
 
 
 JOBS_SQL = (f"SELECT id, region_code, revision, max_attempts, {ts('created_at')} "
-            "FROM jobs ORDER BY created_at DESC LIMIT 50")
+            "FROM jobs ORDER BY created_at DESC")
 TASKS_SQL = (f"SELECT id, job_id, tile, task_type, state, attempts, claimed_by, "
              f"{ts('claimed_at')}, {ts('last_heartbeat_at')}, last_failure "
-             f"FROM tasks WHERE job_id IN ({JOBS_WHERE}) ORDER BY tile")
+             "FROM tasks ORDER BY tile")
 
 ANSI = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")
 CLAIMED = re.compile(r"oxo_worker::run: claimed task (\S+) (\S+) (\S+) attempt (\d+)")
@@ -153,7 +152,7 @@ class Console:
                     out.append({"at": parts[0], "code": parts[1], "package": parts[2],
                                 "tiles": [t for t in parts[3].split(",") if t]})
         out.sort(key=lambda i: i["at"], reverse=True)
-        return out[:20]
+        return out
 
     def workers(self):
         try:

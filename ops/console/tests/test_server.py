@@ -225,7 +225,9 @@ class Jobs(Fixture):
             self.assertEqual(argv[:6], ["podman", "exec", "oxo-pg", "psql", "-U", "postgres"])
             self.assertIn("--csv", argv)
             self.assertTrue(argv[-1].lstrip().upper().startswith("SELECT"))
-            self.assertIn("LIMIT 50", argv[-1])
+            # every job: an old job can hold the only packaged tile (EDDM, #15);
+            # the page clips long lists itself
+            self.assertNotIn("LIMIT", argv[-1].upper())
 
 
 class Installs(Fixture):
@@ -237,10 +239,12 @@ class Installs(Fixture):
                                        "package": "zzXEL_oxo_pilot_ortho",
                                        "tiles": ["+48+010", "+48+011", "+48+012"]})
 
-    def test_installs_capped_at_20(self):
+    def test_installs_are_not_capped(self):
+        # every job is returned, so every install must be too: a package whose
+        # last install is old must still mark its tiles packaged
         write(self.ledger / "oxo_x" / "installs.log",
               "".join(f"2026-09-{d:02d}T00:00:00Z\tX\tp\t+1+1\n" for d in range(1, 26)))
-        self.assertEqual(len(self.console().state()["installs"]), 20)
+        self.assertEqual(len(self.console().state()["installs"]), 25 + 3)
 
 
 class Workers(Fixture):
