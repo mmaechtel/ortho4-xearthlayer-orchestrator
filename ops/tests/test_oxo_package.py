@@ -320,5 +320,183 @@ class InstallsLog(Base):
         self.assertFalse((self.ledger / "oxo_pilot" / "installs.log").exists())
 
 
+def ter_text(stem, *, water=False):
+    text = (f"A\n800\nTERRAIN\n\nLOAD_CENTER 48.37085 11.55762 6499 4096\n"
+            f"BASE_TEX_NOWRAP ../textures/{stem}.dds\n")
+    if water:
+        return text + f"BORDER_TEX ../textures/{stem}.png\nWET\nNO_SHADOW\n"
+    return text + "NO_ALPHA\n"
+
+
+def lit_ter_text(stem, luminance=600):
+    return ter_text(stem) + f"TEXTURE_LIT ../textures/{stem}_LIT.dds\nLUMINANCE {luminance}\n"
+
+
+def make_installed(pkgs, name, code, *, recipes=(), ters=None):
+    """An installed XEL package: metadata with `code` (None: no metadata), night recipes, .ter."""
+    d = pkgs / name
+    (d / "terrain").mkdir(parents=True)
+    if code is not None:
+        (d / "xearthlayer_scenery_package.txt").write_text(
+            f"REGIONAL SCENERY PACKAGE\n1.0.0\n{code}\n2026-10-20T02:35:42Z\nZ\n{name}\n")
+    for tile in recipes:
+        r = d / "night" / oxo_package.block_of(tile) / f"{tile}.oxn"
+        r.parent.mkdir(parents=True, exist_ok=True)
+        r.write_bytes(b"OXN1")
+    for fname, text in (ters or {}).items():
+        (d / "terrain" / fname).write_text(text)
+    return d
+
+
+class Night(Base):
+    LAND = "22672_34864_BI16"
+    ZL18 = "90144_139216_BI18"
+
+    def our_tile(self, tile="+48+011", stems=(LAND,), water=(LAND,)):
+        d = make_tile(self.root, tile, ter=None)
+        (d / "terrain" / f"{stems[0]}.ter").write_text(ter_text(stems[0]))
+        for s in stems[1:]:
+            (d / "terrain" / f"{s}.ter").write_text(ter_text(s))
+        for s in water:
+            (d / "terrain" / f"{s}_sea_overlay.ter").write_text(ter_text(s, water=True))
+        return d
+
+    def staged(self, stem):
+        return (self.pkg / "terrain" / f"{stem}.ter").read_text()
+
+    def night_rows(self):
+        return [l.split("\t") for l in
+                (self.ledger / "oxo_pilot" / "night.tsv").read_text().splitlines()]
+
+    def test_land_ter_gets_source_lit_lines_with_our_texture(self):
+        d = self.our_tile()
+        make_installed(self.pkgs, "zzXEL_eu-west_ortho", "EU-WEST  0.5.0", recipes=["+48+011"],
+                       ters={"22672_34864_GO216.ter": lit_ter_text("22672_34864_GO216"),
+                             "22672_34864_GO216_water_overlay.ter":
+                                 ter_text("22672_34864_GO216", water=True)})
+        rc, out, err = self.run_main()
+        self.assertEqual(rc, 0, err)
+        self.assertEqual(self.staged(self.LAND), ter_text(self.LAND) +
+                         f"TEXTURE_LIT ../textures/{self.LAND}_LIT.dds\nLUMINANCE 600\n")
+        self.assertEqual(self.staged(f"{self.LAND}_sea_overlay"), ter_text(self.LAND, water=True))
+        self.assertEqual((d / "terrain" / f"{self.LAND}.ter").read_text(), ter_text(self.LAND),
+                         "the source artifact is never modified")
+        self.assertFalse((self.pkg / "night").exists(), "recipes stay in their package")
+
+    def test_values_are_read_per_tile(self):
+        self.our_tile("+48+011", stems=("22672_34864_BI16",), water=())
+        self.our_tile("+48+012", stems=("22672_34880_BI16",), water=())
+        make_installed(self.pkgs, "zzXEL_eu-west_ortho", "EU-WEST  0.5.0",
+                       recipes=["+48+011", "+48+012"],
+                       ters={"22672_34864_GO216.ter": lit_ter_text("22672_34864_GO216", 600),
+                             "22672_34880_GO216.ter": lit_ter_text("22672_34880_GO216", 450)})
+        rc, _, err = self.run_main()
+        self.assertEqual(rc, 0, err)
+        self.assertTrue(self.staged("22672_34864_BI16").endswith("LUMINANCE 600\n"))
+        self.assertTrue(self.staged("22672_34880_BI16").endswith("LUMINANCE 450\n"))
+
+    def test_counterpart_without_lit_gives_none(self):
+        self.our_tile(water=())
+        make_installed(self.pkgs, "zzXEL_eu-west_ortho", "EU-WEST  0.5.0", recipes=["+48+011"],
+                       ters={"22672_34864_GO216.ter": ter_text("22672_34864_GO216")})
+        rc, _, err = self.run_main()
+        self.assertEqual(rc, 0, err)
+        self.assertEqual(self.staged(self.LAND), ter_text(self.LAND))
+
+    def test_ter_without_counterpart_takes_the_tiles_value(self):
+        self.our_tile(stems=(self.LAND, self.ZL18), water=(self.ZL18,))
+        make_installed(self.pkgs, "zzXEL_eu-west_ortho", "EU-WEST  0.5.0", recipes=["+48+011"],
+                       ters={"22672_34864_GO216.ter": lit_ter_text("22672_34864_GO216", 450)})
+        rc, _, err = self.run_main()
+        self.assertEqual(rc, 0, err)
+        self.assertEqual(self.staged(self.ZL18), ter_text(self.ZL18) +
+                         f"TEXTURE_LIT ../textures/{self.ZL18}_LIT.dds\nLUMINANCE 450\n")
+        self.assertEqual(self.staged(f"{self.ZL18}_sea_overlay"), ter_text(self.ZL18, water=True))
+
+    def test_ambiguous_tile_values_leave_uncovered_ter_dark_and_warn(self):
+        other = "22672_34880_BI16"
+        self.our_tile(stems=(self.LAND, other, self.ZL18), water=())
+        make_installed(self.pkgs, "zzXEL_eu-west_ortho", "EU-WEST  0.5.0", recipes=["+48+011"],
+                       ters={"22672_34864_GO216.ter": lit_ter_text("22672_34864_GO216", 600),
+                             "22672_34880_GO216.ter": lit_ter_text("22672_34880_GO216", 450)})
+        rc, out, err = self.run_main()
+        self.assertEqual(rc, 0, err)
+        self.assertEqual(self.staged(self.ZL18), ter_text(self.ZL18))
+        self.assertTrue(self.staged(self.LAND).endswith("LUMINANCE 600\n"))
+        self.assertTrue(self.staged(other).endswith("LUMINANCE 450\n"))
+        self.assertIn("+48+011", err)
+        self.assertIn("WARNING", err)
+        row = self.night_rows()[0]
+        self.assertEqual(row[2], "+48+011")
+        self.assertEqual((row[5], row[6]), ("2", "450,600"))
+        self.assertIn("1 .ter", row[7])
+
+    def test_no_recipe_leaves_tile_dark_with_warning(self):
+        self.our_tile()
+        make_installed(self.pkgs, "zzXEL_eu-west_ortho", "EU-WEST  0.5.0",
+                       ters={"22672_34864_GO216.ter": lit_ter_text("22672_34864_GO216")})
+        rc, out, err = self.run_main()
+        self.assertEqual(rc, 0, err)
+        self.assertEqual(self.staged(self.LAND), ter_text(self.LAND))
+        self.assertIn("+48+011: no night recipe", err)
+        when, code, tile, src, src_code, lit, lum, note = self.night_rows()[0]
+        self.assertEqual((code, tile, src, src_code, lit, lum), ("A4_PILOT", "+48+011", "", "", "0", ""))
+        self.assertIn("no night recipe", note)
+
+    def test_package_being_built_is_never_the_source(self):
+        self.our_tile(water=())
+        make_installed(self.pkgs, "zzXEL_oxo_pilot_ortho", "A4_PILOT  99.99.99", recipes=["+48+011"],
+                       ters={"22672_34864_GO216.ter": lit_ter_text("22672_34864_GO216")})
+        rc, _, err = self.run_main()
+        self.assertEqual(rc, 0, err)
+        self.assertEqual(self.staged(self.LAND), ter_text(self.LAND))
+        self.assertIn("no night recipe", err)
+
+    def test_package_without_metadata_is_not_a_source(self):
+        self.our_tile(water=())
+        make_installed(self.pkgs, "zzXEL_eu_apt_ortho", None, recipes=["+48+011"],
+                       ters={"22672_34864_GO216.ter": lit_ter_text("22672_34864_GO216")})
+        rc, _, err = self.run_main()
+        self.assertEqual(rc, 0, err)
+        self.assertEqual(self.staged(self.LAND), ter_text(self.LAND))
+
+    def test_first_package_in_xel_priority_wins(self):
+        # XEL orders regional packages by lowercased code, not by directory name
+        self.our_tile(water=())
+        make_installed(self.pkgs, "zzXEL_a_ortho", "EU-WEST  0.5.0", recipes=["+48+011"],
+                       ters={"22672_34864_GO216.ter": lit_ter_text("22672_34864_GO216", 600)})
+        make_installed(self.pkgs, "zzXEL_b_ortho", "EU-EAST  0.5.0", recipes=["+48+011"],
+                       ters={"22672_34864_GO216.ter": lit_ter_text("22672_34864_GO216", 450)})
+        rc, _, err = self.run_main()
+        self.assertEqual(rc, 0, err)
+        self.assertTrue(self.staged(self.LAND).endswith("LUMINANCE 450\n"))
+        self.assertEqual(self.night_rows()[0][3:5], ["zzXEL_b_ortho", "EU-EAST  0.5.0"])
+
+    def test_ledger_appends_one_row_per_tile_and_install(self):
+        self.our_tile()
+        make_installed(self.pkgs, "zzXEL_eu-west_ortho", "EU-WEST  0.5.0", recipes=["+48+011"],
+                       ters={"22672_34864_GO216.ter": lit_ter_text("22672_34864_GO216")})
+        self.assertEqual(self.run_main()[0], 0)
+        self.assertEqual(self.run_main()[0], 0)
+        rows = self.night_rows()
+        self.assertEqual(len(rows), 2)
+        when, code, tile, src, src_code, lit, lum, note = rows[0]
+        self.assertRegex(when, r"^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ$")
+        self.assertEqual((code, tile, src, src_code, lit, lum, note),
+                         ("A4_PILOT", "+48+011", "zzXEL_eu-west_ortho", "EU-WEST  0.5.0", "1", "600", ""))
+
+    def test_dry_run_reports_night_plan_without_writing(self):
+        self.our_tile()
+        make_installed(self.pkgs, "zzXEL_eu-west_ortho", "EU-WEST  0.5.0", recipes=["+48+011"],
+                       ters={"22672_34864_GO216.ter": lit_ter_text("22672_34864_GO216")})
+        rc, out, err = self.run_main("--dry-run")
+        self.assertEqual(rc, 0, err)
+        self.assertIn("+48+011: zzXEL_eu-west_ortho", out)
+        self.assertIn("1/1 land .ter lit", out)
+        self.assertIn("1/1 tiles with recipe", out)
+        self.assertFalse(self.pkg.exists())
+        self.assertFalse(self.ledger.exists())
+
+
 if __name__ == "__main__":
     unittest.main()

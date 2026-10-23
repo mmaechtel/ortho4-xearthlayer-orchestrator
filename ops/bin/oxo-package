@@ -16,6 +16,19 @@ sync-xel-package.
             _BI<zl>.dds, at least one .png mask, no partial files, no newer
             .dsf.bak
   --loose   .png masks optional (desert tiles); everything else still required
+
+Night lighting (issue #17): XEL reads a tile's night recipe night/<block>/<tile>.oxn
+from the first installed package that has it (priority: lowercased package code)
+and colours its LEDs by that package's code, so recipes are never copied here.
+Per tile, that source package (never the one being built) supplies the LIT lines
+(TEXTURE_LIT, LUMINANCE) of its land .ter with the same <y>_<x> grid and ZL; ours
+get the same lines, TEXTURE_LIT renamed to our base texture + _LIT. A land .ter
+without counterpart (e.g. ZL18 airport textures) takes the tile's LIT set if its
+counterparts agree on one; otherwise it stays dark with a warning. *_overlay
+(water) .ter stay dark. Only the staged copies change. A tile without recipe
+stays dark with a warning. --dry-run prints the per-tile plan; an install appends
+one row per tile to ledger/<name>/night.tsv (when, code, tile, source package,
+its code line, lit .ter, LUMINANCE values, note).
 """
 import argparse
 import datetime
@@ -32,6 +45,10 @@ TILE_RE = re.compile(r"^[+-]\d{2}[+-]\d{3}$")
 CODE_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]*$")
 SAFE_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]*$")
 PARTIAL_PATTERNS = ("*.tmp", "*.part", "*.partial")
+# <y>_<x>_<provider><zl>[_<kind>_overlay].ter, provider as XEL's DDS pattern has it
+TER_RE = re.compile(r"^(\d+)_(\d+)_[A-Za-z]+\d?(\d{2})(_[a-z]+_overlay)?\.ter$")
+BASE_RE = re.compile(r"^BASE_TEX\S*\s+(\S+)\.dds\s*$", re.M)
+LIT_KEYS = ("TEXTURE_LIT", "LUMINANCE")
 
 
 class Fatal(Exception):
@@ -122,6 +139,96 @@ def validate_tile(d, tile, mode):
     return dsf, None
 
 
+def night_sources(packages_dir, exclude):
+    """Installed packages other than `exclude`, in XEL's priority order:
+    [(dir, code line)]. A package without metadata is not a source."""
+    found = []
+    for d in packages_dir.glob("zzXEL_*_ortho"):
+        if d.name == exclude or not d.is_dir():
+            continue
+        try:
+            line = (d / "xearthlayer_scenery_package.txt").read_text().splitlines()[2].strip()
+        except (OSError, IndexError):
+            continue
+        if line:
+            found.append((line.split()[0].lower(), d.name, d, line))
+    return [(d, line) for _, _, d, line in sorted(found)]
+
+
+def lit_lines(text):
+    return [" ".join(l.split()) for l in text.splitlines() if l.split()[:1]
+            and l.split()[0] in LIT_KEYS]
+
+
+def night_plan(tile, tile_dir, sources, land_index):
+    """What night lighting a tile gets: {source, code, lit: {ter name: lines}, notes}.
+    `land_index` caches per source dir {(y, x, zl): land .ter name}."""
+    land = [t for t in sorted((tile_dir / "terrain").glob("*.ter"))
+            if (m := TER_RE.match(t.name)) and not m[4]]
+    plan = {"source": "", "code": "", "land": len(land), "lit": {}, "notes": []}
+    rel = Path("night") / block_of(tile) / f"{tile}.oxn"
+    src = next(((d, line) for d, line in sources if (d / rel).is_file()), None)
+    if src is None:
+        plan["notes"].append("no night recipe in any installed package, left dark")
+        return plan
+    sdir, plan["code"] = src
+    plan["source"] = sdir.name
+    if sdir not in land_index:
+        land_index[sdir] = {m.group(1, 2, 3): n for n in os.listdir(sdir / "terrain")
+                            if (m := TER_RE.match(n)) and not m[4]}
+    index = land_index[sdir]
+
+    sets, uncovered, missing_base = {}, [], []
+    for ter in land:
+        m = TER_RE.match(ter.name)
+        base = BASE_RE.search(ter.read_text(errors="replace"))
+        if base is None:
+            missing_base.append(ter.name)
+            continue
+        ours = f"TEXTURE_LIT {base[1]}_LIT.dds"
+        theirs = index.get(m.group(1, 2, 3))
+        if theirs is None:
+            uncovered.append((ter.name, ours))
+            continue
+        lines = lit_lines((sdir / "terrain" / theirs).read_text(errors="replace"))
+        lines = [ours if l.split()[0] == "TEXTURE_LIT" else l for l in lines]
+        sets[tuple(l.split()[0] if l.startswith("TEXTURE_LIT") else l for l in lines)] = lines
+        if lines:
+            plan["lit"][ter.name] = lines
+    if missing_base:
+        plan["notes"].append(f"{len(missing_base)} .ter without BASE_TEX left dark")
+    if uncovered:
+        if len(sets) == 1:
+            template = next(iter(sets.values()))
+            for name, ours in uncovered:
+                if template:
+                    plan["lit"][name] = [ours if l.startswith("TEXTURE_LIT") else l
+                                         for l in template]
+        else:
+            plan["notes"].append(
+                f"{len(uncovered)} .ter without counterpart left dark: the tile's land .ter "
+                f"in {sdir.name} show {len(sets)} distinct LIT sets")
+    return plan
+
+
+def luminances(plan):
+    return sorted({l.split()[1] for lines in plan["lit"].values() for l in lines
+                   if l.startswith("LUMINANCE ") and len(l.split()) > 1})
+
+
+def report_night(plans):
+    with_recipe = 0
+    for tile, plan in plans.items():
+        if plan["source"]:
+            with_recipe += 1
+            print(f"  night {tile}: {plan['source']} ({plan['code']}) "
+                  f"{len(plan['lit'])}/{plan['land']} land .ter lit, "
+                  f"LUMINANCE {','.join(luminances(plan)) or '-'}")
+        for note in plan["notes"]:
+            print(f"WARNING: night {tile}: {note}", file=sys.stderr)
+    log(f"night: {with_recipe}/{len(plans)} tiles with recipe")
+
+
 def sync_file(src, dest_dir):
     shutil.copy2(src, dest_dir / src.name)
 
@@ -201,6 +308,10 @@ def run(args):
             print(f"  ... ({len(bad) - 10} more)")
         raise Fatal(f"{len(bad)} tile(s) rejected, nothing copied")
 
+    sources, land_index = night_sources(args.packages_dir, pkg_name), {}
+    plans = {tile: night_plan(tile, d, sources, land_index) for tile, d, _ in good}
+    report_night(plans)
+
     if args.dry_run:
         log("dry-run: no package changes")
         return
@@ -219,6 +330,11 @@ def run(args):
         sync_file(dsf, dest_nav)
         for ter in (d / "terrain").glob("*.ter"):
             sync_file(ter, stage / "terrain")
+        for ter_name, lines in plans[tile]["lit"].items():
+            staged = stage / "terrain" / ter_name
+            text = staged.read_text()
+            staged.write_text(text + ("" if text.endswith("\n") else "\n")
+                              + "".join(f"{l}\n" for l in lines))
         for png in (d / "textures").glob("*.png"):
             sync_file(png, stage / "textures")
         if n % 50 == 0 or n == total:
@@ -244,7 +360,12 @@ def run(args):
     installs.parent.mkdir(parents=True, exist_ok=True)
     with installs.open("a") as f:
         f.write(f"{now}\t{args.code}\t{pkg_name}\t{','.join(t for t, _, _ in good)}\n")
-    log(f"ledger: {installs} (commit ops/ledger/)")
+    with (installs.parent / "night.tsv").open("a") as f:
+        for tile, plan in plans.items():
+            f.write("\t".join((now, args.code, tile, plan["source"], plan["code"],
+                               str(len(plan["lit"])), ",".join(luminances(plan)),
+                               "; ".join(plan["notes"]))) + "\n")
+    log(f"ledger: {installs}, night.tsv (commit ops/ledger/)")
 
 
 def main(argv=None):
