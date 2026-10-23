@@ -15,3 +15,18 @@ root = "/mnt/xplane_data/oxo/artifacts/oxo_sonny"
 [[group]]
 id = "pilot"
 tiles = ["+48+010", "+48+012"]
+
+# Keep-or-default, decided 2026-10-23 by the operator: samsoir everywhere (plan D4).
+[group.legacy]
+road_level = "default: samsoir baseline (D4)"
+lane_width = "default: samsoir baseline (D4)"
+max_levelled_segs = "default: samsoir baseline (D4)"
+clean_bad_geometries = "default: samsoir baseline (D4)"
+mesh_zl = "default: samsoir baseline (D4)"
+masks_width = "default: samsoir baseline (D4)"
+masking_mode = "default: samsoir baseline (D4)"
+distance_masks_too = "default: samsoir baseline (D4)"
+cover_extent = "default: samsoir baseline (D4)"
+ratio_bathy = "default: samsoir baseline (D4)"
+ratio_water = "default: samsoir baseline (D4)"
+use_decal_on_terrain = "default: samsoir baseline (D4)"
