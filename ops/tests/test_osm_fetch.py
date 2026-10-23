@@ -142,3 +142,157 @@ class Freshness(unittest.TestCase):
     def test_state_without_timestamp_is_an_error(self):
         with self.assertRaises(osm_fetch.FetchError):
             osm_fetch.parse_state("sequenceNumber=1\n")
+
+
+LAYERS = ["airports", "big_roads", "small_roads", "coastline", "water"]
+
+
+class Cache(unittest.TestCase):
+    """A fake OSM cache plus pbf dir plus ledger, under one temp dir."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        root = Path(self.tmp.name)
+        self.cache, self.pbfs, self.ledger = root / "cache", root / "pbf", root / "ledger.tsv"
+        self.cache.mkdir()
+        self.pbfs.mkdir()
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def layers(self, tile, missing=()):
+        lat, lon = osm_fetch.parse_tile(tile)
+        for layer in LAYERS:
+            if layer not in missing:
+                p = osm_fetch.osm_bake.layer_path(self.cache, lat, lon, layer)
+                p.parent.mkdir(parents=True, exist_ok=True)
+                p.write_bytes(b"x")
+
+    def log(self, tile, extract, name="x.osm.pbf"):
+        with open(self.cache / "osm-bake.log", "a") as f:
+            f.write(f"{tile}\t{extract}\t{name}\t2026-10-23T10:00:00Z\n")
+
+    def fetched(self, region, file, timestamp, have_file=True):
+        osm_fetch.append_ledger(self.ledger, region, file, timestamp, "m", "x")
+        if have_file:
+            (self.pbfs / file).write_bytes(b"x")
+
+    def problems(self, tiles):
+        return osm_fetch.problems(tiles, self.cache, NOW)
+
+
+class TileProblems(Cache):
+    def test_complete_tile_with_fresh_extract_is_fine(self):
+        self.layers("+49+006")
+        self.log("+49+006", "2026-10-22T20:21:33Z")
+        self.assertEqual(self.problems(["+49+006"]), [])
+
+    def test_missing_layers_are_listed_by_name(self):
+        self.layers("+49+006", missing=("airports", "water"))
+        self.log("+49+006", "2026-10-22T20:21:33Z")
+        [(tile, why)] = self.problems(["+49+006"])
+        self.assertEqual(tile, "+49+006")
+        self.assertIn("airports, water", why)
+        self.assertIn("missing", why)
+
+    def test_no_log_line_means_outdated_even_with_all_layers(self):
+        self.layers("+49+006")
+        [(_, why)] = self.problems(["+49+006"])
+        self.assertIn("no recorded extract", why)
+
+    def test_unknown_timestamp_means_outdated(self):
+        self.layers("+49+006")
+        self.log("+49+006", "unknown")
+        [(_, why)] = self.problems(["+49+006"])
+        self.assertIn("no recorded extract", why)
+
+    def test_extract_older_than_ninety_days_is_outdated(self):
+        self.layers("+49+006")
+        self.log("+49+006", "2026-07-01T00:00:00Z")
+        [(_, why)] = self.problems(["+49+006"])
+        self.assertIn("114 days old", why)
+        self.assertIn("90", why)
+
+    def test_the_newest_log_line_per_tile_wins(self):
+        self.layers("+49+006")
+        self.log("+49+006", "2026-10-01T00:00:00Z")
+        self.log("+49+006", "2026-01-01T00:00:00Z")  # a later bake from an old extract: it counts
+        self.assertEqual(len(self.problems(["+49+006"])), 1)
+        self.log("+49+006", "2026-10-20T00:00:00Z")
+        self.assertEqual(self.problems(["+49+006"]), [])
+
+    def test_missing_layers_and_age_are_reported_once_per_tile(self):
+        self.layers("+49+006", missing=("water",))
+        self.log("+49+006", "2026-01-01T00:00:00Z")
+        self.assertEqual(len(self.problems(["+49+006", "+49+006"])), 1)
+
+    def test_a_tile_absent_from_the_cache_is_reported_with_all_layers_missing(self):
+        [(_, why)] = self.problems(["+53-003"])
+        self.assertIn("airports, big_roads, small_roads, coastline, water", why)
+
+    def test_log_lines_of_other_tiles_do_not_matter(self):
+        self.layers("+49+006")
+        self.log("+50+006", "2026-10-22T20:21:33Z")
+        self.assertEqual(len(self.problems(["+49+006"])), 1)
+
+    def test_no_log_file_at_all(self):
+        self.assertEqual(len(self.problems(["+49+006"])), 1)
+
+
+class Advice(Cache):
+    def preflight(self, tiles, load=lambda: regions()):
+        return osm_fetch.preflight(tiles, self.cache, self.ledger, self.pbfs, NOW, load)
+
+    def test_everything_fine_reports_nothing(self):
+        self.layers("+49+006")
+        self.log("+49+006", "2026-10-22T20:21:33Z")
+        self.assertEqual(self.preflight(["+49+006"]), [])
+
+    def test_failing_tile_gets_its_reason_and_a_fetch_for_the_smallest_region(self):
+        out = "\n".join(self.preflight(["+49+006"]))
+        self.assertIn("+49+006: layers missing", out)
+        self.assertIn("osm-fetch luxembourg", out)
+        self.assertIn("osm-bake --pbf <pbf printed by osm-fetch>", out)
+        self.assertIn(f"--poly {self.pbfs}/luxembourg.poly", out)
+        self.assertIn(f"--out {self.cache} --tile 49 6 --force", out)
+
+    def test_a_fresh_ledger_extract_that_covers_the_tile_needs_only_the_bake(self):
+        self.fetched("luxembourg", "luxembourg-261022.osm.pbf", "2026-10-22T20:21:33Z")
+        out = "\n".join(self.preflight(["+49+006"]))
+        self.assertNotIn("osm-fetch ", out)
+        self.assertIn(f"--pbf {self.pbfs}/luxembourg-261022.osm.pbf", out)
+        self.assertIn("--tile 49 6 --force", out)
+
+    def test_a_stale_ledger_extract_is_not_reused(self):
+        self.fetched("luxembourg", "luxembourg-250101.osm.pbf", "2025-01-01T00:00:00Z")
+        self.assertIn("osm-fetch luxembourg", "\n".join(self.preflight(["+49+006"])))
+
+    def test_a_ledger_entry_whose_file_is_gone_is_not_reused(self):
+        self.fetched("luxembourg", "luxembourg-261022.osm.pbf", "2026-10-22T20:21:33Z", have_file=False)
+        self.assertIn("osm-fetch luxembourg", "\n".join(self.preflight(["+49+006"])))
+
+    def test_a_fresh_larger_extract_in_the_ledger_beats_fetching_the_smaller_region(self):
+        self.fetched("germany", "germany-261022.osm.pbf", "2026-10-22T20:21:33Z")
+        out = "\n".join(self.preflight(["+49+006"]))
+        self.assertNotIn("osm-fetch ", out)
+        self.assertIn("germany-261022.osm.pbf", out)
+
+    def test_one_fetch_line_per_region_and_one_bake_line_per_tile(self):
+        out = self.preflight(["+49+006", "+48+007"])
+        self.assertEqual(sum("osm-fetch " in l for l in out), 2)  # luxembourg and germany
+        self.assertEqual(sum("osm-bake " in l for l in out), 2)
+        out = self.preflight(["+48+007", "+48+008"])
+        self.assertEqual(sum("osm-fetch " in l for l in out), 1)
+        self.assertEqual(sum("osm-bake " in l for l in out), 2)
+
+    def test_a_tile_no_region_contains_is_said_so(self):
+        out = "\n".join(self.preflight(["+00+000"]))
+        self.assertIn("+00+000: layers missing", out)
+        self.assertIn("no Geofabrik region wholly contains +00+000", out)
+
+    def test_without_the_index_the_reasons_still_come_out(self):
+        def broken():
+            raise osm_fetch.FetchError("offline")
+        out = "\n".join(self.preflight(["+49+006"], broken))
+        self.assertIn("+49+006: layers missing", out)
+        self.assertIn("cannot suggest a fix: offline", out)

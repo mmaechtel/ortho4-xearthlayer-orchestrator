@@ -161,3 +161,79 @@ def parse_state(text):
     if not m:
         raise FetchError("state.txt has no timestamp line")
     return parse_ts(m.group(1).replace("\\", ""))
+
+
+# --- the pre-build check ---
+
+def read_bake_log(cache):
+    """tile -> extract timestamp (None when unknown), the newest line per tile winning."""
+    log = Path(cache) / "osm-bake.log"
+    out = {}
+    if log.exists():
+        for line in log.read_text().splitlines():
+            cols = line.split("\t")
+            if len(cols) >= 2:
+                try:
+                    out[cols[0]] = parse_ts(cols[1])
+                except ValueError:
+                    out[cols[0]] = None
+    return out
+
+
+def problems(tiles, cache, now):
+    """[(tile, reason)] for every tile that must not be built yet: a layer missing from the
+    cache, no recorded extract timestamp, or an extract older than MAX_AGE_DAYS."""
+    log, out = read_bake_log(cache), []
+    for tile in dict.fromkeys(tiles):
+        lat, lon = parse_tile(tile)
+        missing = [l for l in osm_bake.LAYERS if not osm_bake.layer_path(cache, lat, lon, l).exists()]
+        if missing:
+            out.append((tile, "layers missing: " + ", ".join(missing)))
+        elif log.get(tile) is None:
+            out.append((tile, "no recorded extract timestamp (outdated)"))
+        elif not is_fresh(log[tile], now):
+            out.append((tile, f"extract {log[tile].strftime(TS_FORMAT)} is {(now - log[tile]).days} days old "
+                              f"(limit {MAX_AGE_DAYS})"))
+    return out
+
+
+def _source(tile_regions, newest_extracts, pbf_dir, now):
+    """('bake', extract) when a fresh extract on disk covers the tile, else ('fetch', smallest region)."""
+    first = None
+    for r in tile_regions:
+        first = first or r
+        e = newest_extracts.get(r.id)
+        if e and is_fresh(e.timestamp, now) and (Path(pbf_dir) / e.file).exists():
+            return "bake", r, e
+    return "fetch", first, None
+
+
+def preflight(tiles, cache, ledger, pbf_dir, now, load_regions):
+    """Report lines for tiles that must not be built yet (empty: all fine), each reason followed
+    by the commands that fix it. `load_regions` is only called when something is wrong, and its
+    failure (no network) costs the commands, not the reasons."""
+    bad = problems(tiles, cache, now)
+    if not bad:
+        return []
+    lines = [f"{tile}: {why}" for tile, why in bad]
+    try:
+        regs = load_regions()
+    except (FetchError, OSError) as e:
+        return lines + [f"cannot suggest a fix: {e}"]
+    have = newest(read_ledger(ledger))
+    fixes, fetches = [], {}
+    for tile, _ in bad:
+        lat, lon = parse_tile(tile)
+        how, region, extract = _source(list(containing(regs, lat, lon)), have, pbf_dir, now)
+        if region is None:
+            lines.append(f"no Geofabrik region wholly contains {tile}: bake it by hand from a larger extract")
+            continue
+        if how == "fetch":
+            fetches.setdefault(region.id, f"ops/bin/osm-fetch {region.id}")
+        pbf = Path(pbf_dir) / extract.file if extract else "<pbf printed by osm-fetch>"
+        fixes.append(f"ops/bin/osm-bake --pbf {pbf} --poly {Path(pbf_dir) / (file_stem(region.id) + '.poly')} "
+                     f"--out {cache} --tile {lat} {lon} --force")
+    if fixes:
+        lines += ["fix (a re-bake always takes the whole tile):", *(f"  {c}" for c in fetches.values()),
+                  *(f"  {c}" for c in fixes)]
+    return lines
