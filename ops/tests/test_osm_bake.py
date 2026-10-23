@@ -250,6 +250,22 @@ class Main(unittest.TestCase):
         self.assertEqual(sum(c[1] == "extract" for c in run.calls), 40)
         self.assertEqual(len((self.out / "osm-bake.log").read_text().splitlines()), 40)
 
+    def test_no_log_line_when_a_worker_filled_the_tile_meanwhile(self):
+        out = self.out
+
+        class WorkerFills(FakeOsmium):
+            def __call__(self, argv, **kw):
+                r = super().__call__(argv, **kw)
+                if argv[1] == "tags-filter" and "nwr/aeroway" in argv and "w/natural=coastline" in argv:
+                    for l in LAYERS:  # the worker publishes while the prefilter runs
+                        p = osm_bake.layer_path(out, 53, -3, l)
+                        p.parent.mkdir(parents=True, exist_ok=True)
+                        p.write_bytes(b"worker")
+                return r
+
+        osm_bake.run_main(self.args("--tile", "53", "-3"), WorkerFills())
+        self.assertFalse((self.out / "osm-bake.log").exists())
+
     def test_nothing_to_do_runs_nothing(self):
         osm_bake.run_main(self.args("--tile", "53", "-3"), FakeOsmium())
         run2 = FakeOsmium()

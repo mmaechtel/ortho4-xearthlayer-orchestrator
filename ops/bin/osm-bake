@@ -81,7 +81,7 @@ def bake_tile(out, lat, lon, prefiltered, work, force, run):
     tile_pbf = Path(work) / f"{tile_name(lat, lon)}.osm.pbf"
     run(extract_cmd(prefiltered, tile_pbf, lat, lon))
     # all layers to hidden .part files first, renamed into place only once every
-    # one succeeded: a failure never leaves a mix of old and new layers
+    # one succeeded: a failed filter never leaves a mix of old and new layers
     parts = []
     try:
         for layer in todo:
@@ -219,9 +219,10 @@ def run_main(a, run):
         run(prefilter_cmd(a.pbf, pre))
         for lat, lon in pending:
             n = bake_tile(a.out, lat, lon, pre, work, a.force, run)
-            now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-            with open(a.out / "osm-bake.log", "a") as log:
-                log.write(f"{tile_name(lat, lon)}\t{extract}\t{a.pbf.name}\t{now}\n")
+            if n:  # a worker may have filled the tile since `pending` was computed
+                now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+                with open(a.out / "osm-bake.log", "a") as log:
+                    log.write(f"{tile_name(lat, lon)}\t{extract}\t{a.pbf.name}\t{now}\n")
             print(f"{tile_name(lat, lon)}: {n} layers")
 
 
