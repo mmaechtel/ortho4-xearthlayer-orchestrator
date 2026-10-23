@@ -58,10 +58,12 @@ class Commands(unittest.TestCase):
         self.assertIn("--overwrite", argv)
         self.assertEqual(argv[argv.index("-o") + 1], "pre.pbf")
 
-    def test_extract_cmd_uses_complete_ways_and_one_degree_bbox(self):
+    def test_extract_cmd_uses_smart_and_one_degree_bbox(self):
+        # smart also completes multipolygon relations (water, airports); with
+        # complete_ways Ortho4XP drops relations whose members lie outside
         argv = osm_bake.extract_cmd(Path("pre.pbf"), Path("t.pbf"), 48, 11)
         self.assertEqual(argv[:2], ["osmium", "extract"])
-        self.assertEqual(argv[argv.index("-s") + 1], "complete_ways")
+        self.assertEqual(argv[argv.index("-s") + 1], "smart")
         self.assertEqual(argv[argv.index("-b") + 1], "11,48,12,49")
         self.assertEqual(argv[argv.index("-o") + 1], "t.pbf")
         self.assertIn("pre.pbf", argv)
@@ -135,6 +137,21 @@ class BakeTile(unittest.TestCase):
         self.fill(["water"])
         self.assertEqual(self.bake(FakeOsmium()), 4)
         self.assertEqual((self.dir / "+48+011_water.osm.bz2").read_bytes(), b"old")
+
+    def test_failure_on_a_later_layer_leaves_the_old_set_untouched(self):
+        self.fill(LAYERS)
+
+        class Boom(FakeOsmium):
+            def __call__(self, argv, **kw):
+                if "w/natural=coastline" in argv:
+                    raise RuntimeError("osmium failed")
+                return super().__call__(argv, **kw)
+
+        with self.assertRaises(RuntimeError):
+            self.bake(Boom(), force=True)
+        for l in LAYERS:
+            self.assertEqual((self.dir / f"+48+011_{l}.osm.bz2").read_bytes(), b"old")
+        self.assertEqual(list(self.out.rglob("*.part")), [])
 
     def test_force_overwrites(self):
         self.fill(LAYERS)
