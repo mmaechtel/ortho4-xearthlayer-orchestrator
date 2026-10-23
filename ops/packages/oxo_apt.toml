@@ -104,3 +104,663 @@ ratio_bathy = "default: samsoir baseline (D4)"
 ratio_water = "default: samsoir baseline (D4)"
 use_decal_on_terrain = "default: samsoir baseline (D4)"
 zoom = "default: samsoir baseline (D4)"
+
+# 2026-10-23 (#15): every remaining tile with build patches — all airports go into A00,
+# wherever they are. Keep-or-default per group as above: samsoir baseline (D4).
+
+[[group]]
+id = "entc"     # ENTC
+tiles = ["+69+018"]
+
+[group.legacy]
+road_level = "default: samsoir baseline (D4)"
+lane_width = "default: samsoir baseline (D4)"
+max_levelled_segs = "default: samsoir baseline (D4)"
+clean_bad_geometries = "default: samsoir baseline (D4)"
+curvature_tol = "default: samsoir baseline (D4)"
+masks_width = "default: samsoir baseline (D4)"
+masking_mode = "default: samsoir baseline (D4)"
+distance_masks_too = "default: samsoir baseline (D4)"
+cover_extent = "default: samsoir baseline (D4)"
+ratio_bathy = "default: samsoir baseline (D4)"
+ratio_water = "default: samsoir baseline (D4)"
+use_decal_on_terrain = "default: samsoir baseline (D4)"
+zoom = "default: samsoir baseline (D4)"
+
+[[group]]
+id = "enat"     # ENAT
+tiles = ["+69+023"]
+
+[group.legacy]
+road_level = "default: samsoir baseline (D4)"
+lane_width = "default: samsoir baseline (D4)"
+max_levelled_segs = "default: samsoir baseline (D4)"
+clean_bad_geometries = "default: samsoir baseline (D4)"
+curvature_tol = "default: samsoir baseline (D4)"
+masks_width = "default: samsoir baseline (D4)"
+masking_mode = "default: samsoir baseline (D4)"
+distance_masks_too = "default: samsoir baseline (D4)"
+cover_extent = "default: samsoir baseline (D4)"
+ratio_bathy = "default: samsoir baseline (D4)"
+ratio_water = "default: samsoir baseline (D4)"
+use_decal_on_terrain = "default: samsoir baseline (D4)"
+zoom = "default: samsoir baseline (D4)"
+
+[[group]]
+id = "birk"     # BIRK
+tiles = ["+64-022"]
+
+[group.legacy]
+road_level = "default: samsoir baseline (D4)"
+min_area = "default: samsoir baseline (D4)"
+clean_bad_geometries = "default: samsoir baseline (D4)"
+masks_width = "default: samsoir baseline (D4)"
+masking_mode = "default: samsoir baseline (D4)"
+distance_masks_too = "default: samsoir baseline (D4)"
+cover_extent = "default: samsoir baseline (D4)"
+ratio_bathy = "default: samsoir baseline (D4)"
+ratio_water = "default: samsoir baseline (D4)"
+use_decal_on_terrain = "default: samsoir baseline (D4)"
+zoom = "default: samsoir baseline (D4)"
+
+[[group]]
+id = "ennm"     # ENNM
+tiles = ["+64+011"]
+
+[group.legacy]
+road_level = "default: samsoir baseline (D4)"
+lane_width = "default: samsoir baseline (D4)"
+max_levelled_segs = "default: samsoir baseline (D4)"
+clean_bad_geometries = "default: samsoir baseline (D4)"
+mesh_zl = "default: samsoir baseline (D4)"
+masks_width = "default: samsoir baseline (D4)"
+masking_mode = "default: samsoir baseline (D4)"
+distance_masks_too = "default: samsoir baseline (D4)"
+cover_extent = "default: samsoir baseline (D4)"
+ratio_bathy = "default: samsoir baseline (D4)"
+ratio_water = "default: samsoir baseline (D4)"
+use_decal_on_terrain = "default: samsoir baseline (D4)"
+
+[[group]]
+id = "enva"     # ENVA
+tiles = ["+63+010"]
+
+[group.legacy]
+road_level = "default: samsoir baseline (D4)"
+lane_width = "default: samsoir baseline (D4)"
+max_levelled_segs = "default: samsoir baseline (D4)"
+clean_bad_geometries = "default: samsoir baseline (D4)"
+mesh_zl = "default: samsoir baseline (D4)"
+masks_width = "default: samsoir baseline (D4)"
+masking_mode = "default: samsoir baseline (D4)"
+distance_masks_too = "default: samsoir baseline (D4)"
+cover_extent = "default: samsoir baseline (D4)"
+ratio_bathy = "default: samsoir baseline (D4)"
+ratio_water = "default: samsoir baseline (D4)"
+use_decal_on_terrain = "default: samsoir baseline (D4)"
+
+[[group]]
+id = "engm"     # ENGM
+tiles = ["+60+011"]
+
+[group.legacy]
+apt_smoothing_pix = "default: samsoir baseline (D4)"
+road_level = "default: samsoir baseline (D4)"
+lane_width = "default: samsoir baseline (D4)"
+max_levelled_segs = "default: samsoir baseline (D4)"
+min_area = "default: samsoir baseline (D4)"
+clean_bad_geometries = "default: samsoir baseline (D4)"
+mask_zl = "default: samsoir baseline (D4)"
+masks_width = "default: samsoir baseline (D4)"
+masking_mode = "default: samsoir baseline (D4)"
+distance_masks_too = "default: samsoir baseline (D4)"
+cover_extent = "default: samsoir baseline (D4)"
+ratio_bathy = "default: samsoir baseline (D4)"
+ratio_water = "default: samsoir baseline (D4)"
+use_decal_on_terrain = "default: samsoir baseline (D4)"
+zoom = "default: samsoir baseline (D4)"
+
+[[group]]
+id = "ento"     # ENTO
+tiles = ["+59+010"]
+
+[group.legacy]
+apt_smoothing_pix = "default: samsoir baseline (D4)"
+road_level = "default: samsoir baseline (D4)"
+lane_width = "default: samsoir baseline (D4)"
+max_levelled_segs = "default: samsoir baseline (D4)"
+min_area = "default: samsoir baseline (D4)"
+clean_bad_geometries = "default: samsoir baseline (D4)"
+mask_zl = "default: samsoir baseline (D4)"
+masks_width = "default: samsoir baseline (D4)"
+masking_mode = "default: samsoir baseline (D4)"
+distance_masks_too = "default: samsoir baseline (D4)"
+cover_extent = "default: samsoir baseline (D4)"
+ratio_bathy = "default: samsoir baseline (D4)"
+ratio_water = "default: samsoir baseline (D4)"
+use_decal_on_terrain = "default: samsoir baseline (D4)"
+zoom = "default: samsoir baseline (D4)"
+
+[[group]]
+id = "essa"     # ESSA
+tiles = ["+59+017"]
+
+[group.legacy]
+road_level = "default: samsoir baseline (D4)"
+lane_width = "default: samsoir baseline (D4)"
+max_levelled_segs = "default: samsoir baseline (D4)"
+clean_bad_geometries = "default: samsoir baseline (D4)"
+mesh_zl = "default: samsoir baseline (D4)"
+masks_width = "default: samsoir baseline (D4)"
+masking_mode = "default: samsoir baseline (D4)"
+distance_masks_too = "default: samsoir baseline (D4)"
+cover_extent = "default: samsoir baseline (D4)"
+ratio_bathy = "default: samsoir baseline (D4)"
+ratio_water = "default: samsoir baseline (D4)"
+use_decal_on_terrain = "default: samsoir baseline (D4)"
+
+[[group]]
+id = "egcc"     # EGCC
+tiles = ["+53-003"]
+
+[[group]]
+id = "london"     # London
+tiles = ["+51+000"]
+
+[[group]]
+id = "edlp"     # EDLP
+tiles = ["+51+008"]
+
+[group.legacy]
+road_level = "default: samsoir baseline (D4)"
+lane_width = "default: samsoir baseline (D4)"
+max_levelled_segs = "default: samsoir baseline (D4)"
+clean_bad_geometries = "default: samsoir baseline (D4)"
+mesh_zl = "default: samsoir baseline (D4)"
+masks_width = "default: samsoir baseline (D4)"
+masking_mode = "default: samsoir baseline (D4)"
+distance_masks_too = "default: samsoir baseline (D4)"
+cover_extent = "default: samsoir baseline (D4)"
+ratio_bathy = "default: samsoir baseline (D4)"
+ratio_water = "default: samsoir baseline (D4)"
+use_decal_on_terrain = "default: samsoir baseline (D4)"
+
+[[group]]
+id = "edvk"     # EDVK
+tiles = ["+51+009"]
+
+[group.legacy]
+road_level = "default: samsoir baseline (D4)"
+lane_width = "default: samsoir baseline (D4)"
+min_area = "default: samsoir baseline (D4)"
+clean_bad_geometries = "default: samsoir baseline (D4)"
+mesh_zl = "default: samsoir baseline (D4)"
+curvature_tol = "default: samsoir baseline (D4)"
+masks_width = "default: samsoir baseline (D4)"
+masking_mode = "default: samsoir baseline (D4)"
+distance_masks_too = "default: samsoir baseline (D4)"
+cover_extent = "default: samsoir baseline (D4)"
+ratio_bathy = "default: samsoir baseline (D4)"
+use_decal_on_terrain = "default: samsoir baseline (D4)"
+zoom = "default: samsoir baseline (D4)"
+
+[[group]]
+id = "ebci"     # EBCI
+tiles = ["+50+004"]
+
+[group.legacy]
+road_level = "default: samsoir baseline (D4)"
+lane_width = "default: samsoir baseline (D4)"
+max_levelled_segs = "default: samsoir baseline (D4)"
+clean_bad_geometries = "default: samsoir baseline (D4)"
+mesh_zl = "default: samsoir baseline (D4)"
+masks_width = "default: samsoir baseline (D4)"
+masking_mode = "default: samsoir baseline (D4)"
+distance_masks_too = "default: samsoir baseline (D4)"
+cover_extent = "default: samsoir baseline (D4)"
+ratio_bathy = "default: samsoir baseline (D4)"
+ratio_water = "default: samsoir baseline (D4)"
+use_decal_on_terrain = "default: samsoir baseline (D4)"
+
+[[group]]
+id = "lfpg"     # LFPG
+tiles = ["+49+002"]
+
+[group.legacy]
+road_level = "default: samsoir baseline (D4)"
+lane_width = "default: samsoir baseline (D4)"
+max_levelled_segs = "default: samsoir baseline (D4)"
+min_area = "default: samsoir baseline (D4)"
+clean_bad_geometries = "default: samsoir baseline (D4)"
+mask_zl = "default: samsoir baseline (D4)"
+masks_width = "default: samsoir baseline (D4)"
+masking_mode = "default: samsoir baseline (D4)"
+distance_masks_too = "default: samsoir baseline (D4)"
+cover_extent = "default: samsoir baseline (D4)"
+ratio_bathy = "default: samsoir baseline (D4)"
+use_decal_on_terrain = "default: samsoir baseline (D4)"
+zoom = "default: samsoir baseline (D4)"
+
+[[group]]
+id = "lf8851"     # LF8851, LF8852
+tiles = ["+47+006"]
+
+[group.legacy]
+zoom = "default: samsoir baseline (D4)"
+
+[[group]]
+id = "lfhn"     # LF0153, LF3922, LF3951, LFHN, LFJD
+tiles = ["+46+005"]
+
+[group.legacy]
+zoom = "default: samsoir baseline (D4)"
+
+[[group]]
+id = "lsgb"     # LF2557, LF7431, LF7469, LSGB
+tiles = ["+46+006"]
+
+[group.legacy]
+zoom = "default: samsoir baseline (D4)"
+
+[[group]]
+id = "ljlj"     # LJLJ
+tiles = ["+46+014"]
+
+[group.legacy]
+road_level = "default: samsoir baseline (D4)"
+lane_width = "default: samsoir baseline (D4)"
+max_levelled_segs = "default: samsoir baseline (D4)"
+clean_bad_geometries = "default: samsoir baseline (D4)"
+mesh_zl = "default: samsoir baseline (D4)"
+limit_tris = "default: samsoir baseline (D4)"
+masks_width = "default: samsoir baseline (D4)"
+masking_mode = "default: samsoir baseline (D4)"
+distance_masks_too = "default: samsoir baseline (D4)"
+cover_extent = "default: samsoir baseline (D4)"
+ratio_bathy = "default: samsoir baseline (D4)"
+ratio_water = "default: samsoir baseline (D4)"
+use_decal_on_terrain = "default: samsoir baseline (D4)"
+zoom = "default: samsoir baseline (D4)"
+
+[[group]]
+id = "lf4222"     # LF4222, LF4226
+tiles = ["+45+004"]
+
+[group.legacy]
+road_level = "default: samsoir baseline (D4)"
+lane_width = "default: samsoir baseline (D4)"
+max_levelled_segs = "default: samsoir baseline (D4)"
+clean_bad_geometries = "default: samsoir baseline (D4)"
+mesh_zl = "default: samsoir baseline (D4)"
+masks_width = "default: samsoir baseline (D4)"
+masking_mode = "default: samsoir baseline (D4)"
+distance_masks_too = "default: samsoir baseline (D4)"
+cover_extent = "default: samsoir baseline (D4)"
+ratio_bathy = "default: samsoir baseline (D4)"
+ratio_water = "default: samsoir baseline (D4)"
+use_decal_on_terrain = "default: samsoir baseline (D4)"
+zoom = "default: samsoir baseline (D4)"
+
+[[group]]
+id = "lfll"     # LFKE, LFLL
+tiles = ["+45+005"]
+
+[group.legacy]
+zoom = "default: samsoir baseline (D4)"
+
+[[group]]
+id = "lfhm"     # LF7325, LF7332, LFHM, LFHU, LFKD, LFKX, LFLJ
+tiles = ["+45+006"]
+
+[group.legacy]
+zoom = "default: samsoir baseline (D4)"
+
+[[group]]
+id = "lilf"     # LILF
+tiles = ["+45+007"]
+
+[group.legacy]
+zoom = "default: samsoir baseline (D4)"
+
+[[group]]
+id = "limc"     # LIMC
+tiles = ["+45+008"]
+
+[group.legacy]
+zoom = "default: samsoir baseline (D4)"
+
+[[group]]
+id = "lf0725"     # LF0725
+tiles = ["+44+004"]
+
+[group.legacy]
+road_level = "default: samsoir baseline (D4)"
+lane_width = "default: samsoir baseline (D4)"
+max_levelled_segs = "default: samsoir baseline (D4)"
+clean_bad_geometries = "default: samsoir baseline (D4)"
+mesh_zl = "default: samsoir baseline (D4)"
+masks_width = "default: samsoir baseline (D4)"
+masking_mode = "default: samsoir baseline (D4)"
+distance_masks_too = "default: samsoir baseline (D4)"
+cover_extent = "default: samsoir baseline (D4)"
+ratio_bathy = "default: samsoir baseline (D4)"
+ratio_water = "default: samsoir baseline (D4)"
+use_decal_on_terrain = "default: samsoir baseline (D4)"
+zoom = "default: samsoir baseline (D4)"
+
+[[group]]
+id = "lftm"     # LF0453, LF0456, LF0524, LF0538, LF0553, LF2621, LF2622, LF2624, LF3826, LF3828, LF3851, LFTM
+tiles = ["+44+005"]
+
+[group.legacy]
+road_level = "default: samsoir baseline (D4)"
+lane_width = "default: samsoir baseline (D4)"
+max_levelled_segs = "default: samsoir baseline (D4)"
+clean_bad_geometries = "default: samsoir baseline (D4)"
+mesh_zl = "default: samsoir baseline (D4)"
+masks_width = "default: samsoir baseline (D4)"
+masking_mode = "default: samsoir baseline (D4)"
+distance_masks_too = "default: samsoir baseline (D4)"
+cover_extent = "default: samsoir baseline (D4)"
+ratio_bathy = "default: samsoir baseline (D4)"
+ratio_water = "default: samsoir baseline (D4)"
+use_decal_on_terrain = "default: samsoir baseline (D4)"
+zoom = "default: samsoir baseline (D4)"
+
+[[group]]
+id = "lf0421"     # LF0421, LF0654
+tiles = ["+44+006"]
+
+[group.legacy]
+road_level = "default: samsoir baseline (D4)"
+lane_width = "default: samsoir baseline (D4)"
+max_levelled_segs = "default: samsoir baseline (D4)"
+clean_bad_geometries = "default: samsoir baseline (D4)"
+mesh_zl = "default: samsoir baseline (D4)"
+masks_width = "default: samsoir baseline (D4)"
+masking_mode = "default: samsoir baseline (D4)"
+distance_masks_too = "default: samsoir baseline (D4)"
+cover_extent = "default: samsoir baseline (D4)"
+ratio_bathy = "default: samsoir baseline (D4)"
+ratio_water = "default: samsoir baseline (D4)"
+use_decal_on_terrain = "default: samsoir baseline (D4)"
+zoom = "default: samsoir baseline (D4)"
+
+[[group]]
+id = "lfbo"     # LFBO
+tiles = ["+43+001"]
+
+[group.legacy]
+road_level = "default: samsoir baseline (D4)"
+lane_width = "default: samsoir baseline (D4)"
+max_levelled_segs = "default: samsoir baseline (D4)"
+clean_bad_geometries = "default: samsoir baseline (D4)"
+curvature_tol = "default: samsoir baseline (D4)"
+limit_tris = "default: samsoir baseline (D4)"
+masks_width = "default: samsoir baseline (D4)"
+masking_mode = "default: samsoir baseline (D4)"
+distance_masks_too = "default: samsoir baseline (D4)"
+cover_extent = "default: samsoir baseline (D4)"
+ratio_bathy = "default: samsoir baseline (D4)"
+use_decal_on_terrain = "default: samsoir baseline (D4)"
+zoom = "default: samsoir baseline (D4)"
+
+[[group]]
+id = "lfnz"     # LFNZ
+tiles = ["+43+004"]
+
+[group.legacy]
+road_level = "default: samsoir baseline (D4)"
+lane_width = "default: samsoir baseline (D4)"
+max_levelled_segs = "default: samsoir baseline (D4)"
+clean_bad_geometries = "default: samsoir baseline (D4)"
+curvature_tol = "default: samsoir baseline (D4)"
+masks_width = "default: samsoir baseline (D4)"
+masking_mode = "default: samsoir baseline (D4)"
+distance_masks_too = "default: samsoir baseline (D4)"
+cover_extent = "default: samsoir baseline (D4)"
+ratio_bathy = "default: samsoir baseline (D4)"
+ratio_water = "default: samsoir baseline (D4)"
+use_decal_on_terrain = "default: samsoir baseline (D4)"
+zoom = "default: samsoir baseline (D4)"
+
+[[group]]
+id = "lfml"     # LF8324, LF8329, LF8355, LF8363, LFML
+tiles = ["+43+005"]
+
+[group.legacy]
+road_level = "default: samsoir baseline (D4)"
+lane_width = "default: samsoir baseline (D4)"
+max_levelled_segs = "default: samsoir baseline (D4)"
+clean_bad_geometries = "default: samsoir baseline (D4)"
+curvature_tol = "default: samsoir baseline (D4)"
+masks_width = "default: samsoir baseline (D4)"
+masking_mode = "default: samsoir baseline (D4)"
+distance_masks_too = "default: samsoir baseline (D4)"
+cover_extent = "default: samsoir baseline (D4)"
+ratio_bathy = "default: samsoir baseline (D4)"
+ratio_water = "default: samsoir baseline (D4)"
+use_decal_on_terrain = "default: samsoir baseline (D4)"
+zoom = "default: samsoir baseline (D4)"
+
+[[group]]
+id = "lf0452"     # LF0452, LF0460, LF0652, LF8325, LF8357, LF8364
+tiles = ["+43+006"]
+
+[group.legacy]
+road_level = "default: samsoir baseline (D4)"
+lane_width = "default: samsoir baseline (D4)"
+max_levelled_segs = "default: samsoir baseline (D4)"
+clean_bad_geometries = "default: samsoir baseline (D4)"
+curvature_tol = "default: samsoir baseline (D4)"
+masks_width = "default: samsoir baseline (D4)"
+masking_mode = "default: samsoir baseline (D4)"
+distance_masks_too = "default: samsoir baseline (D4)"
+cover_extent = "default: samsoir baseline (D4)"
+ratio_bathy = "default: samsoir baseline (D4)"
+ratio_water = "default: samsoir baseline (D4)"
+use_decal_on_terrain = "default: samsoir baseline (D4)"
+zoom = "default: samsoir baseline (D4)"
+
+[[group]]
+id = "lfmn"     # LFMN
+tiles = ["+43+007"]
+
+[group.legacy]
+road_level = "default: samsoir baseline (D4)"
+lane_width = "default: samsoir baseline (D4)"
+max_levelled_segs = "default: samsoir baseline (D4)"
+clean_bad_geometries = "default: samsoir baseline (D4)"
+curvature_tol = "default: samsoir baseline (D4)"
+masks_width = "default: samsoir baseline (D4)"
+masking_mode = "default: samsoir baseline (D4)"
+distance_masks_too = "default: samsoir baseline (D4)"
+cover_extent = "default: samsoir baseline (D4)"
+ratio_bathy = "default: samsoir baseline (D4)"
+ratio_water = "default: samsoir baseline (D4)"
+use_decal_on_terrain = "default: samsoir baseline (D4)"
+zoom = "default: samsoir baseline (D4)"
+
+[[group]]
+id = "ldsp"     # LDSP
+tiles = ["+43+016"]
+
+[group.legacy]
+road_level = "default: samsoir baseline (D4)"
+max_levelled_segs = "default: samsoir baseline (D4)"
+min_area = "default: samsoir baseline (D4)"
+clean_bad_geometries = "default: samsoir baseline (D4)"
+curvature_tol = "default: samsoir baseline (D4)"
+limit_tris = "default: samsoir baseline (D4)"
+masks_width = "default: samsoir baseline (D4)"
+masking_mode = "default: samsoir baseline (D4)"
+distance_masks_too = "default: samsoir baseline (D4)"
+cover_extent = "default: samsoir baseline (D4)"
+ratio_bathy = "default: samsoir baseline (D4)"
+ratio_water = "default: samsoir baseline (D4)"
+use_decal_on_terrain = "default: samsoir baseline (D4)"
+zoom = "default: samsoir baseline (D4)"
+
+[[group]]
+id = "lfkc"     # LFKC
+tiles = ["+42+008"]
+
+[[group]]
+id = "lppr"     # LPPR
+tiles = ["+41-009"]
+
+[group.legacy]
+road_level = "default: samsoir baseline (D4)"
+min_area = "default: samsoir baseline (D4)"
+clean_bad_geometries = "default: samsoir baseline (D4)"
+curvature_tol = "default: samsoir baseline (D4)"
+masks_width = "default: samsoir baseline (D4)"
+masking_mode = "default: samsoir baseline (D4)"
+distance_masks_too = "default: samsoir baseline (D4)"
+cover_extent = "default: samsoir baseline (D4)"
+ratio_bathy = "default: samsoir baseline (D4)"
+zoom = "default: samsoir baseline (D4)"
+
+[[group]]
+id = "lebl"     # LEBL
+tiles = ["+41+002"]
+
+[group.legacy]
+road_level = "default: samsoir baseline (D4)"
+lane_width = "default: samsoir baseline (D4)"
+max_levelled_segs = "default: samsoir baseline (D4)"
+min_area = "default: samsoir baseline (D4)"
+clean_bad_geometries = "default: samsoir baseline (D4)"
+curvature_tol = "default: samsoir baseline (D4)"
+limit_tris = "default: samsoir baseline (D4)"
+masks_width = "default: samsoir baseline (D4)"
+masking_mode = "default: samsoir baseline (D4)"
+distance_masks_too = "default: samsoir baseline (D4)"
+cover_extent = "default: samsoir baseline (D4)"
+ratio_bathy = "default: samsoir baseline (D4)"
+ratio_water = "default: samsoir baseline (D4)"
+use_decal_on_terrain = "default: samsoir baseline (D4)"
+zoom = "default: samsoir baseline (D4)"
+
+[[group]]
+id = "lfkj"     # LFKJ
+tiles = ["+41+008"]
+
+[[group]]
+id = "ltfm"     # LTFM
+tiles = ["+41+028"]
+
+[group.legacy]
+road_level = "default: samsoir baseline (D4)"
+max_levelled_segs = "default: samsoir baseline (D4)"
+min_area = "default: samsoir baseline (D4)"
+clean_bad_geometries = "default: samsoir baseline (D4)"
+mesh_zl = "default: samsoir baseline (D4)"
+curvature_tol = "default: samsoir baseline (D4)"
+limit_tris = "default: samsoir baseline (D4)"
+masks_width = "default: samsoir baseline (D4)"
+masking_mode = "default: samsoir baseline (D4)"
+distance_masks_too = "default: samsoir baseline (D4)"
+ratio_bathy = "default: samsoir baseline (D4)"
+ratio_water = "default: samsoir baseline (D4)"
+use_decal_on_terrain = "default: samsoir baseline (D4)"
+zoom = "default: samsoir baseline (D4)"
+
+[[group]]
+id = "lgsk"     # LGSK
+tiles = ["+39+023"]
+
+[group.legacy]
+road_level = "default: samsoir baseline (D4)"
+lane_width = "default: samsoir baseline (D4)"
+max_levelled_segs = "default: samsoir baseline (D4)"
+min_area = "default: samsoir baseline (D4)"
+clean_bad_geometries = "default: samsoir baseline (D4)"
+curvature_tol = "default: samsoir baseline (D4)"
+limit_tris = "default: samsoir baseline (D4)"
+masks_width = "default: samsoir baseline (D4)"
+masking_mode = "default: samsoir baseline (D4)"
+distance_masks_too = "default: samsoir baseline (D4)"
+cover_extent = "default: samsoir baseline (D4)"
+ratio_bathy = "default: samsoir baseline (D4)"
+ratio_water = "default: samsoir baseline (D4)"
+use_decal_on_terrain = "default: samsoir baseline (D4)"
+zoom = "default: samsoir baseline (D4)"
+
+[[group]]
+id = "lppt"     # LPPT
+tiles = ["+38-010"]
+
+[group.legacy]
+road_level = "default: samsoir baseline (D4)"
+lane_width = "default: samsoir baseline (D4)"
+max_levelled_segs = "default: samsoir baseline (D4)"
+clean_bad_geometries = "default: samsoir baseline (D4)"
+mesh_zl = "default: samsoir baseline (D4)"
+masks_width = "default: samsoir baseline (D4)"
+masking_mode = "default: samsoir baseline (D4)"
+distance_masks_too = "default: samsoir baseline (D4)"
+cover_extent = "default: samsoir baseline (D4)"
+ratio_bathy = "default: samsoir baseline (D4)"
+ratio_water = "default: samsoir baseline (D4)"
+use_decal_on_terrain = "default: samsoir baseline (D4)"
+
+[[group]]
+id = "lemg"     # LEMG
+tiles = ["+36-005"]
+
+[group.legacy]
+road_level = "default: samsoir baseline (D4)"
+max_levelled_segs = "default: samsoir baseline (D4)"
+min_area = "default: samsoir baseline (D4)"
+clean_bad_geometries = "default: samsoir baseline (D4)"
+curvature_tol = "default: samsoir baseline (D4)"
+limit_tris = "default: samsoir baseline (D4)"
+masks_width = "default: samsoir baseline (D4)"
+masking_mode = "default: samsoir baseline (D4)"
+distance_masks_too = "default: samsoir baseline (D4)"
+cover_extent = "default: samsoir baseline (D4)"
+ratio_bathy = "default: samsoir baseline (D4)"
+ratio_water = "default: samsoir baseline (D4)"
+use_decal_on_terrain = "default: samsoir baseline (D4)"
+zoom = "default: samsoir baseline (D4)"
+
+[[group]]
+id = "dtmb"     # DTMB
+tiles = ["+35+010"]
+
+[group.legacy]
+road_level = "default: samsoir baseline (D4)"
+lane_width = "default: samsoir baseline (D4)"
+min_area = "default: samsoir baseline (D4)"
+clean_bad_geometries = "default: samsoir baseline (D4)"
+limit_tris = "default: samsoir baseline (D4)"
+masks_width = "default: samsoir baseline (D4)"
+masking_mode = "default: samsoir baseline (D4)"
+distance_masks_too = "default: samsoir baseline (D4)"
+cover_extent = "default: samsoir baseline (D4)"
+ratio_bathy = "default: samsoir baseline (D4)"
+ratio_water = "default: samsoir baseline (D4)"
+use_decal_on_terrain = "default: samsoir baseline (D4)"
+zoom = "default: samsoir baseline (D4)"
+
+[[group]]
+id = "lgsa"     # LGSA
+tiles = ["+35+024"]
+
+[group.legacy]
+road_level = "default: samsoir baseline (D4)"
+lane_width = "default: samsoir baseline (D4)"
+max_levelled_segs = "default: samsoir baseline (D4)"
+min_area = "default: samsoir baseline (D4)"
+clean_bad_geometries = "default: samsoir baseline (D4)"
+curvature_tol = "default: samsoir baseline (D4)"
+limit_tris = "default: samsoir baseline (D4)"
+masks_width = "default: samsoir baseline (D4)"
+masking_mode = "default: samsoir baseline (D4)"
+distance_masks_too = "default: samsoir baseline (D4)"
+cover_extent = "default: samsoir baseline (D4)"
+ratio_bathy = "default: samsoir baseline (D4)"
+ratio_water = "default: samsoir baseline (D4)"
+use_decal_on_terrain = "default: samsoir baseline (D4)"
+zoom = "default: samsoir baseline (D4)"
