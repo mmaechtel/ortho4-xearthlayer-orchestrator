@@ -4,6 +4,7 @@ import importlib.util
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 SCRIPT = Path(__file__).resolve().parents[1] / "bin" / "osm-bake"
 loader = importlib.machinery.SourceFileLoader("osm_bake", str(SCRIPT))
@@ -292,8 +293,8 @@ class Main(unittest.TestCase):
         p.write_bytes(b"old")
         osm_bake.run_main(self.args("--tile", "53", "-3"), FakeOsmium())
         self.assertEqual(p.read_bytes(), b"old")
-        [line] = (self.out / "osm-bake.log").read_text().splitlines()
-        self.assertEqual(line.split("\t")[:2], ["+53-003", "unknown"])
+        last = (self.out / "osm-bake.log").read_text().splitlines()[-1]
+        self.assertEqual(last.split("\t")[:2], ["+53-003", "unknown"])
 
     def test_partial_fill_does_not_inherit_an_earlier_full_bakes_stamp(self):
         osm_bake.run_main(self.args("--tile", "53", "-3"), FakeOsmium())
@@ -301,6 +302,40 @@ class Main(unittest.TestCase):
         osm_bake.run_main(self.args("--tile", "53", "-3"), FakeOsmium())
         last = (self.out / "osm-bake.log").read_text().splitlines()[-1]
         self.assertEqual(last.split("\t")[:2], ["+53-003", "unknown"])
+
+    def newest_stamp(self):
+        return (self.out / "osm-bake.log").read_text().splitlines()[-1].split("\t")[1]
+
+    def test_interrupted_republish_leaves_the_tile_invalidated(self):
+        # a re-bake stopped between its first rename and its log line must not leave the
+        # earlier fresh stamp vouching for a mix of old and new layers
+        osm_bake.run_main(self.args("--tile", "53", "-3"), FakeOsmium())
+        real, calls = osm_bake.os.replace, []
+
+        def replace_then_stop(src, dst):
+            calls.append(dst)
+            if len(calls) == 2:
+                raise KeyboardInterrupt
+            real(src, dst)
+
+        with mock.patch.object(osm_bake.os, "replace", replace_then_stop), self.assertRaises(KeyboardInterrupt):
+            osm_bake.run_main(self.args("--tile", "53", "-3", "--force"), FakeOsmium())
+        self.assertEqual(self.newest_stamp(), "unknown")
+
+    def test_failed_filter_on_a_rebake_keeps_the_old_stamp(self):
+        # nothing was published, the old set is still consistent: no invalidation
+        osm_bake.run_main(self.args("--tile", "53", "-3"), FakeOsmium())
+
+        class Boom(FakeOsmium):
+            def __call__(self, argv, **kw):
+                if "w/natural=coastline" in argv and argv[1] == "tags-filter" and "nwr/aeroway" not in argv:
+                    raise RuntimeError("osmium failed")
+                return super().__call__(argv, **kw)
+
+        with self.assertRaises(RuntimeError):
+            osm_bake.run_main(self.args("--tile", "53", "-3", "--force"), Boom())
+        self.assertEqual(self.newest_stamp(), "2026-10-22T20:21:02Z")
+        self.assertEqual(len((self.out / "osm-bake.log").read_text().splitlines()), 1)
 
     def test_nothing_to_do_runs_nothing(self):
         osm_bake.run_main(self.args("--tile", "53", "-3"), FakeOsmium())

@@ -74,8 +74,13 @@ def filter_cmd(src, dst, layer):
     return ["osmium", "tags-filter", str(src), *LAYERS[layer], "-f", "osm.bz2", "-o", str(dst), "--overwrite"]
 
 
-def bake_tile(out, lat, lon, prefiltered, work, force, run):
-    """Bake the tile's missing layers (all with force); returns how many."""
+def bake_tile(out, lat, lon, prefiltered, work, force, run, before_publish=None):
+    """Bake the tile's missing layers (all with force); returns how many.
+
+    before_publish runs once every filter succeeded and before the first rename,
+    when the tile already holds layers: the caller invalidates the tile's
+    provenance there, so an interrupted publish never leaves an earlier stamp
+    vouching for a mix of old and new layers."""
     todo = [l for l in LAYERS if force or not layer_path(out, lat, lon, l).exists()]
     if not todo:
         return 0
@@ -94,6 +99,8 @@ def bake_tile(out, lat, lon, prefiltered, work, force, run):
             run(filter_cmd(tile_pbf, part, layer))
             if not part.exists():
                 part.write_bytes(bz2.compress(EMPTY_OSM))
+        if before_publish and any(layer_path(out, lat, lon, l).exists() for l in LAYERS):
+            before_publish()
         for part, final in parts:
             if force:
                 os.replace(part, final)
@@ -225,15 +232,18 @@ def run_main(a, run):
     with tempfile.TemporaryDirectory(dir=a.out, prefix=".osm-bake-") as work:
         pre = Path(work) / "prefiltered.osm.pbf"
         run(prefilter_cmd(a.pbf, pre))
-        for lat, lon in pending:
-            n = bake_tile(a.out, lat, lon, pre, work, a.force, run)
-            # every pending tile gets a line, so none keeps an earlier one: it vouches for the
-            # extract only when all five layers came from it; a partial fill (kept layers, or a
-            # worker publishing meanwhile) supersedes any earlier line with "unknown", i.e. outdated
-            stamp = extract if n == len(LAYERS) else "unknown"
+        def record(lat, lon, stamp):
             now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
             with open(a.out / "osm-bake.log", "a") as log:
                 log.write(f"{tile_name(lat, lon)}\t{stamp}\t{a.pbf.name}\t{now}\n")
+
+        for lat, lon in pending:
+            n = bake_tile(a.out, lat, lon, pre, work, a.force, run,
+                          before_publish=lambda: record(lat, lon, "unknown"))
+            # every pending tile gets a line, so none keeps an earlier one: it vouches for the
+            # extract only when all five layers came from it; a partial fill (kept layers, or a
+            # worker publishing meanwhile) supersedes any earlier line with "unknown", i.e. outdated
+            record(lat, lon, extract if n == len(LAYERS) else "unknown")
             print(f"{tile_name(lat, lon)}: {n} layers")
 
 
