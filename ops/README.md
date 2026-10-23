@@ -66,7 +66,9 @@ git add ops/packages/<name>.toml && git commit -m "ops: package <name>"
 ops/bin/oxo-compose ops/packages/<name>.toml --submit http://127.0.0.1:8080
 git add ops/ledger && git commit -m "ledger: submit <name>"
 
-# 4. Workers (more: copy ops/worker-pod.yaml with another metadata.name)
+# 4. Workers. More: copy ops/worker-pod.yaml and change metadata.name AND the
+#    scratch volume name (scratch-1 -> scratch-2): podman shares same-named
+#    emptyDir volumes between pods, and the workers wipe each other's builds.
 podman kube play ops/worker-pod.yaml
 curl -sS http://127.0.0.1:8080/api/v1/jobs/<job_id>              # complete / failed / in_progress
 curl -sS http://127.0.0.1:8080/api/v1/jobs/<job_id>/throughput
