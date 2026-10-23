@@ -136,6 +136,11 @@ div.grp + div.grp { margin-top: 10px; }
 #scrap .tok { white-space: normal; max-width: 100%; text-align: left; line-height: 1.3; }
 #scrap .why { font: 12px var(--sans); color: var(--muted); padding-left: 6px; }
 
+/* "+N weitere" under a clipped queue / job strip */
+.more { display: block; margin-top: 6px; padding: 2px 8px; border: 1px dashed var(--line); border-radius: 8px; background: none;
+  color: var(--muted); font-size: 12px; cursor: pointer; }
+.more:hover { color: var(--text); border-color: var(--muted); }
+
 /* job strip */
 .jhead { font-size: 11px; letter-spacing: .14em; color: var(--muted); margin-bottom: -10px; }
 #jobs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2px 16px; }

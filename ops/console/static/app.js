@@ -508,12 +508,30 @@ function summary(m) {
   $("summary").textContent = `${active} aktive Jobs · ${n("pending")} in der Queue · ${busy}/${m.s.workers.length} Worker beschäftigt`;
 }
 
+/* ---------- clipped lists: queue and job strip show their first CLIP entries ---------- */
+const CLIP = 10, expanded = { q: false, jobs: false };
+try { Object.assign(expanded, JSON.parse(localStorage.getItem("oxo-console-expanded"))); } catch { /* defaults: clipped */ }
+function clip() {
+  for (const c of chips.values()) c.hidden = false; // chips move between columns
+  const lists = { q: [...$("q").querySelectorAll(".tok")], jobs: [...$("jobs").children] };
+  for (const [k, items] of Object.entries(lists)) {
+    const over = items.length - CLIP, b = $("m" + k);
+    items.forEach((x, i) => { x.hidden = !expanded[k] && i >= CLIP; });
+    b.hidden = over <= 0;
+    b.textContent = expanded[k] ? "weniger ▴" : `+${over} weitere ▾`;
+    b.setAttribute("aria-expanded", String(expanded[k]));
+  }
+  for (const g of $("q").children) g.hidden = !g.querySelector(".tok:not([hidden])");
+  $("q").parentNode.classList.toggle("dense", lists.q.length >= 40 && expanded.q);
+}
+
 /* ---------- poll ---------- */
 function render(s) {
   const prev = cur, before = prev ? measure() : new Map();
   cur = model(s);
   renderBand(cur, prev);
   renderJobs(cur, prev);
+  clip();
   if (prev) glide(before);
   renderMap(cur, prev);
   if (sel?.tile && !cur.tiles.has(sel.tile)) sel = null;
@@ -555,6 +573,12 @@ document.querySelector(".tabs").addEventListener("keydown", e => {
   setTab(next, true); $("tab-" + next).focus();
 });
 document.addEventListener("click", e => {
+  const more = e.target.closest("[data-more]");
+  if (more) {
+    expanded[more.dataset.more] = !expanded[more.dataset.more];
+    try { localStorage.setItem("oxo-console-expanded", JSON.stringify(expanded)); } catch { /* not remembered */ }
+    return clip();
+  }
   const j = e.target.closest("[data-job-row]");
   if (j) return toggleJob(j.dataset.jobRow);
   const t = e.target.closest(".tok, .cell");

@@ -23,7 +23,8 @@
   <section id="band-view" role="tabpanel" aria-labelledby="tab-band">
     <div class="band" aria-label="Fliessband">
       <div class="col q"><h2 class="chead">QUEUE <span class="n" id="nq">0</span></h2>
-        <div id="q"></div><p class="empty" id="eq">Keine wartenden Tiles.</p></div>
+        <div id="q"></div><button type="button" class="more" id="mq" data-more="q" aria-controls="q" hidden></button>
+        <p class="empty" id="eq">Keine wartenden Tiles.</p></div>
       <div class="col l"><h2 class="chead">WORKER <span class="n" id="nl">0</span></h2>
         <div id="lanes"></div><p class="empty" id="el">Kein Worker-Container gefunden.</p></div>
       <div class="col d"><h2 class="chead">DELIVERED <span class="n" id="nd">0</span></h2>
@@ -35,6 +36,7 @@
     <details class="scrap" id="scrapbox"><summary>AUSSCHUSS <span id="ns">0</span></summary><div id="scrap"></div></details>
     <h2 class="jhead">JOBS</h2>
     <div id="jobs"></div>
+    <button type="button" class="more" id="mjobs" data-more="jobs" aria-controls="jobs" hidden></button>
   </section>
   <section id="detail" aria-label="Auswahl"></section>
   <section id="map-view" role="tabpanel" aria-labelledby="tab-map">
