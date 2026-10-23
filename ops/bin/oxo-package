@@ -247,14 +247,19 @@ def verify_stage(stage, good, lit):
             if not (stage / "textures" / png.name).is_file():
                 problems.append(f"{tile}: {png.name} missing")
         for ter in (d / "terrain").glob("*.ter"):
-            sources.setdefault(ter.name, ter)
+            sources.setdefault(ter.name, []).append(ter)
     unlit = lambda text: [l for l in text.splitlines() if not l.split() or l.split()[0] not in LIT_KEYS]
-    for name, src in sorted(sources.items()):
+    for name, srcs in sorted(sources.items()):
         staged = stage / "terrain" / name
         if not staged.is_file():
             problems.append(f"{name}: missing")
             continue
-        text, orig = staged.read_text(errors="replace"), src.read_text(errors="replace")
+        origs = {s.read_text(errors="replace") for s in srcs}
+        if len(origs) > 1:
+            problems.append(f"{name}: sources disagree across tiles "
+                            f"{', '.join(s.parent.parent.name for s in srcs)}")
+            continue
+        text, orig = staged.read_text(errors="replace"), origs.pop()
         m, want = TER_RE.match(name), lit.get(name)
         if m and m[5] and lit_lines(text):
             problems.append(f"{name}: LIT lines on an overlay .ter")

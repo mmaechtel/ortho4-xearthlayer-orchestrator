@@ -584,6 +584,22 @@ class VerifyStage(NightBase):
                 stage, good = self.stage_of(d, {name: staged})
                 self.assertIn(name, "\n".join(self.verify(stage, good, {name: self.LIT})))
 
+    def test_shared_ter_whose_sources_disagree_is_reported(self):
+        # three tiles share a corner texture; the middle copy differs
+        tiles = ("+48+010", "+48+011", "+48+012")
+        dirs = [self.our_tile(t, water=()) for t in tiles]
+        (dirs[1] / "terrain" / f"{self.LAND}.ter").write_text(ter_text(self.LAND) + "NO_SHADOW\n")
+        stage, _ = self.stage_of(dirs[0], {})
+        for t, d in zip(tiles, dirs):
+            nav = stage / "Earth nav data" / oxo_package.block_of(t)
+            nav.mkdir(exist_ok=True)
+            oxo_package.sync_file(next((d / "Earth nav data").rglob("*.dsf")), nav)
+            oxo_package.sync_file(d / "terrain" / f"{self.LAND}.ter", stage / "terrain")
+        good = [(t, d, next((d / "Earth nav data").rglob("*.dsf"))) for t, d in zip(tiles, dirs)]
+        problems = "\n".join(self.verify(stage, good, {}))
+        self.assertIn(f"{self.LAND}.ter: sources disagree", problems)
+        self.assertIn("+48+011", problems)
+
     def test_unplanned_ter_must_equal_its_source(self):
         d = self.our_tile(water=())
         stage, good = self.stage_of(d, {f"{self.LAND}.ter": self.LIT})
