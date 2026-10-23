@@ -354,6 +354,7 @@ def fetch_region(region_id, pbf_dir, ledger, now, run):
         replicated = header_timestamp(part, run)
         name = f"{stem}-{replicated:%y%m%d}.osm.pbf"
         if _booked(ledger, pbf_dir, name, replicated):  # a file without a ledger line is replaced
+            part.unlink()  # superseded by the verified, booked copy
             publish_poly()
             print(f"already have {name}")
             return
@@ -361,8 +362,12 @@ def fetch_region(region_id, pbf_dir, ledger, now, run):
         os.replace(part, pbf_dir / name)
         append_ledger(ledger, region_id, name, replicated.strftime(TS_FORMAT), md5, now.strftime(TS_FORMAT))
         publish_poly()
+    except FetchError as e:
+        # a failed download stays for a look (it may be tens of GB); the next run overwrites it
+        if part.exists():
+            raise FetchError(f"{e}; download kept, unbooked, at {part}")
+        raise
     finally:
-        part.unlink(missing_ok=True)
         poly_part.unlink(missing_ok=True)
     print(pbf_dir / name)
 

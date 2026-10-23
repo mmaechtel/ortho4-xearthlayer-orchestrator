@@ -462,12 +462,23 @@ class Fetch(Net):
         self.fetch()
         self.assertEqual((self.pbfs / "luxembourg-261022.osm.pbf").read_bytes(), PBF_BYTES)
 
-    def test_md5_mismatch_leaves_nothing_behind(self):
+    def test_md5_mismatch_keeps_the_download_unbooked_for_a_look(self):
         self.web.files["https://download.geofabrik.de/europe/luxembourg-latest.osm.pbf.md5"] = b"0" * 32 + b"  x\n"
         with self.assertRaises(osm_fetch.FetchError) as cm:
             self.fetch()
         self.assertIn("md5", str(cm.exception))
-        self.assertEqual([p.name for p in self.pbfs.iterdir() if p.name != "index-v1.json"], [])
+        self.assertIn("luxembourg.osm.pbf.part", str(cm.exception))
+        self.assertEqual(sorted(p.name for p in self.pbfs.iterdir() if p.name != "index-v1.json"),
+                         ["luxembourg.osm.pbf.part"])
+        self.assertEqual((self.pbfs / "luxembourg.osm.pbf.part").read_bytes(), PBF_BYTES)
+        self.assertEqual(osm_fetch.read_ledger(self.ledger), [])
+
+    def test_an_unreachable_md5_keeps_the_download(self):
+        del self.web.files["https://download.geofabrik.de/europe/luxembourg-latest.osm.pbf.md5"]
+        with self.assertRaises(osm_fetch.FetchError) as cm:
+            self.fetch()
+        self.assertIn("kept", str(cm.exception))
+        self.assertTrue((self.pbfs / "luxembourg.osm.pbf.part").is_file())
         self.assertEqual(osm_fetch.read_ledger(self.ledger), [])
 
     def test_a_failed_refresh_keeps_the_poly_of_the_booked_extract(self):
@@ -479,12 +490,12 @@ class Fetch(Net):
         with self.assertRaises(osm_fetch.FetchError):
             self.fetch()
         self.assertEqual((self.pbfs / "luxembourg.poly").read_text(), "old boundary\n")
-        self.assertFalse(list(self.pbfs.glob("*.part")))
+        self.assertEqual([p.name for p in self.pbfs.glob("*.part")], ["luxembourg.osm.pbf.part"])
 
-    def test_a_header_without_timestamp_is_refused_and_cleaned_up(self):
+    def test_a_header_without_timestamp_is_refused_and_not_booked(self):
         with self.assertRaises(osm_fetch.FetchError):
             self.fetch(run=fake_run(stdout="\n"))
-        self.assertFalse(list(self.pbfs.glob("luxembourg*.pbf*")))
+        self.assertEqual([p.name for p in self.pbfs.glob("luxembourg*.pbf*")], ["luxembourg.osm.pbf.part"])
         self.assertFalse(list(self.pbfs.glob("luxembourg.poly*")))
         self.assertEqual(osm_fetch.read_ledger(self.ledger), [])
 
@@ -507,6 +518,7 @@ class Fetch(Net):
         out = self.fetch()
         self.assertIn("already have luxembourg-261022.osm.pbf", out)
         self.assertEqual(len(osm_fetch.read_ledger(self.ledger)), 1)
+        self.assertFalse(list(self.pbfs.glob("*.part")), "the verified booked copy supersedes the download")
 
     def test_a_republish_on_the_same_day_replaces_the_file_and_is_booked(self):
         self.fetched("luxembourg", "luxembourg-261022.osm.pbf", "2026-10-22T08:00:00Z")  # earlier that day
