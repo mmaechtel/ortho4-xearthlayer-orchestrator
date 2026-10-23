@@ -26,6 +26,8 @@ spec:
         # deploy/worker-pod.yaml's production values. No overpass_server_choice:
         # a fixed server is used for every retry; stock "random" fails over
         # between the servers listed in ops/o4-overlay/overpass_servers.txt.
+        - name: OXO_OVERLAY_SRC
+          value: "/var/oxo/content/X-Plane 12 Global Scenery"
         - name: OXO_O4_CONFIG_OVERLAY
           value: "/var/oxo/o4-overlay"
         - name: OXO_O4_APP_OVERRIDES
@@ -68,10 +70,13 @@ spec:
       hostPath:
         path: /mnt/xplane_data/oxo/dem
         type: Directory
-    # Empty: own packages carry no overlays, so no X-Plane scenery is needed.
+    # X-Plane 12's Global Scenery, read-only. Not only for overlays: every
+    # ortho DSF takes its DEM and bathymetry rasters from the matching Global
+    # Scenery DSF (O4_DSF_Utils.extract_elevation_and_bathymetry_data). The
+    # worker reads it at /var/oxo/content/xplane (OXO_OVERLAY_SRC default).
     - name: content
       hostPath:
-        path: /mnt/xplane_data/oxo/content
+        path: /home/maechtel/X-Plane-12/Global Scenery
         type: Directory
     - name: patches
       hostPath:
