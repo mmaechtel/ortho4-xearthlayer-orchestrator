@@ -57,6 +57,68 @@ tile = "+59+030"
 src = "/mnt/xplane_data/Scenery/DigitalDesign/zOrtho4XP_+59+030_ULLI_MUXP"
 source = "DigitalDesign ULLI Saint-Petersburg Pulkovo, Ortho4XP MUXP tile"
 
+# 2026-10-24 (#25): Ortho4XP base-mesh tiles of payware add-ons in Asia (DarkBlue, AirWil, vatrus)
+# and the VNDP Nepal tiles, kept as the vendors made them (mesh, airport flattening); XEL
+# streams the imagery. Disable the add-ons' own zOrtho4XP_* in Custom Scenery and any XEL patch
+# for these tiles. Despite its name, DarkBlue ...Overlays2 holds a base-mesh Ortho4XP tile.
+[[vendor]]
+tile = "+35+139"
+src = "/mnt/xplane_data/Scenery/DarkBlue/DarkBlue-RJTT_Haneda_Overlays2"
+source = "DarkBlue RJTT Haneda"
+
+[[vendor]]
+tile = "+26+127"
+src = "/mnt/xplane_data/Scenery/DarkBlue/DarkBlue-ROAH_Naha_Overlays2"
+source = "DarkBlue ROAH Naha"
+
+[[vendor]]
+tile = "+15+120"
+src = "/mnt/xplane_data/Scenery/AirWil/Airwil_RPLC 3_Ortho"
+source = "AirWil RPLC Clark"
+
+[[vendor]]
+tile = "+07+125"
+src = "/mnt/xplane_data/Scenery/AirWil/Airwil_RPMD 3_Ortho"
+source = "AirWil RPMD Davao"
+
+[[vendor]]
+tile = "+13+123"
+src = "/mnt/xplane_data/Scenery/AirWil/Airwil_Bicol 5_Ortho"
+source = "AirWil Bicol"
+
+[[vendor]]
+tile = "+48+134"
+src = "/mnt/xplane_data/Scenery/vatrus/UHHH_Photo_2023_2"
+source = "vatrus UHHH Khabarovsk Photo 2023"
+
+[[vendor]]
+tile = "+48+135"
+src = "/mnt/xplane_data/Scenery/vatrus/UHHH_Photo_2023_2"
+source = "vatrus UHHH Khabarovsk Photo 2023"
+
+# VNDP Nepal: copied (reflinks) from the legacy Ortho4XP tree's EXTERN/CDB_orthos so the repo
+# does not depend on that install.
+[[vendor]]
+tile = "+28+082"
+src = "/mnt/xplane_data/Scenery/CDB_orthos/zOrtho4XP_+28+082-VNDP"
+source = "VNDP Nepal"
+
+[[vendor]]
+tile = "+29+081"
+src = "/mnt/xplane_data/Scenery/CDB_orthos/zOrtho4XP_+29+081-VNDP"
+source = "VNDP Nepal"
+
+[[vendor]]
+tile = "+29+082"
+src = "/mnt/xplane_data/Scenery/CDB_orthos/zOrtho4XP_+29+082-VNDP"
+source = "VNDP Nepal"
+
+# Bhutan add-on: Paro VQPR.
+[[vendor]]
+tile = "+27+089"
+src = "/mnt/xplane_data/Scenery/Bhutan/zOrtho4XP_+27+089-Paro"
+source = "Bhutan add-on Paro (VQPR)"
+
 [[group]]
 id = "eddm"
 tiles = ["+48+011"]
@@ -888,3 +950,83 @@ zoom = "default: samsoir baseline (D4)"
 [[group]]
 id = "lemd"     # LEMD
 tiles = ["+40-004"]
+
+# 2026-10-24 (#25): the patched Asian tiles that had no group yet. Keep-or-default per group
+# as above: samsoir baseline (D4), including zoom 16 over legacy ZL17.
+
+[[group]]
+id = "wsss"     # WSSS Singapore Changi (and the neighbouring tile)
+tiles = ["+01+103", "+01+104"]
+
+[group.legacy]
+zoom = "default: samsoir baseline (D4)"
+
+[[group]]
+id = "vhhh"     # VHHH
+tiles = ["+22+113"]
+
+[group.legacy]
+zoom = "default: samsoir baseline (D4)"
+
+[[group]]
+id = "rcgi"     # RCGI, RCLY, RCQS
+tiles = ["+22+121"]
+
+[group.legacy]
+road_banking_limit = "default: samsoir baseline (D4)"
+clean_bad_geometries = "default: samsoir baseline (D4)"
+curvature_tol = "default: samsoir baseline (D4)"
+apt_curv_tol = "default: samsoir baseline (D4)"
+coast_curv_tol = "default: samsoir baseline (D4)"
+limit_tris = "default: samsoir baseline (D4)"
+masks_width = "default: samsoir baseline (D4)"
+masking_mode = "default: samsoir baseline (D4)"
+distance_masks_too = "default: samsoir baseline (D4)"
+cover_airports_with_highres = "default: samsoir baseline (D4)"
+cover_extent = "default: samsoir baseline (D4)"
+ratio_bathy = "default: samsoir baseline (D4)"
+ratio_water = "default: samsoir baseline (D4)"
+use_decal_on_terrain = "default: samsoir baseline (D4)"
+zoom = "default: samsoir baseline (D4)"
+
+[[group]]
+id = "roig"     # ROIG
+tiles = ["+24+124"]
+
+[group.legacy]
+clean_bad_geometries = "default: samsoir baseline (D4)"
+road_level = "default: samsoir baseline (D4)"
+ratio_bathy = "default: samsoir baseline (D4)"
+ratio_water = "default: samsoir baseline (D4)"
+masks_width = "default: samsoir baseline (D4)"
+masking_mode = "default: samsoir baseline (D4)"
+distance_masks_too = "default: samsoir baseline (D4)"
+cover_extent = "default: samsoir baseline (D4)"
+zoom = "default: samsoir baseline (D4)"
+use_decal_on_terrain = "default: samsoir baseline (D4)"
+
+[[group]]
+id = "omdb"     # OMDB
+tiles = ["+25+055"]
+
+[group.legacy]
+zoom = "default: samsoir baseline (D4)"
+
+[[group]]
+id = "vnlk"     # VNLK
+tiles = ["+27+086"]
+
+[group.legacy]
+zoom = "default: samsoir baseline (D4)"
+
+[[group]]
+id = "rcsp"     # RCSP
+tiles = ["+10+114"]
+
+[[group]]
+id = "rclm"     # RCLM
+tiles = ["+20+116"]
+
+[[group]]
+id = "rccm"     # RCCM, RCQC, RCWA
+tiles = ["+23+119"]
