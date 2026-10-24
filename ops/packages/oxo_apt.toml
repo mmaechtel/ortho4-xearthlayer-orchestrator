@@ -2,7 +2,7 @@
 # scenery needs them. Outranks every legacy A0_* airport package.
 #   ops/bin/oxo-compose ops/packages/oxo_apt.toml --legacy
 #   ops/bin/oxo-compose ops/packages/oxo_apt.toml --group <ID> --submit http://127.0.0.1:8080
-#   ops/bin/oxo-package ops/packages/oxo_apt.toml --code A00_OXO
+#   ops/bin/oxo-package ops/packages/oxo_apt.toml --code A00_OXO --no-mask-merge  (D10, operator 2026-10-24)
 
 [metadata]
 name = "oxo_apt"           # -> zzXEL_oxo_apt_ortho
