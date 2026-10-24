@@ -29,9 +29,10 @@ Vendor tiles (plan D12): a finished Ortho4XP tile that ships with a payware add-
 then run `oxo-package` as usual: the DSF, `.ter` and `.png` are copied, never the `.dds`, so XEL streams the imagery and the
 tile gets night lighting. Its `.ter` keep the vendor's provider code (e.g. `USA216`). The install is recorded in
 `ledger/<package>/vendor.tsv`. Disable the add-on's own `zOrtho4XP_*` in Custom Scenery and any XEL patch for that tile, or they win.
-Known limits, fine for ELLX (2026-10-24), to check before adding another: only `BASE_TEX*` lines are checked, so a `.ter`
-naming another `.dds` (e.g. `NORMAL_TEX`) would lose it; two vendor tiles with the same generic `.png` (e.g.
-`water_transition.png`) are treated like a shared mask.
+A vendor `.ter` may name only its `BASE_TEX` `.dds`, `lib/…` library paths and files in `textures/`; anything else is
+not copied and nothing checks it yet (XCodr KMMH, for example, would lose `terrain/Bumpy_Field_NML.png`). The change that
+adds the next vendor tile also adds that check to `verify_stage`: every file a staged vendor `.ter` names, except the
+`BASE_TEX` `.dds` and `lib/…`, must be in the package.
 
 Tests for the scripts: `python3 -m unittest discover -s ops/tests`.
 
