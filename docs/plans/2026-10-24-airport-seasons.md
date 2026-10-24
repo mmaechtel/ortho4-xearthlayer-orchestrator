@@ -11,8 +11,11 @@ Welche Airport-Szenerie lässt sich auf eine andere Jahreszeit umschalten, und w
 | Stufe 1 | 535 verlinkte Packs aus `~/X-Plane-12/Custom Scenery/` (Ziel unter `/mnt/xplane_data/Scenery/`), vier Teile |
 | Stufe 2 | 1636 nicht verlinkte Packs unter `/mnt/xplane_data/Scenery/` |
 | Lückenlauf | die 535 verlinkten Packs noch einmal mit den drei Mustern, die Stufe 1 übersehen hatte (siehe 7) |
+| Review | Codex-Review mit Nachprüfung am 2026-10-24, siehe 10 |
 
-Ergebnis: 107 Zeilen (A, B, C, D) in der TSV. Reine E-Zeilen („nichts gefunden“) stehen nicht darin, es sind 391.
+Ergebnis: 108 Zeilen (A, B, C, D) in der TSV. Reine E-Zeilen („nichts gefunden“) stehen nicht darin, es sind 391.
+
+Acht Packs unter `/mnt/xplane_data/Scenery/` standen in keiner der beiden Listen (darunter `XCodr/AEP1-4`, das Ziel-Pack `GlobalArt/CA-CYYZ-A-Toronto Airport Pearson-NLMod`, `Flightbeam Library`, `Zambesi_Library`). Nur `AEP1-4` hat Jahreszeit-Marker; es steht als B in der TSV.
 
 ## 2. Kategorien
 
@@ -30,13 +33,13 @@ In `~/X-Plane-12/Resources/plugins`:
 
 | Plugin | Stand | Folge |
 |---|---|---|
-| SAM 3.1.x | installiert | setzt `sam/season/{spring,summer,autumn,winter,deepwinter,snowytrees}`, Menü „Colors + Seasons“ |
-| openSAM | installiert, `Output/openSAM/preferences.xml`: `<seasons auto_season="1" …>` | setzt nur `sam/season/{spring,summer,autumn,winter}` (Menü „SAM legacy Season: Auto/Spring/…“), Auto = nach Datum. `deepwinter` und `snowytrees` fehlen in den Strings |
+| SAM 3.1.10 | **deaktiviert**: in `SAM/{lin,mac,win}_x64/` liegt nur `SAM.xpl.xorg` (und `.xorgbak`), kein `SAM.xpl`; `Log.txt` vom 2026-10-24 lädt nur openSAM | würde `sam/season/{spring,summer,autumn,winter,deepwinter,snowytrees}` setzen (Strings der `.xorg`-Datei), Menü „Colors + Seasons“. Hier setzt niemand `deepwinter` oder `snowytrees` |
+| openSAM | installiert und geladen (`Log.txt`), `Output/openSAM/preferences.xml`: `<seasons auto_season="1" …>` | einziger aktiver Lieferant der `sam/season/*`-Datarefs; setzt nur `sam/season/{spring,summer,autumn,winter}` (Menü „SAM legacy Season: Auto/Spring/…“), Auto = nach Datum. `deepwinter` und `snowytrees` fehlen in den Strings |
 | XA-snow | installiert (`Output/preferences/OrthoSnow.cfg`) | dynamischer Schnee über Ortho/Boden, unabhängig von den Packs |
 | TerraMaxx SeasonsXP | **nicht installiert** | `maxxxp/seasonsxp/*` wird nie gesetzt, es gilt nur die `default`-Region (Sommer) |
 | 4 Seasons | **nicht installiert** | `nm/four_seasons/season` wird nie gesetzt |
 
-Bei C-Zeilen mit SAM/openSAM gilt: die Library-Regionen reagieren auf das Dataref. Ob das Menü im laufenden Sim aktiv ist, ist nicht geprüft.
+Bei C-Zeilen mit SAM/openSAM gilt: die Library-Regionen reagieren auf das Dataref. Weil SAM deaktiviert ist, wirken hier nur die vier openSAM-Jahreszeiten. Ob das openSAM-Menü im laufenden Sim umschaltet, ist nicht geprüft.
 
 ## 4. A: umschaltbar mit vorhandenen Dateien
 
@@ -45,7 +48,7 @@ Alle Wege sind manuell. Vorher Sicherung anlegen. Dokumentiert vom Vendor ist nu
 | Szenerie | ICAO | Umschalten | Zurück | verifiziert |
 |---|---|---|---|---|
 | Ibertech LOWG Graz | LOWG | `Seasons/winter/library.txt` über die `library.txt` im Pack-Wurzelordner kopieren; Default-Region zeigt dann auf `orthos/neutral_winter/…` | `Seasons/summer/library.txt` zurückkopieren (byte-gleich mit dem Original); Vegetation bleibt auch im Winter Sommer | ja |
-| GlobalArt Pearson Winter Texture | CYYZ | `images/` und `textures/` des Add-ons über das Pack `CA-CYYZ-A-Toronto Airport Pearson-NLMod` kopieren (431 von 450 Dateien unterscheiden sich) | `Backup Texturas Verao/` (= Sommer, gleich dem installierten Stand) zurückkopieren | ja |
+| GlobalArt Pearson Winter Texture | CYYZ | `images/` und `textures/` des Add-ons über das Pack `CA-CYYZ-A-Toronto Airport Pearson-NLMod` kopieren (431 von 450 Dateien unterscheiden sich) | `images/`: `Backup Texturas Verao/images/` zurückkopieren (gleich dem installierten Stand). `textures/`: vorher die Pack-eigenen `textures/` sichern und daraus zurückholen; das Backup heißt `Textures/` (großes T, 382 Dateien) und weicht bei 31 der 88 überschriebenen Dateien vom installierten NLMod-Pack ab | ja |
 | Kumiankka Oulu VFR | EFOU (Gebiet) | Paket `OuluVFR_winter_v2.4.0` statt `OuluVFR_summer_v2.4.0` verwenden. Das Readme sagt: eines von beiden kopieren. Der Winter unterscheidet sich nur in DSF, `apt.dat` und Weihnachtsbaum-Texturen. Schnee kommt vom externen Plugin Accumulated Snow | Eintrag in `scenery_packs.ini` zurück auf das Sommer-Paket (Betreiber) | ja |
 | Ibertech EKCH Airport 1 | EKCH | Ordner `autumn/` (36 Dateien: `grass/*.for`, `objects/{ekch_hills,ekch_trees,ground,ground_ov}/*.obj`) über die gleichnamigen Dateien im Pack-Wurzelordner kopieren; die DSF verweist auf die Wurzelpfade | die 36 Wurzeldateien vorher sichern, es gibt kein Backup im Pack | nein |
 | x-flight UIAR Chara (Forest) | UIAR | `forest/winter/TARA_trees.png` über `forest/TARA_trees.png` kopieren (alle `1TARA-*.for` referenzieren sie) | Original vorher sichern | nein |
@@ -59,17 +62,16 @@ EKCH hat zwei unabhängige Wege: Ibertech (A, oben) und FlyTampa (C, unten).
 
 | Szenerie | ICAO | Mechanismus | Stand hier |
 |---|---|---|---|
-| FlyTampa Copenhagen (Airport, City, Overlays, Photoreal, Mesh) | EKCH | `FlyTampa_EKCH_XP_SeasonPack.7z` (1,8 GB, nicht entpackt, enthält fünf `library.txt` plus `autumn/winter/deepwinter`-Ordner) ersetzt die `library.txt` der Packs. Regionen `sam/season/*` oder `nm/four_seasons/season` | installierte `library.txt` ohne Season-Regionen, die Ordner `summer/autumn/winter/deepwinter` liegen schon im Pack. Ohne das Archiv inaktiv (verifiziert) |
-| Axonos Jackson Hole | KJAC | `REGION_DREF sam/season/*` in der `library.txt` (Pack-Wurzelordner); im Winter Tausch auf `Snowalt/*_Snow.obj` (56 Dateien) | SAM-Menü, Szenerie neu laden. `deepwinter`/`snowytrees` nur mit echtem SAM (verifiziert) |
-| Axonos Varna | LBWN | wie KJAC, nur Vegetation | SAM |
-| XorgBig Devinci Kobe | RJBE | wie KJAC, nur Vegetation | SAM |
-| SFD Salt Lake City | KSLC | `sam/season/*` oder `maxxxp/seasonsxp/*` | SAM; SeasonsXP fehlt |
+| FlyTampa Copenhagen (Airport, City, Overlays, Photoreal, Mesh) | EKCH | `FlyTampa_EKCH_XP_SeasonPack.7z` (1,8 GB, nicht entpackt, enthält fünf `library.txt` plus `autumn/winter/deepwinter`-Ordner) ersetzt die `library.txt` der Packs. Regionen `sam/season/*` oder `nm/four_seasons/season` | installierte `library.txt` ohne Season-Regionen, die Ordner `summer/autumn/winter/deepwinter` liegen schon im Pack. Ohne das Archiv inaktiv (verifiziert). Mit Archiv: openSAM schaltet Frühling bis Winter; `deepwinter`/`snowytrees` bräuchten SAM (deaktiviert) oder 4 Seasons (fehlt) |
+| Axonos Jackson Hole | KJAC | `REGION_DREF sam/season/*` in der `library.txt` (Pack-Wurzelordner); im Winter Tausch auf `Snowalt/*_Snow.obj` (56 Dateien) | openSAM (Frühling bis Winter), Szenerie neu laden. `deepwinter`/`snowytrees` nur mit SAM, das hier deaktiviert ist (verifiziert) |
+| Axonos Varna | LBWN | wie KJAC, nur Vegetation | openSAM (SAM deaktiviert) |
+| XorgBig Devinci Kobe | RJBE | wie KJAC, nur Vegetation | openSAM (SAM deaktiviert) |
+| SFD Salt Lake City | KSLC | `sam/season/*` oder `maxxxp/seasonsxp/*` | openSAM für Herbst/Winter, `deepwinter` nicht (SAM deaktiviert); SeasonsXP fehlt |
 | CFXP Vancouver (+ `.patch-xp12`) | CYVR | `sam/season/{spring,autumn,winter,deepwinter}`, alle 107 Ziele je Region vorhanden | SAM/openSAM |
 | CFXP Vancouver City | CYVR (City) | wie CYVR, teilweise | SAM/openSAM |
 | FlyAgi_Vegetation | – | `sam/season/*` und `sam/color/*`, 817 von 821 Zielen je Region | SAM/openSAM |
 | Ibertech Bremen | EDDW | `maxxxp/seasonsxp/is_*` | SeasonsXP fehlt, nur Sommer. Ziele der Winter-Regionen fehlen (siehe D) |
 | Ibertech Graz | LOWG | `maxxxp/seasonsxp/is_*` | SeasonsXP fehlt (zusätzlich A, siehe oben) |
-| ZeroDollar zdp-library 1.2.0 | – | `sam/season/winter`/`deepwinter`, Regionen leer | nichts wirksam |
 
 ## 6. D: behauptet oder deklariert, Dateien fehlen
 
@@ -77,6 +79,7 @@ EKCH hat zwei unabhängige Wege: Ibertech (A, oben) und FlyTampa (C, unten).
 |---|---|---|
 | Axonos Memphis | KMEM | `sam/season`-Regionen deklariert, 487 von 487 Sommer-Zielen fehlen, kein `SAM_Seasons_SDK` |
 | CFSS Alaska | CYAZ | Regionen `sam/season/*` ohne `EXPORT`-Zeilen |
+| CFXP Kelowna | CYLW | fünf Regionen `sam/season/*` definiert, aber nie mit `REGION` benutzt (nur `REGION CYLW`) |
 | GlobalArt Vancouver | CYVR | Handbuch (EN/PT) nennt „Winter texture - only the Airport area“, keine Dateien |
 | Ibertech Berlin | EDDB | `sam/season/*` mit etwa 840 Zeilen je Region, `SAM_Seasons_SDK` fehlt |
 | Ibertech Bremen | EDDW | Winter/Mid-Winter-Ziele in `library.txt` verdrahtet, Dateien fehlen (0 von 1187) |
@@ -87,18 +90,20 @@ EKCH hat zwei unabhängige Wege: Ibertech (A, oben) und FlyTampa (C, unten).
 | x-flight Kurumoch | UWWW | `phototerr/winter/*.png` vorhanden, die DSF verweist nicht auf die `.pol` |
 | XCodr Yellowstone | KWYS | Winter-`EXPORT_EXCLUDE`-Block in `Library Contents.txt`, aber `Ortho/Winter/*.pol` fehlt |
 | XorgBig Joensuu | EFJO | altes Readme behauptet Sommer-/Winter-Boden, nur DSF und Objekte im Pack |
-| ZeroDollar zdp-library | – | `#NO ASSETS DEFINED` in den Winterregionen |
+| ZeroDollar zdp-library 1.2.0 | – | `#NO ASSETS DEFINED` in den Winterregionen |
+| ZeroDollar zdp-library (`old/`) | – | wie 1.2.0, gleicher Regionsaufbau |
 
 ## 7. B: nativ und automatisch (nichts zu schalten)
 
 Nur Simulatordatum und Breitengrad zählen. 58 Packs, Zeilen in der TSV.
 
-- **`EXPORT_EXCLUDE_SEASON` im Pack-Wurzel-`library.txt`:** FlyAgi (EDDK, EDPW, EDRN, EDXE, LOWI, EDNL, UGAM, LKCM) und Simmershome (EDAB, EDAQ, EDAU, EDAY, EDAZ, EDOP, ETNL). EDAB, EDAZ und ETNL haben tote Winterziele.
+- **`EXPORT_EXCLUDE_SEASON` im Pack-Wurzel-`library.txt`:** FlyAgi (EDDK, EDPW, EDRN, EDXE, LOWI, EDNL, UGAM, LKCM), Simmershome (EDAB, EDAQ, EDAU, EDAY, EDAZ, EDOP, ETNL) und XCodr `AEP1-4` (ältere AEP-Library, nicht verlinkt). EDAB, EDAZ und ETNL haben tote Winterziele.
 - **`EXPORT_SEASON` und Verwandte:** XCodr (AEP, A30, KBLU), ChudobaDesign (Library, ESGG), FSX3D LFKB, Orbx `Global_Forests_v2`.
-- **`SEASONAL` in `.for`:** PH20 (EBBL, EHEH, EHRD, EKAH), Military EBFS, Colombia 1.3 (10 Packs, nur `_sp`), Colombia 1.4 `L_XPC_LuiMor_free`, XorgBig (KBRO, MUBR, MUBY, MUCU, RJOA, UGSB, ZMCK), BCSceneries Ligurian COAST D d/e/f, tsc777 EHEH, Skydom Red Sea (nur `_sp`).
+- **`SEASONAL` in `.for`:** PH20 (EBBL, EHEH, EHRD, EKAH), Military EBFS, Colombia 1.3 (10 Packs, nur `_sp`), Colombia 1.4 `L_XPC_LuiMor_free`, XorgBig (KBRO, MUBR, MUBY, MUCU, RJOA, UGSB, ZMCK), BCSceneries Ligurian COAST D d/e/f, tsc777 EHEH, Skydom Red Sea (nur `_sp`), GlobalArt KBNA (die DSF setzt die Wald-Ordner `fal/spr/sum/win` alle gleichzeitig; die verschachtelte `library.txt` mit `EXPORT_SEASON` ist inaktiv).
 - **Datumsregionen** (`sim/time/local_date_days`): XCodr KMMH, KTEX (nur Skifahrer/Skilichter), Ibertech EKVG 1 bis 3.
-- **Nur Doku-Aussage:** AeroX EDDG, Papickx EBCI.
-- **Nicht Jahreszeit:** VerticalSim KMSY (nass/feucht, Wetter).
+- **Nur Doku-Aussage:** Papickx EBCI.
+
+AeroX EDDG (Doku: Schnee/Regen auf dem Boden) und VerticalSim KMSY (Regionen nass/feucht über `rain_percent`) sind Wetter, nicht Jahreszeit, und zählen als E.
 
 Partielle `SEASONAL`-Packs (nur `_sp`): was X-Plane mit fehlenden `_fa`/`_wi` macht, ist nicht geprüft.
 
@@ -125,7 +130,7 @@ Das fallende Laub im Herbst ist ausgeschaltet. Die Sicherung `Library.txt.vor-la
 7. Ordner- und Dateinamen mit `Seasons`, `summer|autumn|winter`, auch fremdsprachig (`invierno`, `otoño`, `verano`, `nieve`, `Verão/Verao`, `inverno`, `hiver`, `neige`, `Herbst`, `Schnee`, `zima`, `talvi`, `syksy`). Das Vendor-Verzeichnis (Eltern) mitansehen: dort liegen Geschwister-Packs und Archive (`*SeasonPack*.7z`).
 8. Doku (README, PDF mit `pdftotext`) nach `season|winter|snow|autumn`.
 
-**Falsche Treffer (nicht zählen):** Schneepflug-/Räum-Objekte (`SnowPlow`, `snow_removal/*.agp`), `snowbird.obj`, `Rain_Var/Snow_*.pol` und `Wet/Dry`-Regionen (Wetter, nicht Jahreszeit), `asfalto_nieve` (Wetter-Asphalt), `Fallback`/`Fallen`, `Spring.for` (Ortsname), Kleidungsvarianten von Personen-Objekten, `wet`-Wald-`.for` des Standardpakets, `aluminium`/`Iluminacao` (enthalten „lumi“), Optionsordner mit Statics, Mesh oder Gras (ULLI, KCLE, LOWW, KPHX). Ein `SAM_Seasons_SDK`-Ordner allein beweist nichts.
+**Falsche Treffer (nicht zählen):** Schneepflug-/Räum-Objekte (`SnowPlow`, `snow_removal/*.agp`), `snowbird.obj`, `Rain_Var/Snow_*.pol` und `Wet/Dry`-Regionen sowie Doku-Aussagen zu Wettereffekten (Wetter, nicht Jahreszeit), `asfalto_nieve` (Wetter-Asphalt), `Fallback`/`Fallen`, `Spring.for` (Ortsname), Kleidungsvarianten von Personen-Objekten, `wet`-Wald-`.for` des Standardpakets, `aluminium`/`Iluminacao` (enthalten „lumi“), Optionsordner mit Statics, Mesh oder Gras (ULLI, KCLE, LOWW, KPHX). Ein `SAM_Seasons_SDK`-Ordner allein beweist nichts.
 
 ## 10. Zahlen
 
@@ -133,17 +138,19 @@ Das fallende Laub im Herbst ist ausgeschaltet. Die Sicherung `Library.txt.vor-la
 |---|---|---|---|
 | A | 8 | 0 | 7 |
 | B | 62 | 9 | 58 |
-| C | 24 | 0 | 12 |
-| D | 13 | 0 | 13 |
+| C | 23 | 0 | 11 |
+| D | 15 | 0 | 15 |
 | E (nicht in der TSV) | 391 | – | – |
 
 Im Lückenlauf (535 verlinkte Packs) sind drei Stufe-1-Zeilen von E auf B geändert (tsc777 EHEH, XorgBig KBRO, Skydom Red Sea). Dazu kommen sechs neue B-Zeilen für Packs, die Stufe 1 gar nicht als Zeile hatte (BCSceneries Ligurian D d/e/f, Colombia `L_XPC_LuiMor_free`, Orbx `Global_Forests_v2`, `ChudobaDesign_Library`). Es gab keinen neuen Fund in A, C oder D. Das Muster `EXPORT_EXCLUDE_SEASON` kam in den verlinkten Packs nicht vor, die Namensprüfung auf fremdsprachige Jahreszeitwörter hatte keinen echten Treffer.
 
-`verified = ja` haben 18 Zeilen: Ibertech LOWG, FlyTampa EKCH, Axonos KJAC, Kumiankka Oulu, GlobalArt Pearson, FlyAgi EDDK. Der Rest ist `nein`.
+Review am 2026-10-24 (Codex, jede Aussage an den Dateien nachgeprüft): ZeroDollar zdp-library 1.2.0 von C auf D; CFXP CYLW neu als D (war E); GlobalArt KBNA neu als B (war E); XCodr `AEP1-4` neu als B (stand in keiner Liste); AeroX EDDG und VerticalSim KMSY von B auf E (nur Wetter), daher bleibt E bei 391. Dazu korrigiert: Rückweg bei Pearson CYYZ, Plugin-Zuordnung von `deepwinter`/`snowytrees` (nur SAM, das deaktiviert ist).
+
+`verified = ja` haben 22 Zeilen: Ibertech LOWG, FlyTampa EKCH, Axonos KJAC, Kumiankka Oulu, GlobalArt Pearson, FlyAgi EDDK, aus dem Review CFXP CYLW, GlobalArt KBNA, XCodr `AEP1-4`, ZeroDollar zdp-library 1.2.0. Der Rest ist `nein`.
 
 ## 11. Offene Punkte
 
-- Nichts im Sim geprüft: ob SAM- und openSAM-Menü die Regionen wirklich umschalten, ob `deepwinter`/`snowytrees` ohne echtes SAM fehlen, was X-Plane mit fehlenden Exportzielen und fehlenden `SEASONAL`-Varianten macht.
+- Nichts im Sim geprüft: ob das openSAM-Menü die Regionen wirklich umschaltet, ob SAM nach Umbenennen von `SAM.xpl.xorg` wieder lädt (Betreiber-Entscheidung, nicht angefasst), was X-Plane mit fehlenden Exportzielen und fehlenden `SEASONAL`-Varianten macht.
 - Nicht gelesen: `.docx`, `.doc`, Bild-PDFs (TaiModels OOMS, YBCS, EGCC, Newport News, ENGM), PDF-Handbücher über 40 MB.
 - DSF nur als Strings durchsucht, nicht dekodiert; 7z-komprimierte DSF nicht geöffnet.
 - Archive nur gelistet (`7z l`), nie entpackt (auch nicht `FlyTampa_EKCH_XP_SeasonPack.7z`, außer den zwei `library.txt` im Scratch).
