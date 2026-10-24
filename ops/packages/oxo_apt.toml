@@ -44,6 +44,19 @@ tile = "+42+009"
 src = "/mnt/xplane_data/Scenery/FSX3D/zOrtho4XP_CORSICA_FSX3D_+42+009"
 source = "FSX3D Corsica (LFKB Bastia)"
 
+# FlyTampa Amsterdam and DigitalDesign Pulkovo: Ortho4XP MUX/MUXP tiles of payware add-ons, kept as
+# the vendors made them (mesh, airport flattening); XEL streams the imagery. Disable the add-ons'
+# own zOrtho4XP_* in Custom Scenery and any XEL patch for these tiles.
+[[vendor]]
+tile = "+52+004"
+src = "/mnt/xplane_data/Scenery/FlyTampa/zOrtho4XP_+52+004_FlyTampa_Amsterdam_MUX"
+source = "FlyTampa Amsterdam (EHAM), Ortho4XP MUX tile"
+
+[[vendor]]
+tile = "+59+030"
+src = "/mnt/xplane_data/Scenery/DigitalDesign/zOrtho4XP_+59+030_ULLI_MUXP"
+source = "DigitalDesign ULLI Saint-Petersburg Pulkovo, Ortho4XP MUXP tile"
+
 [[group]]
 id = "eddm"
 tiles = ["+48+011"]
