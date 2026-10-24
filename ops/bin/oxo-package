@@ -5,7 +5,13 @@ Usage: oxo-package <spec.toml> --code <CODE> [--dry-run] [--strict|--loose]
                    [--no-mask-merge] [--packages-dir DIR]
 
 Every zOrtho4XP_<tile>/ under the spec's [target] root counts as done (egress
-is atomic). All tiles are validated first; any rejection aborts before
+is atomic). So does each [[vendor]] of the spec (plan D12): a finished Ortho4XP
+tile shipped with an add-on, given as tile, src (its zOrtho4XP_* directory, read
+only) and source (who made it, for the ledger). It is copied like a delivered
+tile (DSF, .ter, .png, never .dds) and keeps the vendor's provider code in its
+.ter, which only has to match XEL's DDS pattern (e.g. USA216) instead of BI. A
+vendor tile also delivered under the root, listed twice, or whose src has no DSF
+is refused. All tiles are validated first; any rejection aborts before
 anything is copied. Then DSF, .ter and .png masks are copied into a fresh
 staging directory next to <packages-dir>/zzXEL_<metadata.name>_ortho/,
 xearthlayer_scenery_package.txt is written, and the staging directory replaces
@@ -13,7 +19,7 @@ the package — so a rebuild leaves no stale files behind. Ported from
 sync-xel-package.
 
   --strict  (default) DSF > 10000 B, .ter references
-            _BI<zl>.dds, at least one .png mask, no partial files, no newer
+            _BI<zl>.dds (vendor tile: any XEL-streamable DDS name), at least one .png mask, no partial files, no newer
             .dsf.bak
   --loose   .png masks optional (desert tiles); everything else still required
 
@@ -28,7 +34,8 @@ counterparts agree on one; otherwise it stays dark with a warning. *_overlay
 (water) .ter stay dark. Only the staged copies change. A tile without recipe
 stays dark with a warning. --dry-run prints the per-tile plan; an install appends
 one row per tile to ledger/<name>/night.tsv (when, code, tile, source package,
-its code line, lit .ter, LUMINANCE values, note).
+its code line, lit .ter, LUMINANCE values, note). A vendor tile's install also
+appends a row to ledger/<name>/vendor.tsv (when, code, tile, source, src); oxo-whence reads it.
 
 Before the staged package replaces the installed one it is checked: every DSF,
 .ter and .png mask of the delivered tiles is there, every .ter carries exactly
@@ -57,6 +64,8 @@ SAFE_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]*$")
 PARTIAL_PATTERNS = ("*.tmp", "*.part", "*.partial")
 # <y>_<x>_<provider><zl>[_<kind>_overlay].ter, provider as XEL's DDS pattern has it
 TER_RE = re.compile(r"^(\d+)_(\d+)_([A-Za-z]+\d?)(\d{2})(_[a-z]+_overlay)?\.ter$")
+# XEL's DDS filename pattern (xearthlayer), as a whole file name
+XEL_DDS_RE = re.compile(r"^\d+_\d+_[A-Za-z]+\d?\d{2}(_LIT)?\.dds$")
 BASE_RE = re.compile(r"^BASE_TEX\S*\s+(\S+)\.dds\s*$", re.M)
 LIT_KEYS = ("TEXTURE_LIT", "LUMINANCE")
 
@@ -116,8 +125,9 @@ def has_partials(d):
     return False
 
 
-def validate_tile(d, tile, mode):
-    """Return (dsf_path, None) if valid, else (None, reason)."""
+def validate_tile(d, tile, mode, vendor=False):
+    """Return (dsf_path, None) if valid, else (None, reason). A vendor tile needs no
+    BI provider, only a base texture XEL can stream."""
     if not TILE_RE.match(tile):
         return None, "bad tile name"
 
@@ -133,7 +143,13 @@ def validate_tile(d, tile, mode):
     ters = sorted((d / "terrain").glob("*.ter"))
     if not ters:
         return None, "no .ter files"
-    if not re.search(r"_BI[0-9]+\.dds", ters[0].read_text(errors="replace")):
+    if vendor:
+        # every .ter is copied and no .dds, so each base texture must be streamable
+        for ter in ters:
+            base = BASE_RE.search(ter.read_text(errors="replace"))
+            if base is None or not XEL_DDS_RE.match(Path(base[1] + ".dds").name):
+                return None, f"base texture of {ter.name} does not match the XEL DDS pattern"
+    elif not re.search(r"_BI[0-9]+\.dds", ters[0].read_text(errors="replace")):
         return None, "no BI provider in .ter"
 
     if mode == "strict" and not any((d / "textures").glob("*.png")):
@@ -344,7 +360,13 @@ def load_spec(path):
         raise Fatal(f"unsafe or missing metadata.name: {name!r}")
     if not isinstance(root, str) or not root:
         raise Fatal("missing target.root in spec")
-    return name, Path(root)
+    vendors = spec.get("vendor", [])
+    if not isinstance(vendors, list) or not all(isinstance(v, dict) for v in vendors):
+        raise Fatal("vendor must be an array of tables: [[vendor]]")
+    for v in vendors:
+        if not all(isinstance(v.get(k), str) and v[k] for k in ("tile", "src", "source")):
+            raise Fatal(f"[[vendor]] needs tile, src and source: {v}")
+    return name, Path(root), vendors
 
 
 def parse_args(argv):
@@ -370,7 +392,7 @@ def run(args):
     if not CODE_RE.fullmatch(args.code):
         raise Fatal(f"invalid --code {args.code!r}: use letters, digits, _ and -, "
                     "starting with a letter or digit")
-    name, root = load_spec(args.spec)
+    name, root, vendors = load_spec(args.spec)
     if not root.is_dir():
         raise Fatal(f"target.root not found: {root}")
     pkg_name = f"zzXEL_{name}_ortho"
@@ -388,14 +410,23 @@ def run(args):
         print(f"WARNING: {msg}", file=sys.stderr)
 
     tile_dirs = sorted(p for p in root.glob("zOrtho4XP_*") if p.is_dir())
-    if not tile_dirs:
+    entries = [(d.name[len("zOrtho4XP_"):], d, False) for d in tile_dirs]
+    delivered = {t for t, _, _ in entries}
+    for v in vendors:
+        src = Path(v["src"])
+        if v["tile"] in delivered:
+            raise Fatal(f"vendor tile {v['tile']} is listed twice or also delivered under {root}")
+        if not src.is_dir():
+            raise Fatal(f"vendor tile {v['tile']}: src not found: {src}")
+        delivered.add(v["tile"])
+        entries.append((v["tile"], src, True))
+    if not entries:
         raise Fatal(f"no zOrtho4XP_* tiles under {root}")
-    log(f"tiles present: {len(tile_dirs)}")
+    log(f"tiles present: {len(entries)} ({len(vendors)} vendor)")
 
     good, bad = [], []
-    for d in tile_dirs:
-        tile = d.name[len("zOrtho4XP_"):]
-        dsf, reason = validate_tile(d, tile, args.mode)
+    for tile, d, vendor in entries:
+        dsf, reason = validate_tile(d, tile, args.mode, vendor)
         if dsf:
             good.append((tile, d, dsf))
         else:
@@ -493,6 +524,10 @@ def run(args):
     installs.parent.mkdir(parents=True, exist_ok=True)
     with installs.open("a") as f:
         f.write(f"{now}\t{args.code}\t{pkg_name}\t{','.join(t for t, _, _ in good)}\n")
+    if vendors:
+        with (installs.parent / "vendor.tsv").open("a") as f:
+            for v in vendors:
+                f.write("\t".join((now, args.code, v["tile"], v["source"], v["src"])) + "\n")
     with (installs.parent / "night.tsv").open("a") as f:
         for tile, plan in plans.items():
             f.write("\t".join((now, args.code, tile, plan["source"], plan["code"],

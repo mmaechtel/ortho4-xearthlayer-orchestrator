@@ -5,7 +5,8 @@
 
 Every build of the tile, newest first: job, commits, DEM and patches, each deviation from
 samsoir's baseline with the layer it came from, and the installs logged after that submission.
-Last, the oldest state: the tile as adopted from a legacy package (ops/adopted, oxo-adopt).
+A tile packaged from an add-on (oxo-package [[vendor]], ledger vendor.tsv) shows who made it
+and from where instead of a build. Last, the oldest state: the tile as adopted from a legacy package (ops/adopted, oxo-adopt).
 """
 import argparse
 import sys
@@ -47,13 +48,27 @@ def adoptions(adopted, tile):
     return found
 
 
+def vendors(ledger, tile):
+    found = []
+    for f in sorted(ledger.glob("*/vendor.tsv")):
+        for line in f.read_text().splitlines():
+            row = line.split("\t")
+            if len(row) == 5 and row[2] == tile:
+                found.append((f.parent.name, *row))
+    return sorted(found, key=lambda r: r[1], reverse=True)
+
+
 def report(ledger, tile, adopted=ADOPTED):
     recs = builds(ledger, tile)
     adopts = adoptions(adopted, tile)
-    if not recs and not adopts:
+    vend = vendors(ledger, tile)
+    if not recs and not adopts and not vend:
         print(f"{tile}: no ledger record")
         return 1
     print(tile)
+    for name, when, code, _, source, src in vend:
+        print(f"  vendor tile, not built by OXO: installed {when}  {code}  package {name}")
+        print(f"    source {source}  from {src}")
     later = None
     for rec in recs:
         p, spec, t = rec["provenance"], rec["spec"], rec["tiles"].get(tile, {})

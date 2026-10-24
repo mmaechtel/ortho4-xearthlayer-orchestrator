@@ -156,6 +156,16 @@ class Layers(unittest.TestCase):
 
 
 class Output(unittest.TestCase):
+    def test_vendor_tiles_stay_out_of_the_specs(self):
+        # [[vendor]] is oxo-package's (plan D12): no spec carries it, no group gets its tile.
+        vendor = PACKAGE + ('\n[[vendor]]\ntile = "+49+006"\nsrc = "/x/zOrtho4XP_ELLX_+49+006"\n'
+                            'source = "JustSim"\n')
+        specs = compose(vendor)
+        self.assertEqual(specs, compose())
+        for s in specs:
+            self.assertNotIn("vendor", s)
+            self.assertNotIn("+49+006", s["tiles"])
+
     def test_emitted_toml_round_trips(self):
         for s in compose():
             self.assertEqual(tomllib.loads(oxo_compose.to_toml(s)), s)

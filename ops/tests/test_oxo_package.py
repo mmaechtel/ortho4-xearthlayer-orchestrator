@@ -623,6 +623,141 @@ class VerifyStage(NightBase):
         self.assertEqual(len(self.night_rows()), 1, "no ledger row for a failed install")
 
 
+class Vendor(NightBase):
+    """A finished tile shipped with an add-on ([[vendor]], plan D12): packaged like a
+    delivered one, but its .ter keep the vendor's provider code (USA216, not BI)."""
+
+    TILE = "+49+006"
+    STEM = "22224_33856_USA216"
+
+    def vendor_tile(self, **kw):
+        d = self.tmp / "addon" / "zOrtho4XP_ELLX_+49+006"
+        (d / "Earth nav data" / "+40+000").mkdir(parents=True)
+        (d / "Earth nav data" / "+40+000" / f"{self.TILE}.dsf").write_bytes(b"x" * 20000)
+        (d / "terrain").mkdir()
+        (d / "terrain" / f"{self.STEM}.ter").write_text(kw.get("ter", ter_text(self.STEM)))
+        (d / "terrain" / f"{self.STEM}_water_overlay.ter").write_text(
+            ter_text(self.STEM, water=True).replace(f"{self.STEM}.png", "water_transition.png"))
+        (d / "textures").mkdir()
+        (d / "textures" / f"{self.STEM}.dds").write_bytes(b"dds")
+        (d / "textures" / "water_transition.png").write_bytes(b"png")
+        return d
+
+    def spec_with(self, src, tile=None, extra=""):
+        self.spec.write_text(self.spec.read_text() + extra +
+                             f'[[vendor]]\ntile = "{tile or self.TILE}"\nsrc = "{src}"\n'
+                             'source = "JustSim ELLX XPL12 v1.0"\n')
+
+    def recipe_source(self):
+        make_installed(self.pkgs, "zzXEL_eu-west_ortho", "EU-WEST  0.5.0", recipes=[self.TILE],
+                       ters={"22224_33856_GO216.ter": lit_ter_text("22224_33856_GO216", 450)})
+
+    def test_vendor_tile_is_packaged_without_dds_and_lit(self):
+        make_tile(self.root, "+48+011")
+        d = self.vendor_tile()
+        self.spec_with(d)
+        self.recipe_source()
+        rc, out, err = self.run_main()
+        self.assertEqual(rc, 0, err)
+        self.assertTrue((self.pkg / "Earth nav data" / "+40+000" / f"{self.TILE}.dsf").is_file())
+        self.assertTrue((self.pkg / "textures" / "water_transition.png").is_file())
+        self.assertEqual(list(self.pkg.rglob("*.dds")), [])
+        self.assertEqual(self.staged(self.STEM), ter_text(self.STEM) +
+                         f"TEXTURE_LIT ../textures/{self.STEM}_LIT.dds\nLUMINANCE 450\n")
+        self.assertNotIn("LIT", self.staged(f"{self.STEM}_water_overlay"))
+        self.assertIn("tiles present: 2", out)
+        self.assertEqual(self.night_rows()[-1][2:5], [self.TILE, "zzXEL_eu-west_ortho", "EU-WEST  0.5.0"])
+        self.assertEqual((d / "terrain" / f"{self.STEM}.ter").read_text(), ter_text(self.STEM),
+                         "the vendor's files are never modified")
+
+    def test_vendor_alone_is_enough(self):
+        self.spec_with(self.vendor_tile())
+        rc, _, err = self.run_main()
+        self.assertEqual(rc, 0, err)
+
+    def test_install_is_recorded_as_vendor(self):
+        self.spec_with(self.vendor_tile())
+        self.run_main()
+        rows = (self.ledger / "oxo_pilot" / "vendor.tsv").read_text().splitlines()
+        self.assertEqual(len(rows), 1)
+        when, code, tile, source, src = rows[0].split("\t")
+        self.assertEqual((code, tile, source), ("A4_PILOT", self.TILE, "JustSim ELLX XPL12 v1.0"))
+        self.assertTrue(src.endswith("zOrtho4XP_ELLX_+49+006"))
+        installs = (self.ledger / "oxo_pilot" / "installs.log").read_text().splitlines()
+        self.assertEqual(len(installs[0].split("\t")), 4)
+
+    def test_dry_run_changes_nothing(self):
+        self.spec_with(self.vendor_tile())
+        rc, out, err = self.run_main("--dry-run")
+        self.assertEqual(rc, 0, err)
+        self.assertIn("valid: 1", out)
+        self.assertFalse(self.pkg.exists())
+
+    def test_refused_before_copying(self):
+        make_tile(self.root, "+48+011")
+        cases = {
+            "also delivered": (lambda: (make_tile(self.root, self.TILE), self.vendor_tile())[1],
+                               "also delivered"),
+            "src missing": (lambda: self.tmp / "nowhere", "not found"),
+            "no DSF": (lambda: shutil.rmtree(self.vendor_tile() / "Earth nav data") or
+                       self.tmp / "addon" / "zOrtho4XP_ELLX_+49+006", "no DSF"),
+        }
+        for label, (build, msg) in cases.items():
+            with self.subTest(label):
+                shutil.rmtree(self.tmp / "addon", ignore_errors=True)
+                shutil.rmtree(self.root / f"zOrtho4XP_{self.TILE}", ignore_errors=True)
+                self.write_spec("oxo_pilot")
+                self.spec_with(build())
+                rc, out, err = self.run_main()
+                self.assertEqual(rc, 2)
+                self.assertIn(msg, out + err)
+                self.assertFalse(self.pkgs.exists())
+
+    def test_vendor_ter_must_match_the_xel_dds_pattern(self):
+        d = self.vendor_tile(ter="A\n800\nTERRAIN\nBASE_TEX_NOWRAP ../textures/something.dds\n")
+        self.spec_with(d)
+        rc, out, err = self.run_main()
+        self.assertEqual(rc, 2)
+        self.assertIn("XEL DDS pattern", out)
+
+    def test_every_vendor_ter_must_match_the_xel_dds_pattern(self):
+        d = self.vendor_tile()
+        (d / "terrain" / "99999_99999_USA216.ter").write_text(
+            "A\n800\nTERRAIN\nBASE_TEX_NOWRAP ../textures/odd.dds\n")
+        self.spec_with(d)
+        rc, out, err = self.run_main()
+        self.assertEqual(rc, 2)
+        self.assertIn("99999_99999_USA216.ter", out)
+        self.assertIn("XEL DDS pattern", out)
+
+    def test_malformed_vendor_shapes_are_fatal(self):
+        make_tile(self.root)
+        for label, extra in (("table", '[vendor]\ntile = "+49+006"\n'), ("scalar", "vendor = 3\n"),
+                             ("non-table element", "vendor = [1]\n")):
+            with self.subTest(label):
+                self.write_spec("oxo_pilot")
+                text = self.spec.read_text()
+                self.spec.write_text(extra + text if label == "scalar" or label == "non-table element"
+                                     else text + extra)
+                rc, _, err = self.run_main()
+                self.assertEqual(rc, 2)
+                self.assertTrue(err.startswith("FATAL:"), err)
+
+    def test_oxo_tiles_still_need_bi(self):
+        make_tile(self.root, "+48+011", ter="BASE_TEX ../textures/22224_33856_USA216.dds\n")
+        rc, out, err = self.run_main()
+        self.assertEqual(rc, 2)
+        self.assertIn("no BI provider", out)
+
+    def test_vendor_tile_listed_twice_is_refused(self):
+        d = self.vendor_tile()
+        self.spec_with(d)
+        self.spec_with(d)
+        rc, _, err = self.run_main()
+        self.assertEqual(rc, 2)
+        self.assertIn("twice", err)
+
+
 class SharedMasks(Base):
     """A mask PNG of a texture straddling a 1° line exists in both tiles, each
     filled only around its own tile; the package gets the brightest copy per pixel."""

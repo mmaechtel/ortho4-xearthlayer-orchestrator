@@ -12,6 +12,15 @@ revision = 2
 [target]
 root = "/mnt/xplane_data/oxo/artifacts/oxo_apt"
 
+# Vendor tile (plan D12): a finished Ortho4XP tile shipped with an add-on, packaged by
+# oxo-package only (oxo-compose ignores it). Its .dds stay behind, so XEL streams the imagery
+# and lights it at night; its mesh and airport flattening are kept as the vendor made them.
+# Disable the add-on's own zOrtho4XP_* in Custom Scenery and any XEL patch for the tile.
+[[vendor]]
+tile = "+49+006"
+src = "/mnt/xplane_data/Scenery/JustSim/zOrtho4XP_ELLX_+49+006"
+source = "JustSim ELLX XPL12 v1.0"
+
 [[group]]
 id = "eddm"
 tiles = ["+48+011"]

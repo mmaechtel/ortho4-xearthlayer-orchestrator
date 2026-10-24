@@ -146,6 +146,20 @@ class Whence(unittest.TestCase):
         self.assertIn("cfg ambiguous", out)
         self.assertNotIn("no ledger record", out)
 
+    def test_vendor_tile_shows_vendor_not_a_build(self):
+        # oxo-package --vendor rows: when, code, tile, source, src (plan D12)
+        (self.ledger / "oxo_pilot" / "vendor.tsv").write_text(
+            "2026-10-28T08:00:00Z\tA00_OXO\t+49+006\tJustSim ELLX v1.0\t/mnt/JustSim/zOrtho4XP_ELLX_+49+006\n")
+        rc, out = self.run_main("+49+006")
+        self.assertEqual(rc, 0)
+        self.assertIn("vendor tile, not built by OXO", out)
+        for s in ("2026-10-28T08:00:00Z", "A00_OXO", "oxo_pilot", "JustSim ELLX v1.0",
+                  "/mnt/JustSim/zOrtho4XP_ELLX_+49+006"):
+            self.assertIn(s, out)
+        self.assertNotIn("build ", out)
+        _, other = self.run_main("+48+011")
+        self.assertNotIn("vendor", other)
+
     def test_unknown_tile(self):
         rc, out = self.run_main("+01+001")
         self.assertEqual(rc, 1)

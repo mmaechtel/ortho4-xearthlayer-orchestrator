@@ -103,7 +103,7 @@ def compose(baseline, house, package):
     if not groups:
         raise ComposeError("package has no [[group]]")
     common = {k: v for k, v in merge(baseline, house).items() if k not in PACKAGE_ONLY}
-    common = merge(common, {k: v for k, v in package.items() if k != "group"})
+    common = merge(common, {k: v for k, v in package.items() if k not in ("group", "vendor")})  # vendor: oxo-package's, D12
     code = common["metadata"]["region_code"]
     _check_region_code(code)
     seen, specs, codes = {}, [], set()
