@@ -871,3 +871,7 @@ cover_airports_with_highres = "default: samsoir baseline (D4)"
 ratio_bathy = "default: samsoir baseline (D4)"
 use_decal_on_terrain = "default: samsoir baseline (D4)"
 zoom = "default: samsoir baseline (D4)"
+
+[[group]]
+id = "lemd"     # LEMD
+tiles = ["+40-004"]
