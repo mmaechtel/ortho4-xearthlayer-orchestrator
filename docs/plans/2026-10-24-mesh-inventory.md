@@ -69,13 +69,22 @@ Rest der Welt: Svalbard (77 Kacheln), Seychellen, Gesellschaftsinseln, St. Helen
 
 Was hier möglich ist: das Mesh behalten oder das Paket deaktivieren bzw. unter `zzXEL_ortho` schieben. Dann gibt es XEL-Ortho, aber der Flughafen liegt auf samsoirs Mesh.
 
+## Entscheidungen des Betreibers (2026-10-24)
+
+- **Alpen:** Unsere `A00_OXO`-Kacheln sind gut. Die 50 OrthoStudio-Links `ALPS_*` bleiben in `patches.disabled`.
+- **DTMB:** Der Betreiber probiert später aus, wie unsere `A00_OXO`-Kachel aussieht. Dafür deaktiviert er `FSDG-Monastir-Terrain` selbst, `FSDG-Monastir` bleibt aktiv. FSDG legt `DTMB.patch.osm` (md5-gleich mit unserem) und `Elevations/+35+010.tif` bei. Das Höhenmodell kann später `custom_dem` werden (#8, Weg 2).
+- **EKCH:** bleibt FlyTampas eigenes Foto-Mesh (`3Mesh` plus `2Photoreal`). Es lässt sich nicht als vendor tile nutzen, und es gibt keinen Patch.
+- **Helsinki (FIN17):** bleibt XEL-Patch mit den eigenen Luftbildern.
+- **Orbx:** bleibt vorerst aktiv. London und EGCC sind damit verdeckt.
+- **Korsika (FSX3D):** behalten.
+
 ## Offene Prüfungen
 
 - [ ] Je Zeile vor der Umsetzung: DSF-Kopf, `.ter`-Verweise und Reihenfolge in `scenery_packs.ini` einzeln nachsehen.
 - [ ] EDLP und EDVK: Lässt sich der Flughafen ohne die Aerosoft-DSF betreiben (`apt.dat`, Objekte)? Wie hängen `Earth nav data.orig` bei EDVK und die DSF-Textfassung bei EDLP damit zusammen?
-- [ ] DTMB: Steht hinter `FSDG-Monastir-Terrain` nur Mesh, oder braucht der Flughafen es?
-- [ ] EKCH: Ortho oder Landklassen?
-- [ ] OrthoStudio-Alpen: Mesh-Qualität im Vergleich zu `A00_OXO`.
-- [ ] Helsinki FIN17: Bestätigen, dass XEL nur vom eingestellten Provider streamt (laut Log Apple Maps).
+- [x] DTMB: `FSDG-Monastir-Terrain` ist ein Maps2XPlane-Mesh mit Landklassen, dazu kommen Patch und DEM für Ortho4XP. Der Flughafen steckt im eigenen Paket `FSDG-Monastir`.
+- [x] EKCH: eigenes Foto-Mesh von FlyTampa (eigene `.ter` über die Library, Texturnamen passen nicht auf XELs Muster). Bleibt, wie es ist.
+- [x] Alpen: Der Betreiber hält unsere `A00_OXO`-Kacheln für gut, OrthoStudio bleibt deaktiviert.
+- [x] Helsinki FIN17: bleibt Patch, eine Prüfung ist nicht mehr nötig.
 - [ ] BIRK, KDEN, KABQ: Unsere Patches mit denen der Add-ons vergleichen.
 - [ ] Bei großen Overlay-Paketen hat der Scan nur 3 DSF je Paket als Stichprobe geprüft. READMEs, die einen Patch nur erwähnen, sind nicht durchsucht.
