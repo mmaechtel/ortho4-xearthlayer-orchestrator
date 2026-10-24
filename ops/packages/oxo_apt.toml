@@ -21,8 +21,9 @@ tile = "+49+006"
 src = "/mnt/xplane_data/Scenery/JustSim/zOrtho4XP_ELLX_+49+006"
 source = "JustSim ELLX XPL12 v1.0"
 
-# Corsica on trial since 2026-10-24: while listed, FSX3D's tiles win over our lfkj/lfkc builds
-# below; drop these entries to go back.
+# Corsica: FSX3D's tiles, kept by the operator after a test flight 2026-10-24. They replace our
+# lfkj/lfkc groups (LFKJ/LFKC patches stay in ops/patches); their queued r2 jobs still deliver,
+# and oxo-package skips those copies while these entries are listed.
 [[vendor]]
 tile = "+41+008"
 src = "/mnt/xplane_data/Scenery/FSX3D/zOrtho4XP_CORSICA_FSX3D_+41+008"
@@ -633,11 +634,6 @@ ratio_water = "default: samsoir baseline (D4)"
 use_decal_on_terrain = "default: samsoir baseline (D4)"
 zoom = "default: samsoir baseline (D4)"
 
-# Shadowed by the FSX3D [[vendor]] tile while that is listed (trial since 2026-10-24).
-[[group]]
-id = "lfkc"     # LFKC
-tiles = ["+42+008"]
-
 [[group]]
 id = "lppr"     # LPPR
 tiles = ["+41-009"]
@@ -674,11 +670,6 @@ ratio_bathy = "default: samsoir baseline (D4)"
 ratio_water = "default: samsoir baseline (D4)"
 use_decal_on_terrain = "default: samsoir baseline (D4)"
 zoom = "default: samsoir baseline (D4)"
-
-# Shadowed by the FSX3D [[vendor]] tile while that is listed (trial since 2026-10-24).
-[[group]]
-id = "lfkj"     # LFKJ
-tiles = ["+41+008"]
 
 [[group]]
 id = "ltfm"     # LTFM
