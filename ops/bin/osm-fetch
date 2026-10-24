@@ -315,7 +315,7 @@ def http_get(url):
     try:
         with open_url(url) as r:
             return r.read()
-    except http.client.HTTPException as e:  # e.g. IncompleteRead
+    except (http.client.HTTPException, OSError) as e:  # IncompleteRead; timeout or reset while reading
         raise FetchError(f"{url}: {e}")
 
 
@@ -343,11 +343,14 @@ def download_part(url, part):
     """Stream url into the .part file; returns its md5 and the URL that served it
     (Geofabrik redirects big extracts to a mirror, which alone has the .md5)."""
     md5 = hashlib.md5()
-    with open_url(url) as r, open(part, "wb") as f:
-        while chunk := r.read(1 << 20):
-            md5.update(chunk)
-            f.write(chunk)
-        return md5.hexdigest(), r.geturl()
+    try:
+        with open_url(url) as r, open(part, "wb") as f:
+            while chunk := r.read(1 << 20):
+                md5.update(chunk)
+                f.write(chunk)
+            return md5.hexdigest(), r.geturl()
+    except (http.client.HTTPException, OSError) as e:  # the .part stays; fetch_region says so
+        raise FetchError(f"{url}: {e}")
 
 
 def header_timestamp(pbf, run):

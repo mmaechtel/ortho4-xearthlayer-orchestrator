@@ -462,10 +462,12 @@ PBF_BYTES = b"pbf-bytes" * 1000
 
 
 class FakeWeb:
-    """Stands in for osm_fetch.open_url: url -> bytes, records the requests."""
+    """Stands in for osm_fetch.open_url: url -> bytes, records the requests.
+    read_errors: url -> exception its body raises when read (a network error after the headers)."""
 
     def __init__(self, files, redirects=None):
         self.files, self.redirects, self.requests = dict(files), dict(redirects or {}), []
+        self.read_errors = {}
 
     def __call__(self, url):
         self.requests.append(url)
@@ -473,6 +475,10 @@ class FakeWeb:
         if final not in self.files:
             raise osm_fetch.FetchError(f"{url}: HTTP 404")
         body = io.BytesIO(self.files[final])
+        if final in self.read_errors:
+            def read(*a, error=self.read_errors[final]):
+                raise error
+            body.read = read
         body.geturl = lambda: final
         return body
 
@@ -554,6 +560,22 @@ class Index(Net):
         del self.web.files[osm_fetch.INDEX_URL]
         with self.assertRaises(osm_fetch.FetchError):
             osm_fetch.load_index(self.pbfs, NOW)
+
+
+class ReadErrors(Net):
+    def test_a_network_error_while_reading_is_a_fetch_error(self):
+        url = "https://download.geofabrik.de/europe/luxembourg-updates/state.txt"
+        for error in (TimeoutError("timed out"), ConnectionResetError("reset")):
+            self.web.read_errors[url] = error
+            with self.assertRaises(osm_fetch.FetchError):
+                osm_fetch.http_get(url)
+
+    def test_a_read_error_mid_download_keeps_the_part_and_says_so(self):
+        self.web.read_errors["https://download.geofabrik.de/europe/luxembourg-latest.osm.pbf"] = ConnectionResetError("reset")
+        with self.assertRaises(osm_fetch.FetchError) as cm:
+            osm_fetch.fetch_region("luxembourg", self.pbfs, self.ledger, NOW, fake_run())
+        self.assertIn("download kept", str(cm.exception))
+        self.assertTrue((self.pbfs / "luxembourg.osm.pbf.part").exists())
 
 
 class Fetch(Net):
@@ -700,6 +722,17 @@ class Check(Net):
         self.assertEqual(rc, 1)
         self.assertIn("europe", out.getvalue())
         self.assertIn("error", out.getvalue())
+        self.assertIn("luxembourg", out.getvalue())
+
+    def test_a_read_timeout_is_a_per_region_failure(self):
+        self.fetched("luxembourg", "luxembourg-261022.osm.pbf", "2026-10-22T20:21:33Z")
+        self.fetched("germany", "germany-261022.osm.pbf", "2026-10-22T20:21:33Z")
+        self.web.read_errors["https://download.geofabrik.de/europe/germany-updates/state.txt"] = TimeoutError("timed out")
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            rc = osm_fetch.check(self.pbfs, self.ledger, NOW)
+        self.assertEqual(rc, 1)
+        self.assertIn("germany", out.getvalue())
         self.assertIn("luxembourg", out.getvalue())
 
     def test_an_unparsable_state_timestamp_is_a_per_region_failure(self):
