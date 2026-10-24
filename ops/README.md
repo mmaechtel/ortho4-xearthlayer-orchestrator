@@ -15,7 +15,7 @@ Why it looks like this: `docs/plans/2026-10-23-own-package-production.md`.
 | `ops/bin/import-dem` | Flat `.hgt` → `Elevation_data` layout (btrfs reflinks). |
 | `ops/bin/osm-bake` | Geofabrik `.osm.pbf` → per-tile OSM layers in the OSM cache (needs `osmium-tool`), see below. |
 | `ops/bin/osm-fetch` | Geofabrik extracts: download + MD5 check (beside the mirror that served it) + ledger line; a failed download stays as `<region>.osm.pbf.part` for a look (`ops/ledger/osm-extracts.tsv`), `--check` for newer ones, `--which TILE...` for the region covering a tile; also the pre-build check behind `oxo-compose --submit`, see below. |
-| `ops/bin/oxo-package` | Delivered tiles → `~/.local/share/xearthlayer/packages/zzXEL_<name>_ortho/`. Night lighting (#17): each tile's land `.ter` get the `TEXTURE_LIT`/`LUMINANCE` lines of the installed package that holds the tile's `night/<block>/<tile>.oxn` (same `<y>_<x>` and ZL; no counterpart → the tile's value if unanimous); the recipe stays in that package so XEL colours the LEDs by its region (plan D9). Masks that neighbouring tiles share are merged, brightest per pixel (D10). The staged package is checked before it replaces the installed one. `--dry-run` prints the night plan. Also packages the spec's `[[vendor]]` tiles, see below. |
+| `ops/bin/oxo-package` | Delivered tiles → `~/.local/share/xearthlayer/packages/zzXEL_<name>_ortho/`. Night lighting (#17): each tile's land `.ter` get the `TEXTURE_LIT`/`LUMINANCE` lines of the installed package that holds the tile's `night/<block>/<tile>.oxn` (same `<y>_<x>` and ZL; no counterpart → the tile's value if unanimous); the recipe stays in that package so XEL colours the LEDs by its region (plan D9). Masks that neighbouring tiles share are merged, brightest per pixel (D10). The staged package is checked before it replaces the installed one. `--dry-run` prints the night plan (the staged-package check runs only on a real install). Also packages the spec's `[[vendor]]` tiles, see below. |
 | `ops/ledger/<package>/` | The books: one `<region_code>-r<rev>.toml` per submitted job, `installs.log`, `night.tsv` (per install and tile: night source package, its code line, lit `.ter`, LUMINANCE, warnings). Committed. |
 | `ops/bin/oxo-whence <tile>` | How a tile was built (a vendor tile: who made it and from where, from `vendor.tsv`): builds newest first, commits, DEM, patches, deviations from samsoir, installs; last the adoption record. A ledger entry's `[provenance.built]` (shown as "built with:") records what differed at build time from the submit-time provenance. |
 | `ops/bin/oxo-adopt <zzXEL dir>` | Records an own legacy package once as it is installed (`ops/adopted/<name>.toml`): provider/ZL/masks/creation agent per tile *observed* from the files, a legacy tile cfg only if it agrees with them. Committed. |
@@ -29,10 +29,9 @@ Vendor tiles (plan D12): a finished Ortho4XP tile that ships with a payware add-
 then run `oxo-package` as usual: the DSF, `.ter` and `.png` are copied, never the `.dds`, so XEL streams the imagery and the
 tile gets night lighting. Its `.ter` keep the vendor's provider code (e.g. `USA216`). The install is recorded in
 `ledger/<package>/vendor.tsv`. Disable the add-on's own `zOrtho4XP_*` in Custom Scenery and any XEL patch for that tile, or they win.
-A vendor `.ter` may name only its `BASE_TEX` `.dds`, `lib/…` library paths and files in `textures/`; anything else is
-not copied and nothing checks it yet (XCodr KMMH, for example, would lose `terrain/Bumpy_Field_NML.png`). The change that
-adds the next vendor tile also adds that check to `verify_stage`: every file a staged vendor `.ter` names, except the
-`BASE_TEX` `.dds` and `lib/…`, must be in the package.
+Only the `BASE_TEX` `.dds` and the `_LIT.dds` are synthesized by XEL; every other file a vendor `.ter` names (not `lib/…`) must
+be in `textures/` or wherever the `.ter` points and actually gets copied. `verify_stage` checks this and refuses the install
+otherwise (XCodr KMMH names `Bumpy_Field_NML.png` in `terrain/`, which is not copied).
 
 Tests for the scripts: `python3 -m unittest discover -s ops/tests`.
 

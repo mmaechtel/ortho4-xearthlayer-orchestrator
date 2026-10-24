@@ -652,6 +652,63 @@ class Vendor(NightBase):
         make_installed(self.pkgs, "zzXEL_eu-west_ortho", "EU-WEST  0.5.0", recipes=[self.TILE],
                        ters={"22224_33856_GO216.ter": lit_ter_text("22224_33856_GO216", 450)})
 
+    def test_vendor_ter_naming_a_file_outside_the_package_is_refused(self):
+        d = self.vendor_tile(ter=ter_text(self.STEM) + "NORMAL_TEX 50 Bumpy_Field_NML.png\n")
+        (d / "terrain" / "Bumpy_Field_NML.png").write_bytes(b"png")
+        self.spec_with(d)
+        self.pkg.mkdir(parents=True)
+        (self.pkg / "marker").write_text("installed")
+        rc, out, err = self.run_main()
+        self.assertEqual(rc, 2)
+        self.assertIn(f"{self.STEM}.ter: names Bumpy_Field_NML.png, not in the package", err + out)
+        self.assertEqual([p.name for p in self.pkg.iterdir()], ["marker"])
+
+    def test_vendor_ter_with_library_decal_and_border_still_installs(self):
+        ter = (ter_text(self.STEM) + "DECAL_LIB lib/g10/decals/x.dcl\nNORMAL_TEX 50 ../textures/water_transition.png\n")
+        self.spec_with(self.vendor_tile(ter=ter))
+        rc, _, err = self.run_main()
+        self.assertEqual(rc, 0, err)
+
+    def test_vendor_ter_names_must_be_in_the_package(self):
+        cases = {
+            "local decal library": "DECAL_LIB Dry_Grass_&_Dirt.dcl\n",
+            "unsynthesizable LIT": "TEXTURE_LIT foo_LIT.dds\n",
+            "absolute": "NORMAL_TEX 50 /etc/hostname.png\n",
+            "escape": "NORMAL_TEX 50 ../../../../etc/hostname.png\n",
+        }
+        for label, extra in cases.items():
+            with self.subTest(label):
+                shutil.rmtree(self.tmp / "addon", ignore_errors=True)
+                d = self.vendor_tile()
+                (d / "terrain" / f"{self.STEM}_water_overlay.ter").write_text(
+                    ter_text(self.STEM, water=True).replace(f"{self.STEM}.png", "water_transition.png") + extra)
+                (d / "terrain" / "Dry_Grass_&_Dirt.dcl").write_bytes(b"dcl")
+                self.write_spec("oxo_pilot")
+                self.spec_with(d)
+                rc, out, err = self.run_main()
+                self.assertEqual(rc, 2, label + err)
+                self.assertIn("not in the package" if label != "absolute" and label != "escape"
+                              else "outside the package", err + out)
+
+    def test_synthesized_dds_exemption_only_for_the_textures_directory(self):
+        for ref in ("/etc/22224_33856_USA216.dds", "../../x/22224_33856_USA216.dds",
+                    "sub/22224_33856_USA216.dds"):
+            with self.subTest(ref):
+                shutil.rmtree(self.tmp / "addon", ignore_errors=True)
+                d = self.vendor_tile(ter=ter_text(self.STEM) + f"BASE_TEX_NOWRAP {ref}\n")
+                self.write_spec("oxo_pilot")
+                self.spec_with(d)
+                rc, out, err = self.run_main()
+                self.assertEqual(rc, 2, ref + err)
+                self.assertIn(ref, err + out)
+
+    def test_packages_dir_with_dotdot_is_normalized(self):
+        (self.pkgs / "x").mkdir(parents=True)
+        d = self.vendor_tile(ter=ter_text(self.STEM) + "NORMAL_TEX 50 ../textures/water_transition.png\n")
+        self.spec_with(d)
+        rc, _, err = self.run_main("--packages-dir", str(self.pkgs / "x" / ".."))
+        self.assertEqual(rc, 0, err)
+
     def test_vendor_tile_is_packaged_without_dds_and_lit(self):
         make_tile(self.root, "+48+011")
         d = self.vendor_tile()

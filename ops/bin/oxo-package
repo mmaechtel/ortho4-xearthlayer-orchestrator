@@ -32,7 +32,7 @@ get the same lines, TEXTURE_LIT renamed to our base texture + _LIT. A land .ter
 without counterpart (e.g. ZL18 airport textures) takes the tile's LIT set if its
 counterparts agree on one; otherwise it stays dark with a warning. *_overlay
 (water) .ter stay dark. Only the staged copies change. A tile without recipe
-stays dark with a warning. --dry-run prints the per-tile plan; an install appends
+stays dark with a warning. --dry-run prints the per-tile plan (without the staged-package check); an install appends
 one row per tile to ledger/<name>/night.tsv (when, code, tile, source package,
 its code line, lit .ter, LUMINANCE values, note). A vendor tile's install also
 appends a row to ledger/<name>/vendor.tsv (when, code, tile, source, src); oxo-whence reads it.
@@ -68,6 +68,7 @@ TER_RE = re.compile(r"^(\d+)_(\d+)_([A-Za-z]+\d?)(\d{2})(_[a-z]+_overlay)?\.ter$
 XEL_DDS_RE = re.compile(r"^\d+_\d+_[A-Za-z]+\d?\d{2}(_LIT)?\.dds$")
 BASE_RE = re.compile(r"^BASE_TEX\S*\s+(\S+)\.dds\s*$", re.M)
 LIT_KEYS = ("TEXTURE_LIT", "LUMINANCE")
+TER_FILE_RE = re.compile(r"^\w+\s+(?:\S+\s+)*?(\S+\.(?:dds|png|tif|tga|bmp|dcl))$", re.I)
 
 
 class Fatal(Exception):
@@ -294,9 +295,10 @@ def report_unmerged(masks):
     log(f"masks: not merged, {len(shared)} shared, first copy kept")
 
 
-def verify_stage(stage, good, lit, merge=True):
+def verify_stage(stage, good, lit, merge=True, vendor=()):
     """What is wrong with the staged package, measured against the delivered tiles
     and the night plan `lit` {ter name: lines}; an empty list when nothing is."""
+    stage = Path(os.path.normpath(stage))
     problems, sources = [], {}
     for tile, d, dsf in good:
         if not (stage / "Earth nav data" / block_of(tile) / dsf.name).is_file():
@@ -341,6 +343,24 @@ def verify_stage(stage, good, lit, merge=True):
             if got != want or [l for l in got if l.startswith("TEXTURE_LIT")] != [own] \
                     or unlit(text) != unlit(orig):
                 problems.append(f"{name}: LIT lines {got} do not match plan {want}")
+    for tile, d, _ in good:
+        if tile not in vendor:
+            continue
+        for ter in sorted((d / "terrain").glob("*.ter")):
+            staged = stage / "terrain" / ter.name
+            for line in staged.read_text(errors="replace").splitlines() if staged.is_file() else ():
+                m = TER_FILE_RE.match(line.strip())
+                if not m or m[1].startswith("lib/"):
+                    continue
+                key = line.split()[0]
+                target = Path(os.path.normpath(staged.parent / m[1]))
+                if stage not in target.parents:
+                    problems.append(f"{ter.name}: names {m[1]}, outside the package")
+                elif (key.startswith("BASE_TEX") or key == "TEXTURE_LIT") \
+                        and target.parent == stage / "textures" and XEL_DDS_RE.match(target.name):
+                    continue
+                elif not target.is_file():
+                    problems.append(f"{ter.name}: names {m[1]}, not in the package")
     return problems
 
 
@@ -494,7 +514,7 @@ def run(args):
                 if not l.split() or l.split()[0] not in LIT_KEYS]
         staged.write_text("".join(f"{l}\n" for l in kept + lines))
 
-    problems = verify_stage(stage, good, lit, args.merge)
+    problems = verify_stage(stage, good, lit, args.merge, {v["tile"] for v in vendors})
     if problems:
         print("Staged package problems (sample ≤10):", file=sys.stderr)
         for problem in problems[:10]:
