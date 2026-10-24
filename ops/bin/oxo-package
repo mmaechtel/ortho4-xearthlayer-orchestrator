@@ -10,8 +10,9 @@ tile shipped with an add-on, given as tile, src (its zOrtho4XP_* directory, read
 only) and source (who made it, for the ledger). It is copied like a delivered
 tile (DSF, .ter, .png, never .dds) and keeps the vendor's provider code in its
 .ter, which only has to match XEL's DDS pattern (e.g. USA216) instead of BI. A
-vendor tile also delivered under the root, listed twice, or whose src has no DSF
-is refused. All tiles are validated first; any rejection aborts before
+vendor tile listed twice or whose src has no DSF is refused. A vendor tile also
+delivered under the root wins (the delivered one is skipped with a warning); drop the
+[[vendor]] entry and our build is back on the next package run. All tiles are validated first; any rejection aborts before
 anything is copied. Then DSF, .ter and .png masks are copied into a fresh
 staging directory next to <packages-dir>/zzXEL_<metadata.name>_ortho/,
 xearthlayer_scenery_package.txt is written, and the staging directory replaces
@@ -27,7 +28,8 @@ Night lighting (issue #17): XEL reads a tile's night recipe night/<block>/<tile>
 from the first installed package that has it (priority: lowercased package code)
 and colours its LEDs by that package's code, so recipes are never copied here.
 Per tile, that source package (never the one being built) supplies the LIT lines
-(TEXTURE_LIT, LUMINANCE) of its land .ter with the same <y>_<x> grid and ZL; ours
+(TEXTURE_LIT, LUMINANCE) of its land .ter with the same <y>_<x> grid and ZL, else of
+the coarser one covering it (ZL17 and up: the ZL16 .ter, searched ZL-1 down to 16); ours
 get the same lines, TEXTURE_LIT renamed to our base texture + _LIT. A land .ter
 without counterpart (e.g. ZL18 airport textures) takes the tile's LIT set if its
 counterparts agree on one; otherwise it stays dark with a warning. *_overlay
@@ -187,6 +189,19 @@ def lit_lines(text):
             and l.split()[0] in LIT_KEYS]
 
 
+def counterpart(sdir, provs, m):
+    """The source .ter for land .ter match `m`: same <y>_<x> and ZL, else the one that
+    covers it at the next coarser ZL down to 16 (grid: y >> (zl - z), aligned to 16)."""
+    y, x, zl = int(m[1]), int(m[2]), int(m[4])
+    for z in range(zl, min(zl, 16) - 1, -1):
+        yy, xx = (y >> (zl - z)) // 16 * 16, (x >> (zl - z)) // 16 * 16
+        for p in provs:
+            f = sdir / "terrain" / f"{yy}_{xx}_{p}{z}.ter"
+            if f.is_file():
+                return f
+    return None
+
+
 def night_plan(tile, tile_dir, sources, providers):
     """What night lighting a tile gets: {source, code, lit: {ter name: lines}, notes}.
     `providers` caches per source dir the provider prefixes of its land .ter (e.g.
@@ -213,9 +228,7 @@ def night_plan(tile, tile_dir, sources, providers):
             missing_base.append(ter.name)
             continue
         ours = f"TEXTURE_LIT {base[1]}_LIT.dds"
-        theirs = next((sdir / "terrain" / f"{m[1]}_{m[2]}_{p}{m[4]}.ter"
-                       for p in providers[sdir]
-                       if (sdir / "terrain" / f"{m[1]}_{m[2]}_{p}{m[4]}.ter").is_file()), None)
+        theirs = counterpart(sdir, providers[sdir], m)
         if theirs is None:
             uncovered.append((ter.name, ours))
             continue
@@ -326,10 +339,17 @@ def verify_stage(stage, good, lit, merge=True, vendor=()):
             continue
         origs = {s.read_text(errors="replace") for s in srcs}
         if len(origs) > 1:
-            problems.append(f"{name}: sources disagree across tiles "
-                            f"{', '.join(s.parent.parent.name for s in srcs)}")
-            continue
-        text, orig = staged.read_text(errors="replace"), origs.pop()
+            core = {tuple(l.strip() for l in t.splitlines() if l.split()[:1] and
+                          l.split()[0] not in ("DECAL_LIB", "LOAD_CENTER_BORDER"))
+                    for t in origs}
+            if len(core) > 1:
+                problems.append(f"{name}: sources disagree across tiles "
+                                f"{', '.join(s.parent.parent.name for s in srcs)}")
+                continue
+            print(f"WARNING: {name}: shared by tiles {', '.join(s.parent.parent.name for s in srcs)} "
+                  f"and differs only in DECAL_LIB/LOAD_CENTER_BORDER lines, the first tile's copy is kept",
+                  file=sys.stderr)
+        text, orig = staged.read_text(errors="replace"), srcs[0].read_text(errors="replace")
         m, want = TER_RE.match(name), lit.get(name)
         if m and m[5] and lit_lines(text):
             problems.append(f"{name}: LIT lines on an overlay .ter")
@@ -431,14 +451,20 @@ def run(args):
 
     tile_dirs = sorted(p for p in root.glob("zOrtho4XP_*") if p.is_dir())
     entries = [(d.name[len("zOrtho4XP_"):], d, False) for d in tile_dirs]
-    delivered = {t for t, _, _ in entries}
+    wins = {v["tile"]: v["source"] for v in vendors}
+    for tile, _, _ in entries:
+        if tile in wins:
+            print(f"WARNING: {tile}: delivered OXO tile skipped, [[vendor]] {wins[tile]} wins",
+                  file=sys.stderr)
+    entries = [e for e in entries if e[0] not in wins]
+    listed = set()
     for v in vendors:
         src = Path(v["src"])
-        if v["tile"] in delivered:
-            raise Fatal(f"vendor tile {v['tile']} is listed twice or also delivered under {root}")
+        if v["tile"] in listed:
+            raise Fatal(f"vendor tile {v['tile']} is listed twice")
         if not src.is_dir():
             raise Fatal(f"vendor tile {v['tile']}: src not found: {src}")
-        delivered.add(v["tile"])
+        listed.add(v["tile"])
         entries.append((v["tile"], src, True))
     if not entries:
         raise Fatal(f"no zOrtho4XP_* tiles under {root}")
@@ -486,7 +512,8 @@ def run(args):
         dest_nav.mkdir(exist_ok=True)
         sync_file(dsf, dest_nav)
         for ter in (d / "terrain").glob("*.ter"):
-            sync_file(ter, stage / "terrain")
+            if not (stage / "terrain" / ter.name).exists():  # a shared .ter: the first tile's copy
+                sync_file(ter, stage / "terrain")
         if n % 50 == 0 or n == total:
             log(f"  staged {n}/{total} (last: {tile})")
 

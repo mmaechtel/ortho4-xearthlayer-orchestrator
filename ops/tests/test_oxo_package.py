@@ -709,6 +709,74 @@ class Vendor(NightBase):
         rc, _, err = self.run_main("--packages-dir", str(self.pkgs / "x" / ".."))
         self.assertEqual(rc, 0, err)
 
+    def second_vendor_tile(self, extra_ter):
+        """A neighbour sharing the first tile's .ter (a texture straddling a 1° line)."""
+        d = self.tmp / "addon2" / "zOrtho4XP_ELLX_+49+007"
+        shutil.copytree(self.tmp / "addon" / "zOrtho4XP_ELLX_+49+006", d)
+        (d / "Earth nav data" / "+40+000" / "+49+006.dsf").rename(
+            d / "Earth nav data" / "+40+000" / "+49+007.dsf")
+        (d / "terrain" / f"{self.STEM}.ter").write_text(extra_ter)
+        return d
+
+    def test_shared_vendor_ter_differing_only_in_decal_lib_installs_with_a_warning(self):
+        d = self.vendor_tile()
+        d2 = self.second_vendor_tile(ter_text(self.STEM) + "DECAL_LIB lib/g10/x.dcl\n")
+        self.spec_with(d)
+        self.spec_with(d2, tile="+49+007")
+        rc, out, err = self.run_main("--no-mask-merge")
+        self.assertEqual(rc, 0, err)
+        self.assertIn(f"WARNING: {self.STEM}.ter: shared by tiles", err)
+        self.assertIn("the first tile's copy is kept", err)
+        self.assertNotIn("DECAL_LIB", self.staged(self.STEM), "the first tile's copy is staged")
+
+    def test_shared_vendor_ter_differing_in_base_tex_is_refused(self):
+        d = self.vendor_tile()
+        d2 = self.second_vendor_tile(ter_text(self.STEM).replace("33856", "33872"))
+        self.spec_with(d)
+        self.spec_with(d2, tile="+49+007")
+        rc, out, err = self.run_main("--no-mask-merge")
+        self.assertEqual(rc, 2)
+        self.assertIn("sources disagree", err + out)
+
+    def test_vendor_wins_over_a_delivered_tile(self):
+        make_tile(self.root, self.TILE)
+        self.spec_with(self.vendor_tile())
+        rc, out, err = self.run_main()
+        self.assertEqual(rc, 0, err)
+        self.assertIn(f"WARNING: {self.TILE}: delivered OXO tile skipped, [[vendor]] "
+                      "JustSim ELLX XPL12 v1.0 wins", err)
+        self.assertIn("tiles present: 1 (1 vendor)", out)
+        self.assertEqual(self.staged(self.STEM), ter_text(self.STEM))
+        self.assertEqual((self.ledger / "oxo_pilot" / "vendor.tsv").read_text().count("\n"), 1)
+
+    def test_shared_vendor_ter_differing_in_load_center_is_refused(self):
+        d = self.vendor_tile()
+        d2 = self.second_vendor_tile(ter_text(self.STEM).replace("48.37085", "48.5"))
+        self.spec_with(d)
+        self.spec_with(d2, tile="+49+007")
+        rc, out, err = self.run_main("--no-mask-merge")
+        self.assertEqual(rc, 2)
+        self.assertIn("sources disagree", err + out)
+
+    def test_zl15_vendor_ter_takes_the_lit_lines_of_its_same_zl_counterpart(self):
+        self.STEM = "22224_33856_USA215"
+        self.spec_with(self.vendor_tile())
+        make_installed(self.pkgs, "zzXEL_eu-west_ortho", "EU-WEST  0.5.0", recipes=[self.TILE],
+                       ters={"22224_33856_GO215.ter": lit_ter_text("22224_33856_GO215", 450)})
+        rc, out, err = self.run_main()
+        self.assertEqual(rc, 0, err)
+        self.assertIn("LUMINANCE 450", self.staged(self.STEM))
+
+    def test_zl17_vendor_ter_takes_the_lit_lines_of_the_covering_zl16_ter(self):
+        self.STEM = "48656_68656_USA217"
+        self.spec_with(self.vendor_tile())
+        make_installed(self.pkgs, "zzXEL_eu-west_ortho", "EU-WEST  0.5.0", recipes=[self.TILE],
+                       ters={"24320_34320_GO216.ter": lit_ter_text("24320_34320_GO216", 450)})
+        rc, out, err = self.run_main()
+        self.assertEqual(rc, 0, err)
+        self.assertEqual(self.staged(self.STEM), ter_text(self.STEM) +
+                         f"TEXTURE_LIT ../textures/{self.STEM}_LIT.dds\nLUMINANCE 450\n")
+
     def test_vendor_tile_is_packaged_without_dds_and_lit(self):
         make_tile(self.root, "+48+011")
         d = self.vendor_tile()
@@ -753,8 +821,8 @@ class Vendor(NightBase):
     def test_refused_before_copying(self):
         make_tile(self.root, "+48+011")
         cases = {
-            "also delivered": (lambda: (make_tile(self.root, self.TILE), self.vendor_tile())[1],
-                               "also delivered"),
+            "listed twice": (lambda: (d := self.vendor_tile(), self.spec_with(d))[0],
+                             "listed twice"),
             "src missing": (lambda: self.tmp / "nowhere", "not found"),
             "no DSF": (lambda: shutil.rmtree(self.vendor_tile() / "Earth nav data") or
                        self.tmp / "addon" / "zOrtho4XP_ELLX_+49+006", "no DSF"),

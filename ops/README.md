@@ -28,7 +28,7 @@ Vendor tiles (plan D12): a finished Ortho4XP tile that ships with a payware add-
 `[[vendor]]` with `tile`, `src` (the add-on's `zOrtho4XP_*` directory, read only) and `source` (who made it, for the ledger),
 then run `oxo-package` as usual: the DSF, `.ter` and `.png` are copied, never the `.dds`, so XEL streams the imagery and the
 tile gets night lighting. Its `.ter` keep the vendor's provider code (e.g. `USA216`). The install is recorded in
-`ledger/<package>/vendor.tsv`. Disable the add-on's own `zOrtho4XP_*` in Custom Scenery and any XEL patch for that tile, or they win.
+`ledger/<package>/vendor.tsv`. A `[[vendor]]` tile also delivered under the root wins (the delivered one is skipped with a warning); drop the entry and our build is back on the next package run. Disable the add-on's own `zOrtho4XP_*` in Custom Scenery and any XEL patch for that tile, or they win.
 Only the `BASE_TEX` `.dds` and the `_LIT.dds` are synthesized by XEL; every other file a vendor `.ter` names (not `lib/…`) must
 be in `textures/` or wherever the `.ter` points and actually gets copied. `verify_stage` checks this and refuses the install
 otherwise (XCodr KMMH names `Bumpy_Field_NML.png` in `terrain/`, which is not copied).
