@@ -76,6 +76,7 @@ Was hier möglich ist: das Mesh behalten oder das Paket deaktivieren bzw. unter 
 - **EKCH:** bleibt FlyTampas eigenes Foto-Mesh (`3Mesh` plus `2Photoreal`). Es lässt sich nicht als vendor tile nutzen, und es gibt keinen Patch.
 - **Helsinki (FIN17):** bleibt XEL-Patch mit den eigenen Luftbildern.
 - **Orbx:** bleibt vorerst aktiv. London und EGCC sind damit verdeckt.
+- **LGMK (2026-10-25):** bleibt Skydoms eigenes Ortho4XP-Tile `+37+025` (`Skydom - Mykonos Mesh`, mesh_zl 19, eigene BI16/18/19-Texturen) über `zzXEL`. Es wäre als vendor tile nutzbar (Texturnamen passen, Night-Vorlage in `eu-west`), aber das mitgelieferte Mesh stimmt, also kein Eintrag in `oxo_apt`.
 - **Korsika (FSX3D):** behalten.
 
 ## Offene Prüfungen
