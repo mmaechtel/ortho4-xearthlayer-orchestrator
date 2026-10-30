@@ -119,6 +119,13 @@ tile = "+27+089"
 src = "/mnt/xplane_data/Scenery/Bhutan/zOrtho4XP_+27+089-Paro"
 source = "Bhutan add-on Paro (VQPR)"
 
+# Palermo LICJ: our own XPTerrainBuilder build (engine 1.50.1892) with the oxo_apt parameters,
+# the Sonny 1" DEM and v2 airport grading; the Ibertech pack's objects were reseated against it.
+[[vendor]]
+tile = "+38+013"
+src = "/mnt/xplane_data/Scenery/XPTerrainBuilder/zOrtho4XP_+38+013_LICJ_r2"
+source = "XPTerrainBuilder LICJ Palermo (own build)"
+
 [[group]]
 id = "eddm"
 tiles = ["+48+011"]
