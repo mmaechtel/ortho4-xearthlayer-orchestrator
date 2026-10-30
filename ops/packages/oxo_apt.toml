@@ -123,7 +123,7 @@ source = "Bhutan add-on Paro (VQPR)"
 # the Sonny 1" DEM and v2 airport grading; the Ibertech pack's objects were reseated against it.
 [[vendor]]
 tile = "+38+013"
-src = "/mnt/xplane_data/Scenery/XPTerrainBuilder/zOrtho4XP_+38+013_LICJ_r3"
+src = "/mnt/xplane_data/Scenery/XPTerrainBuilder/zOrtho4XP_+38+013_LICJ_r4"
 source = "XPTerrainBuilder LICJ Palermo (own build)"
 
 [[group]]
